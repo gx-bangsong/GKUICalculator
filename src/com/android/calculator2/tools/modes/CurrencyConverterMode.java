@@ -281,7 +281,7 @@ public class CurrencyConverterMode implements ToolMode {
         final CurrencyDef to = mCurrencies.get(clamp(mToIndex));
         final BigDecimal value = parseInput();
 
-        host.setToolFormula(displayInput() + " " + from.getId());
+        host.setToolFormula(displayInput());
 
         String result;
         if (value == null || mRates == null) {
@@ -290,7 +290,7 @@ public class CurrencyConverterMode implements ToolMode {
             final BigDecimal fromRate = mRates.rateFor(from.getId());
             final BigDecimal toRate = mRates.rateFor(to.getId());
             final BigDecimal out = CurrencyConversion.convert(value, fromRate, toRate, MC);
-            result = (out == null ? "—" : format(out) + " " + to.getId());
+            result = (out == null ? "—" : format(out));
         }
         host.setToolResult(result);
     }

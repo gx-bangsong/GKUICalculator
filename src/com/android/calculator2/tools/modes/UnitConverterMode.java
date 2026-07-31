@@ -281,17 +281,16 @@ public class UnitConverterMode implements ToolMode {
         final UnitDef to = category.getUnits().get(clamp(mToIndex));
         final BigDecimal value = parseInput();
 
-        final String formula = displayInput() + " " + from.getDisplayName();
-        host.setToolFormula(formula);
+            host.setToolFormula(displayInput());
 
-        String result;
-        if (value == null) {
-            result = "—";
-        } else {
-            final BigDecimal out = convert(value, category, from, to);
-            result = (out == null ? "—" : format(out) + " " + to.getDisplayName());
-        }
-        host.setToolResult(result);
+            String result;
+            if (value == null) {
+                result = "—";
+            } else {
+                final BigDecimal out = convert(value, category, from, to);
+                result = (out == null ? "—" : format(out));
+            }
+            host.setToolResult(result);
     }
 
     @Nullable
