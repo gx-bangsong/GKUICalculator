@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Mortgage: 贷款额 (full) / 年利率 + 年限 (side by side) / 方式 = 3 rows -->
+<!-- Mortgage: 贷款额 (full) / 年利率 + 年限 + 方式 (one row) = 2 rows -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -28,11 +28,13 @@
             style="@style/ToolFieldStyle"
             android:layout_width="0dp"
             android:layout_weight="1" />
-    </LinearLayout>
 
-    <TextView
-        android:id="@+id/mortgage_method"
-        style="@style/ToolFieldStyle"
-        android:textColor="?colorOnSurfaceVariant" />
+        <TextView
+            android:id="@+id/mortgage_method"
+            style="@style/ToolFieldStyle"
+            android:layout_width="0dp"
+            android:layout_weight="1.4"
+            android:textColor="?colorOnSurfaceVariant" />
+    </LinearLayout>
 
 </LinearLayout>

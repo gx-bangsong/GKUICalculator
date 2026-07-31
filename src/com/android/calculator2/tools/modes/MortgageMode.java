@@ -120,11 +120,11 @@ public class MortgageMode extends FieldToolMode {
             if (mEqualPayment) {
                 formula = ctx.getString(R.string.tool_mortgage_monthly) + " " + money(r.monthlyPayment);
                 result = ctx.getString(R.string.tool_mortgage_interest) + " " + money(r.totalInterest)
-                        + "  ·  " + ctx.getString(R.string.tool_mortgage_total) + " " + money(r.totalPayment);
+                        + " · " + ctx.getString(R.string.tool_mortgage_total) + " " + money(r.totalPayment);
             } else {
                 formula = ctx.getString(R.string.tool_mortgage_first_month) + " " + money(r.monthlyPayment);
                 result = ctx.getString(R.string.tool_mortgage_decrease) + " " + money(r.monthlyDecrease)
-                        + "  ·  " + ctx.getString(R.string.tool_mortgage_interest) + " " + money(r.totalInterest);
+                        + " · " + ctx.getString(R.string.tool_mortgage_interest) + " " + money(r.totalInterest);
             }
         }
         host.setToolFormula(formula);

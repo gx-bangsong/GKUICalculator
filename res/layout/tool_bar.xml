@@ -18,6 +18,21 @@
     android:paddingTop="@dimen/tool_bar_vertical_padding"
     android:paddingBottom="@dimen/tool_bar_vertical_padding">
 
+    <!-- Scientific-pad toggle (moved here from the ActionBar toolbar so clicks work reliably). -->
+    <TextView
+        android:id="@+id/scientific_toggle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
+        android:fontFamily="sans-serif-medium"
+        android:onClick="onScientificToggleClick"
+        android:padding="6dp"
+        android:textAllCaps="true"
+        android:textColor="?android:textColorSecondary"
+        android:textSize="13sp" />
+
     <HorizontalScrollView
         android:id="@+id/tool_chips_scroll"
         android:layout_width="0dp"

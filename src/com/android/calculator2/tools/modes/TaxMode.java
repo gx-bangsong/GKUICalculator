@@ -97,7 +97,7 @@ public class TaxMode extends FieldToolMode {
             final Context ctx = host.getContext();
             formula = ctx.getString(R.string.tool_tax_annual_tax) + " " + money(r.annualTax);
             result = ctx.getString(R.string.tool_tax_annual_after_tax) + " " + money(r.annualAfterTax)
-                    + "  ·  " + ctx.getString(R.string.tool_tax_last_month) + " " + money(r.lastMonthWithholding);
+                    + " · " + ctx.getString(R.string.tool_tax_last_month) + " " + money(r.lastMonthWithholding);
         }
         host.setToolFormula(formula);
         host.setToolResult(result);
