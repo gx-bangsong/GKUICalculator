@@ -41,7 +41,7 @@ import java.text.DecimalFormat;
 public abstract class FieldToolMode implements ToolMode {
 
     /** Compact result-line text size (sp) for multi-field tools, so long results fit. */
-    private static final float TOOL_RESULT_TEXT_SP = 16f;
+    private static final float TOOL_RESULT_TEXT_SP = 14f;
 
     @Nullable
     protected ToolHost mHost;

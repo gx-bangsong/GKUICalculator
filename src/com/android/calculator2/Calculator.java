@@ -1405,9 +1405,9 @@ public class Calculator extends AppCompatActivity
         // Compact the formula/result paddings (the default has 32dp bottom for the calculator's
         // big result — that wastes space and causes field rows to push results out of view).
         final int fs = mFormulaText.getPaddingStart();
-        mFormulaText.setPadding(fs, 4, mFormulaText.getPaddingEnd(), 2);
+        mFormulaText.setPadding(fs, 2, mFormulaText.getPaddingEnd(), 1);
         final int rs = mResultText.getPaddingStart();
-        mResultText.setPadding(rs, 2, mResultText.getPaddingEnd(), 4);
+        mResultText.setPadding(rs, 1, mResultText.getPaddingEnd(), 2);
         // Reset any transforms/text the calculator applied so the tool owns the surface.
         restoreDisplayPositions();
         mFormulaText.changeTextTo("");
