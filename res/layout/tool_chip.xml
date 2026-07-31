@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    A single toolbar chip. Selection state is driven manually via setChecked() in
+    ToolBarView (checkable=false avoids auto-toggle, since the manager re-renders on change).
+-->
+<com.google.android.material.chip.Chip
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.Material3.Chip.Filter"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:checkable="false"
+    app:checkedIcon="@null"
+    app:ensureMinTouchTargetSize="true" />

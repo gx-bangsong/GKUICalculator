@@ -1,0 +1,34 @@
+{
+  "source": "ecb_daily_xml",
+  "api_url": "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml",
+  "base_currency": "EUR",
+  "cache_ttl_minutes": 60,
+  "currencies": [
+    { "id": "EUR", "name": "Euro",          "symbol": "€" },
+    { "id": "USD", "name": "US Dollar",     "symbol": "$" },
+    { "id": "CNY", "name": "Chinese Yuan",  "symbol": "¥" },
+    { "id": "JPY", "name": "Japanese Yen",  "symbol": "¥" },
+    { "id": "GBP", "name": "British Pound", "symbol": "£" },
+    { "id": "HKD", "name": "Hong Kong Dollar", "symbol": "HK$" },
+    { "id": "KRW", "name": "South Korean Won", "symbol": "₩" },
+    { "id": "CHF", "name": "Swiss Franc",   "symbol": "Fr" },
+    { "id": "SGD", "name": "Singapore Dollar", "symbol": "S$" },
+    { "id": "AUD", "name": "Australian Dollar", "symbol": "A$" },
+    { "id": "CAD", "name": "Canadian Dollar", "symbol": "C$" },
+    { "id": "INR", "name": "Indian Rupee",  "symbol": "₹" }
+  ],
+  "fallback_rates": {
+    "EUR": "1",
+    "USD": "1.08",
+    "CNY": "7.85",
+    "JPY": "157",
+    "GBP": "0.86",
+    "HKD": "8.43",
+    "KRW": "1445",
+    "CHF": "0.94",
+    "SGD": "1.44",
+    "AUD": "1.65",
+    "CAD": "1.46",
+    "INR": "89.5"
+  }
+}

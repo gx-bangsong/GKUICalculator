@@ -2,16 +2,26 @@
 <!--
      SPDX-FileCopyrightText: 2015 The Android Open Source Project
      SPDX-License-Identifier: Apache-2.0
+
+     Static (non-dynamic) fallback colors for Android 11 (API 30), where Material You
+     dynamic colors (material_dynamic_*) do not exist. On Android 12+ the values-v31 /
+     values-night-v31 overrides restore the dynamic colors. Values-v34 use system colors.
 -->
 <resources>
 
     <!-- Display background -->
-    <color name="history_background_color">@color/material_dynamic_neutral95</color>
-    <color name="display_background_color">@color/material_dynamic_neutral90</color>
+    <color name="history_background_color">#FFF1EDF1</color>
+    <color name="display_background_color">#FFE7E0EC</color>
 
     <!-- Display text -->
-    <color name="display_formula_text_color">@color/material_dynamic_neutral20</color>
-    <color name="display_result_text_color">@color/material_dynamic_neutral40</color>
-    <color name="display_result_exponent_text_color">@color/material_dynamic_neutral40</color>
+    <color name="display_formula_text_color">#FF1D1B20</color>
+    <color name="display_result_text_color">#FF49454F</color>
+    <color name="display_result_exponent_text_color">#FF49454F</color>
+
+    <!-- Tool overlay panel surface (sits above the pads; reads as a raised sheet). -->
+    <color name="tool_panel_background_color">#FFF1EDF1</color>
+
+    <!-- Tool input-field text (inactive); a flat color so it always renders visibly. -->
+    <color name="tool_field_text_color">#FF1D1B20</color>
 
 </resources>

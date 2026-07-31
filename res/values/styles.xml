@@ -90,4 +90,21 @@
         <item name="android:paddingEnd">@dimen/pads_horizontal_edge_padding</item>
     </style>
 
+    <!-- A tappable numeric input row inside a tool's control slot. Compact (small padding) so
+         several rows + the result line fit even when the scientific pad shrinks the display. -->
+    <style name="ToolFieldStyle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingStart">@dimen/formula_padding_start</item>
+        <item name="android:paddingEnd">@dimen/formula_padding_end</item>
+        <item name="android:paddingTop">0dp</item>
+        <item name="android:paddingBottom">0dp</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:background">?attr/selectableItemBackground</item>
+        <item name="android:textAppearance">?attr/textAppearanceLabelMedium</item>
+        <item name="android:gravity">center_vertical</item>
+    </style>
+
 </resources>

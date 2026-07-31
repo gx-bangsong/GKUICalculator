@@ -1,0 +1,14 @@
+{
+  "id": "cn_iit_cumulative",
+  "monthly_threshold": "5000",
+  "note": "Annual cumulative-withholding brackets (累计预扣预缴). Update as tax policy changes.",
+  "brackets": [
+    { "up_to": "36000",     "rate": "0.03", "quick_deduction": "0" },
+    { "up_to": "144000",    "rate": "0.10", "quick_deduction": "2520" },
+    { "up_to": "300000",    "rate": "0.20", "quick_deduction": "16920" },
+    { "up_to": "420000",    "rate": "0.25", "quick_deduction": "31920" },
+    { "up_to": "660000",    "rate": "0.30", "quick_deduction": "52920" },
+    { "up_to": "960000",    "rate": "0.35", "quick_deduction": "85920" },
+    { "up_to": "999999999", "rate": "0.45", "quick_deduction": "181920" }
+  ]
+}

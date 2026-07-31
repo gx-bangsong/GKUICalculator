@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Date-interval control: two date buttons that open DatePickerDialogs.
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="@dimen/formula_padding_start"
+    android:paddingEnd="@dimen/formula_padding_end"
+    android:paddingTop="@dimen/tool_bar_vertical_padding"
+    android:paddingBottom="@dimen/tool_bar_vertical_padding">
+
+    <TextView
+        android:id="@+id/date_start"
+        style="@style/ToolFieldStyle"
+        android:layout_weight="1"
+        android:layout_width="0dp"
+        android:gravity="center" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingStart="@dimen/tool_chip_spacing"
+        android:paddingEnd="@dimen/tool_chip_spacing"
+        android:text="@string/tool_date_arrow"
+        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+    <TextView
+        android:id="@+id/date_end"
+        style="@style/ToolFieldStyle"
+        android:layout_weight="1"
+        android:layout_width="0dp"
+        android:gravity="center" />
+
+</LinearLayout>

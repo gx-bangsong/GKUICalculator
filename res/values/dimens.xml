@@ -38,4 +38,21 @@
     <dimen name="button_horizontal_margin">4dp</dimen>
     <dimen name="button_small_horizontal_margin">2dp</dimen>
     <dimen name="button_iconsize">48dp</dimen>
+
+    <!-- Tool bar -->
+    <dimen name="tool_bar_horizontal_padding">4dp</dimen>
+    <dimen name="tool_bar_vertical_padding">2dp</dimen>
+    <dimen name="tool_chip_spacing">4dp</dimen>
+
+    <!-- Tool overlay panel -->
+    <dimen name="tool_panel_corner_radius">20dp</dimen>
+    <dimen name="tool_panel_elevation">6dp</dimen>
+    <dimen name="tool_panel_slide">64dp</dimen>
+    <dimen name="tool_panel_top_padding">16dp</dimen>
+    <dimen name="tool_panel_bottom_padding">16dp</dimen>
+    <dimen name="tool_panel_horizontal_padding">8dp</dimen>
+    <dimen name="tool_panel_title_padding_bottom">8dp</dimen>
+    <dimen name="tool_panel_item_padding">12dp</dimen>
+    <dimen name="tool_panel_item_icon">28dp</dimen>
+    <dimen name="tool_panel_item_text_margin_top">6dp</dimen>
 </resources>

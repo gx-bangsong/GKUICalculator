@@ -10,6 +10,7 @@ import android.graphics.PointF;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
+import android.view.View;
 import android.view.ViewConfiguration;
 
 import androidx.annotation.NonNull;
@@ -44,11 +45,20 @@ public class DisplayMotionLayout extends MotionLayout {
         switch (motionEvent.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN:
+                // When a tool's control slot is visible, disable the history drag entirely so
+                // taps on interactive controls (currency/unit selectors, fields) pass through.
+                View controlSlot = findViewById(R.id.tool_control_slot);
+                if (controlSlot != null && controlSlot.getVisibility() == View.VISIBLE) {
+                    mPointerId = -1;
+                    mIsScrolling = false;
+                    mOutOfBounds = true;
+                    clearLastMotion();
+                    return false;
+                }
                 Rect hitRect = new Rect();
 
                 findViewById(R.id.display).getHitRect(hitRect);
                 if (hitRect.contains((int) motionEvent.getX(), (int) motionEvent.getY())) {
-                    mPreviousPoint = new PointF(motionEvent.getX(),motionEvent.getY());
                     mPointerId = motionEvent.getPointerId(0);
                     mIsScrolling = false;
                     mOutOfBounds = false;

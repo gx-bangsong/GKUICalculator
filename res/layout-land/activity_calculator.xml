@@ -2,71 +2,95 @@
 <!--
      SPDX-FileCopyrightText: The LineageOS Project
      SPDX-License-Identifier: Apache-2.0
+
+     Root is a plain FrameLayout so the tool overlay is a SIBLING of the MotionLayout.
 -->
-<com.android.calculator2.DisplayMotionLayout
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/main_calculator"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/activity_background"
-    android:orientation="vertical"
-    app:layoutDescription="@xml/activity_calculator_scene">
+    android:layout_height="match_parent">
 
-    <FrameLayout
-        android:id="@+id/history_frame"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:background="@color/history_background_color"
-        app:layout_constraintBottom_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <include
-        android:id="@+id/display"
-        layout="@layout/display_one_line"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHeight_percent="@dimen/layout_display_ratio"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <include
-        android:id="@+id/advanced_pad"
-        layout="@layout/advanced_pad"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintEnd_toStartOf="@id/layout_vertical_guideline"
-        app:layout_constraintHeight_percent="@dimen/layout_pads_ratio"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/display" />
-
-    <include
-        android:id="@+id/input_pad"
-        layout="@layout/input_pad"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHeight_percent="@dimen/layout_pads_ratio"
-        app:layout_constraintStart_toEndOf="@id/layout_vertical_guideline"
-        app:layout_constraintTop_toBottomOf="@id/display" />
-
-    <FrameLayout
-        android:id="@+id/animation_helper"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHeight_percent="@dimen/layout_pads_ratio"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="parent" />
-
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/layout_vertical_guideline"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+    <com.android.calculator2.DisplayMotionLayout
+        android:id="@+id/main_calculator"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/activity_background"
         android:orientation="vertical"
-        app:layout_constraintGuide_percent="@dimen/layout_advanced_pad_ratio" />
+        app:layoutDescription="@xml/activity_calculator_scene">
 
-</com.android.calculator2.DisplayMotionLayout>
+        <FrameLayout
+            android:id="@+id/history_frame"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@color/history_background_color"
+            app:layout_constraintBottom_toTopOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <include
+            android:id="@+id/display"
+            layout="@layout/display_one_line"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintBottom_toTopOf="@id/tool_bar"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <include
+            android:id="@+id/tool_bar"
+            layout="@layout/tool_bar"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintBottom_toTopOf="@id/advanced_pad"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHeight_percent="@dimen/layout_tool_bar_ratio"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <include
+            android:id="@+id/advanced_pad"
+            layout="@layout/advanced_pad"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/input_pad"
+            app:layout_constraintHeight_percent="@dimen/layout_pads_ratio"
+            app:layout_constraintHorizontal_chainStyle="spread"
+            app:layout_constraintHorizontal_weight="0.33"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tool_bar" />
+
+        <include
+            android:id="@+id/input_pad"
+            layout="@layout/input_pad"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHeight_percent="@dimen/layout_pads_ratio"
+            app:layout_constraintHorizontal_weight="0.67"
+            app:layout_constraintStart_toEndOf="@id/advanced_pad"
+            app:layout_constraintTop_toBottomOf="@id/tool_bar" />
+
+        <FrameLayout
+            android:id="@+id/animation_helper"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHeight_percent="@dimen/layout_pads_ratio"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="parent" />
+
+    </com.android.calculator2.DisplayMotionLayout>
+
+    <!-- Tool overlay: sibling of the MotionLayout (topmost Z). Starts GONE. -->
+    <include
+        android:id="@+id/tool_panel_overlay"
+        layout="@layout/tool_panel_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+</FrameLayout>

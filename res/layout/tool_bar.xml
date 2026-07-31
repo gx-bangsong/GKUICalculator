@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Collapsed tool bar: a horizontally scrollable chip row + trailing "more" button.
+    Included into activity_calculator between the display and the pads. The root is the
+    custom ToolBarView; width/height/constraints are supplied by the <include> site.
+-->
+<com.android.calculator2.tools.ui.ToolBarView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/tool_bar"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="?colorSurface"
+    android:paddingStart="@dimen/tool_bar_horizontal_padding"
+    android:paddingEnd="@dimen/tool_bar_horizontal_padding"
+    android:paddingTop="@dimen/tool_bar_vertical_padding"
+    android:paddingBottom="@dimen/tool_bar_vertical_padding">
+
+    <!-- Scientific-pad toggle (moved here from the ActionBar toolbar so clicks work reliably). -->
+    <TextView
+        android:id="@+id/scientific_toggle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
+        android:fontFamily="sans-serif-medium"
+        android:onClick="onScientificToggleClick"
+        android:padding="6dp"
+        android:textAllCaps="true"
+        android:textColor="?android:textColorSecondary"
+        android:textSize="13sp" />
+
+    <HorizontalScrollView
+        android:id="@+id/tool_chips_scroll"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:scrollbars="none"
+        android:overScrollMode="never"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:id="@+id/tool_chips_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+
+    </HorizontalScrollView>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/tool_more_button"
+        style="@style/Widget.Material3.Button.IconButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:contentDescription="@string/tool_more"
+        app:icon="@drawable/ic_tool_more"
+        app:iconTint="?colorOnSurface" />
+
+</com.android.calculator2.tools.ui.ToolBarView>

@@ -2,16 +2,25 @@
 <!--
      SPDX-FileCopyrightText: The LineageOS Project
      SPDX-License-Identifier: Apache-2.0
+
+     Static (non-dynamic) fallback colors (dark) for Android 11 (API 30), where Material You
+     dynamic colors do not exist. On Android 12+ the values-night-v31 overrides restore them.
 -->
 <resources>
 
     <!-- Display background -->
-    <color name="history_background_color">@color/material_dynamic_neutral30</color>
-    <color name="display_background_color">@color/material_dynamic_neutral20</color>
+    <color name="history_background_color">#FF322F35</color>
+    <color name="display_background_color">#FF141218</color>
 
     <!-- Display text -->
-    <color name="display_formula_text_color">@color/material_dynamic_neutral90</color>
-    <color name="display_result_text_color">@color/material_dynamic_neutral70</color>
-    <color name="display_result_exponent_text_color">@color/material_dynamic_secondary60</color>
+    <color name="display_formula_text_color">#FFE6E0E9</color>
+    <color name="display_result_text_color">#FFCAC4D0</color>
+    <color name="display_result_exponent_text_color">#FFCCC2DC</color>
+
+    <!-- Tool overlay panel surface (sits above the pads; reads as a raised sheet). -->
+    <color name="tool_panel_background_color">#FF322F35</color>
+
+    <!-- Tool input-field text (inactive); a flat color so it always renders visibly. -->
+    <color name="tool_field_text_color">#FFE6E0E9</color>
 
 </resources>

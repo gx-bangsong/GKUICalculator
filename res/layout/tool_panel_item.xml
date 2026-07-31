@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    A single tile inside the "more" grid. Evenly sized via columnWeight=1; icon is hidden
+    until each tool ships its own drawable (text-only for now).
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    app:layout_columnWeight="1"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    android:paddingTop="@dimen/tool_panel_item_padding"
+    android:paddingBottom="@dimen/tool_panel_item_padding"
+    android:paddingStart="@dimen/tool_panel_item_padding"
+    android:paddingEnd="@dimen/tool_panel_item_padding">
+
+    <ImageView
+        android:id="@+id/tool_panel_item_icon"
+        android:layout_width="@dimen/tool_panel_item_icon"
+        android:layout_height="@dimen/tool_panel_item_icon"
+        android:contentDescription="@null"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/tool_panel_item_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/tool_panel_item_text_margin_top"
+        android:gravity="center"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:textAppearance="?attr/textAppearanceLabelLarge"
+        android:textColor="?colorOnSurface" />
+
+</LinearLayout>

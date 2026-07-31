@@ -19,6 +19,7 @@ import static com.android.calculator2.CalculatorFormula.OnFormulaContextMenuClic
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.content.ClipData;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Resources;
@@ -32,6 +33,7 @@ import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.ActionMode;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
@@ -39,6 +41,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.View.OnLongClickListener;
 import android.view.ViewTreeObserver;
 import android.view.animation.AccelerateDecelerateInterpolator;
@@ -46,6 +49,7 @@ import android.widget.HorizontalScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.motion.widget.MotionLayout;
@@ -58,6 +62,16 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
 import com.android.calculator2.CalculatorFormula.OnTextSizeChangeListener;
+import com.android.calculator2.tools.ToolHost;
+import com.android.calculator2.tools.ToolManager;
+import com.android.calculator2.tools.data.ExchangeRateRepository;
+import com.android.calculator2.tools.modes.BmiMode;
+import com.android.calculator2.tools.modes.CalculatorMode;
+import com.android.calculator2.tools.modes.CurrencyConverterMode;
+import com.android.calculator2.tools.modes.DateMode;
+import com.android.calculator2.tools.modes.MortgageMode;
+import com.android.calculator2.tools.modes.TaxMode;
+import com.android.calculator2.tools.modes.UnitConverterMode;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -66,12 +80,14 @@ import java.io.ObjectInput;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
+import java.math.BigDecimal;
 import java.text.DecimalFormatSymbols;
 
 public class Calculator extends AppCompatActivity
         implements OnTextSizeChangeListener, AlertDialogFragment.OnClickListener,
         Evaluator.EvaluationListener, /* for main result */
-        OnLongClickListener {
+        OnLongClickListener,
+        ToolHost {
 
     private static final String TAG = "Calculator";
     /**
@@ -218,6 +234,20 @@ public class Calculator extends AppCompatActivity
     private HorizontalScrollView mFormulaContainer;
     private MotionLayout mMainCalculator;
 
+    private ToolManager mToolManager;
+    private ViewGroup mToolControlSlot;
+
+    // Scientific-pad toggle (collapsed by default so the display / numeric pad get more room;
+    // the layout grows the display automatically when the scientific pad is hidden).
+    private static final String PREFS_NAME = "calc_tools";
+    private static final String PREF_SCIENTIFIC = "scientific_pad_visible";
+    private TextView mScientificToggle;
+    private boolean mScientificVisible;
+    private float mResultTextSizeOriginalPx;
+    // Original paddings of the formula/result views (saved in onCreate, restored on leaving tool mode).
+    private int mFormulaPadTop, mFormulaPadBottom;
+    private int mResultPadTop, mResultPadBottom;
+
     private TextView mInverseToggle;
     private TextView mModeToggle;
 
@@ -318,7 +348,14 @@ public class Calculator extends AppCompatActivity
         mFormulaText = findViewById(R.id.formula);
         mDeleteButton = findViewById(R.id.del);
         mResultText = findViewById(R.id.result);
+        mResultTextSizeOriginalPx = mResultText.getTextSize();
+        mFormulaPadTop = mFormulaText.getPaddingTop();
+        mFormulaPadBottom = mFormulaText.getPaddingBottom();
+        mResultPadTop = mResultText.getPaddingTop();
+        mResultPadBottom = mResultText.getPaddingBottom();
         mFormulaContainer = findViewById(R.id.formula_scroll_view);
+        mToolControlSlot = findViewById(R.id.tool_control_slot);
+        setupScientificToggle();
         mEvaluator = Evaluator.getInstance(this);
         mEvaluator.setCallback(mEvaluatorCallback);
         mResultText.setEvaluator(mEvaluator, Evaluator.MAIN_INDEX);
@@ -352,6 +389,9 @@ public class Calculator extends AppCompatActivity
         mMainCalculator.setTransitionListener(new MotionLayout.TransitionListener() {
             @Override
             public void onTransitionStarted(MotionLayout motionLayout, int startId, int endId) {
+                if (mToolManager != null) {
+                    mToolManager.collapsePanel();
+                }
                 if (startId == R.id.start_state) {
                     showHistoryFragment();
                 }
@@ -381,6 +421,27 @@ public class Calculator extends AppCompatActivity
         mFormulaText.setOnTextSizeChangeListener(this);
         mFormulaText.addTextChangedListener(mFormulaTextWatcher);
         mDeleteButton.setOnLongClickListener(this);
+
+        // Life-calculation tool bar (Stage 1): persistent bar + overlay "more" panel.
+        mToolManager = new ToolManager(this, this,
+                findViewById(R.id.tool_bar),
+                findViewById(R.id.tool_panel_overlay));
+        mToolManager.register(new CalculatorMode());
+        mToolManager.register(new UnitConverterMode());
+        mToolManager.register(new CurrencyConverterMode());
+        mToolManager.register(new MortgageMode());
+        mToolManager.register(new TaxMode());
+        mToolManager.register(new BmiMode());
+        mToolManager.register(new DateMode());
+        mToolManager.init();
+        // DEBUG: record the overlay's initial visibility to diagnose "expanded at launch".
+        final View overlay = findViewById(R.id.tool_panel_overlay);
+        Log.d("ToolDebug", "onCreate: after init, overlay="
+                + (overlay == null ? "null" : ("vis=" + overlay.getVisibility()
+                        + "(" + (overlay.getVisibility() == View.GONE ? "GONE"
+                                : overlay.getVisibility() == View.VISIBLE ? "VISIBLE" : "INVISIBLE")
+                        + ")"))
+                + " panelExpanded=" + (mToolManager != null && mToolManager.isPanelExpanded()));
 
         if (savedInstanceState != null) {
             restoreInstanceState(savedInstanceState);
@@ -519,6 +580,9 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void onBackPressed() {
+        if (mToolManager != null && mToolManager.onBackPressed()) {
+            return;
+        }
         if (!stopActionModeOrContextMenu()) {
             final HistoryFragment historyFragment = getHistoryFragment();
             if (mMainCalculator.getCurrentState() == R.id.end_state
@@ -708,6 +772,12 @@ public class Calculator extends AppCompatActivity
 
         // See onKey above for the rationale behind some of the behavior below:
         cancelUnrequested();
+
+        // When a non-calculator tool is active, the numeric pad drives the tool instead of
+        // the engine; the manager consumes the press in that case.
+        if (mToolManager != null && mToolManager.handlePadClick(view.getId())) {
+            return;
+        }
 
         final int id = view.getId();
         if (id == R.id.eq) {
@@ -1061,6 +1131,12 @@ public class Calculator extends AppCompatActivity
         visible &= mainResult != null && mainResult.exactlyDisplayable();
         menu.findItem(R.id.menu_fraction).setVisible(visible);
 
+        // Reflect the currency auto-update setting on its checkable menu item.
+        final MenuItem autoUpdate = menu.findItem(R.id.menu_auto_update_rates);
+        if (autoUpdate != null) {
+            autoUpdate.setChecked(ExchangeRateRepository.isAutoUpdateEnabled(this));
+        }
+
         return true;
     }
 
@@ -1078,6 +1154,11 @@ public class Calculator extends AppCompatActivity
             return true;
         } else if (itemId == R.id.menu_licenses) {
             startActivity(new Intent(this, Licenses.class));
+            return true;
+        } else if (itemId == R.id.menu_auto_update_rates) {
+            final boolean enabled = !ExchangeRateRepository.isAutoUpdateEnabled(this);
+            ExchangeRateRepository.setAutoUpdateEnabled(this, enabled);
+            item.setChecked(enabled);
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -1267,6 +1348,200 @@ public class Calculator extends AppCompatActivity
     @Override
     public void onContextMenuClosed(Menu menu) {
         stopActionModeOrContextMenu();
+    }
+
+    // ===================== Tool bar integration (ToolHost) =====================
+
+    @NonNull
+    @Override
+    public Context getContext() {
+        return this;
+    }
+
+    @Override
+    public void setToolFormula(@NonNull CharSequence text) {
+        Log.d("ToolDebug", "setToolFormula: [" + text + "] len=" + text.length());
+        mFormulaText.changeTextTo(text);
+    }
+
+    @Override
+    public void setToolResult(@NonNull CharSequence text) {
+        Log.d("ToolDebug", "setToolResult: [" + text + "] len=" + text.length()
+                + " resultTextSize(px)=" + mResultText.getTextSize());
+        if (mIsOneLine) {
+            mResultText.setVisibility(View.VISIBLE);
+        }
+        mResultText.setText(text);
+    }
+
+    @Override
+    public void setToolResultTextSizeSp(float sp) {
+        Log.d("ToolDebug", "setToolResultTextSizeSp: " + sp + " (was " + mResultText.getTextSize() + "px)");
+        mResultText.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+    }
+
+    @Override
+    @Nullable
+    public String getCurrentDisplayNumber() {
+        String value = mResultText.getFullText(false /* withSeparators */);
+        if (TextUtils.isEmpty(value)) {
+            CharSequence formula = mFormulaText.getText();
+            value = formula == null ? "" : formula.toString();
+        }
+        return extractNumber(value);
+    }
+
+    @Override
+    public void prepareForToolDisplay() {
+        // Stop any in-flight instant evaluation so it cannot overwrite the tool's text.
+        cancelUnrequested();
+        // Clear any leftover tool controls so the next tool owns the slot.
+        if (mToolControlSlot != null) {
+            mToolControlSlot.removeAllViews();
+            mToolControlSlot.setVisibility(View.GONE);
+        }
+        // Reset the result text size to the default; tools that need a smaller size set their own.
+        mResultText.setTextSize(TypedValue.COMPLEX_UNIT_PX, mResultTextSizeOriginalPx);
+        // Compact the formula/result paddings (the default has 32dp bottom for the calculator's
+        // big result — that wastes space and causes field rows to push results out of view).
+        final int fs = mFormulaText.getPaddingStart();
+        mFormulaText.setPadding(fs, 2, mFormulaText.getPaddingEnd(), 1);
+        final int rs = mResultText.getPaddingStart();
+        mResultText.setPadding(rs, 1, mResultText.getPaddingEnd(), 2);
+        // Reset any transforms/text the calculator applied so the tool owns the surface.
+        restoreDisplayPositions();
+        mFormulaText.changeTextTo("");
+    }
+
+    @Override
+    public void restoreCalculatorDisplay() {
+        // Reclaim the display for the calculator and re-drive it from the evaluator.
+        if (mToolControlSlot != null) {
+            mToolControlSlot.removeAllViews();
+            mToolControlSlot.setVisibility(View.GONE);
+        }
+        mResultText.setTextSize(TypedValue.COMPLEX_UNIT_PX, mResultTextSizeOriginalPx);
+        // Restore the original formula/result paddings.
+        mFormulaText.setPadding(mFormulaText.getPaddingStart(), mFormulaPadTop,
+                mFormulaText.getPaddingEnd(), mFormulaPadBottom);
+        mResultText.setPadding(mResultText.getPaddingStart(), mResultPadTop,
+                mResultText.getPaddingEnd(), mResultPadBottom);
+        restoreDisplayPositions();
+        redisplayFormula();
+        setState(CalculatorState.INPUT);
+        mResultText.setShouldEvaluateResult(CalculatorResult.SHOULD_EVALUATE, this);
+        evaluateInstantIfNecessary();
+    }
+
+    @Override
+    @Nullable
+    public ViewGroup getToolControlSlot() {
+        return mToolControlSlot;
+    }
+
+    @Override
+    public void setExpandedDisplay(boolean expanded) {
+        // Input-heavy tools want more display room: hide the scientific pad. The layout grows
+        // the display automatically when it is gone. In calculator mode the user's toggle wins.
+        applyAdvancedPadVisibility(expanded ? false : mScientificVisible);
+    }
+
+    private void setupScientificToggle() {
+        mScientificToggle = findViewById(R.id.scientific_toggle);
+        // Default visible so the scientific pad is available out of the box; the toggle (and
+        // tool mode) can hide it to give the display more room.
+        mScientificVisible = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getBoolean(PREF_SCIENTIFIC, true);
+        applyAdvancedPadVisibility(mScientificVisible);
+        updateScientificToggleLabel();
+    }
+
+    /** android:onClick handler for the scientific-pad toggle. */
+    public void onScientificToggleClick(View v) {
+        mScientificVisible = !mScientificVisible;
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit().putBoolean(PREF_SCIENTIFIC, mScientificVisible).apply();
+        // Only flip the pad from the calculator; tools hide it regardless.
+        if (mToolManager == null || !mToolManager.isActive()) {
+            applyAdvancedPadVisibility(mScientificVisible);
+        }
+        updateScientificToggleLabel();
+    }
+
+    private void applyAdvancedPadVisibility(boolean visible) {
+        final View advanced = findViewById(R.id.advanced_pad);
+        if (advanced != null) {
+            advanced.setVisibility(visible ? View.VISIBLE : View.GONE);
+        }
+        // Force the MotionLayout to re-measure so the display grows/shrinks to match.
+        // Two passes: the immediate requestLayout + a post() for a second pass, because
+        // MotionLayout sometimes needs an extra frame to fully reflow after a visibility change.
+        if (mMainCalculator != null) {
+            mMainCalculator.requestLayout();
+            mMainCalculator.post(() -> mMainCalculator.requestLayout());
+        }
+    }
+
+    private void updateScientificToggleLabel() {
+        if (mScientificToggle == null) {
+            return;
+        }
+        final int labelRes = mScientificVisible
+                ? R.string.tool_scientific_hide : R.string.tool_scientific_show;
+        mScientificToggle.setText(labelRes);
+        mScientificToggle.setContentDescription(getString(labelRes));
+    }
+
+    /**
+     * Tolerantly extract a decimal number from the displayed text, handling digit-grouping
+     * separators and the calculator's special minus sign. Returns null if none is found.
+     * Used to carry a value from the calculator into a newly activated tool.
+     */
+    @Nullable
+    private String extractNumber(String text) {
+        if (text == null) {
+            return null;
+        }
+        String cleaned = text.replace(KeyMaps.translateResult(","), "");
+        cleaned = cleaned.replace(String.valueOf(KeyMaps.MINUS_SIGN), "-").trim();
+        if (cleaned.isEmpty()) {
+            return null;
+        }
+        try {
+            new BigDecimal(cleaned);
+            return cleaned;
+        } catch (NumberFormatException ignored) {
+            // Fall through: try to peel off a leading numeric token.
+        }
+        int start = 0;
+        if (start < cleaned.length()
+                && (cleaned.charAt(0) == '-' || cleaned.charAt(0) == '+')) {
+            start = 1;
+        }
+        int end = start;
+        boolean seenDigit = false;
+        boolean seenDot = false;
+        while (end < cleaned.length()) {
+            char c = cleaned.charAt(end);
+            if (Character.isDigit(c)) {
+                seenDigit = true;
+                end++;
+            } else if (c == '.' && !seenDot) {
+                seenDot = true;
+                end++;
+            } else {
+                break;
+            }
+        }
+        if (seenDigit && end > start) {
+            String token = cleaned.substring(0, end);
+            try {
+                new BigDecimal(token);
+                return token;
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return null;
     }
 
     public interface OnDisplayMemoryOperationsListener {
