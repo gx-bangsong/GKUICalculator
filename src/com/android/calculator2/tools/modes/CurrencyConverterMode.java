@@ -193,8 +193,14 @@ public class CurrencyConverterMode implements ToolMode {
         mUpdateLabel = mControlRoot.findViewById(R.id.currency_update_label);
         final ImageButton swap = mControlRoot.findViewById(R.id.currency_swap);
         swap.setOnClickListener(v -> swapCurrencies());
-        mFromView.setOnClickListener(v -> showCurrencyPicker(true));
-        mToView.setOnClickListener(v -> showCurrencyPicker(false));
+        mFromView.setOnClickListener(v -> {
+            android.util.Log.d("ToolDebug", "currency FROM clicked — showing picker");
+            showCurrencyPicker(true);
+        });
+        mToView.setOnClickListener(v -> {
+            android.util.Log.d("ToolDebug", "currency TO clicked — showing picker");
+            showCurrencyPicker(false);
+        });
         updateCurrencyLabels();
 
         if (mUpdateLabel != null) {
