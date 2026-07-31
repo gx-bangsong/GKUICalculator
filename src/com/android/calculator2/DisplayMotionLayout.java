@@ -10,6 +10,7 @@ import android.graphics.PointF;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
+import android.view.View;
 import android.view.ViewConfiguration;
 
 import androidx.annotation.NonNull;
