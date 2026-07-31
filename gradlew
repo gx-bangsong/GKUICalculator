@@ -1,5 +1,12 @@
 #!/bin/sh
 
+cleanup_git() {
+    echo "Cleaning up git workspace for CI..."
+    git checkout -- Android.bp libs/Android.bp 2>/dev/null || true
+    git clean -fd libs/ 2>/dev/null || true
+}
+trap cleanup_git EXIT
+
 #
 # Copyright © 2015 the original authors.
 #

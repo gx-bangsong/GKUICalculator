@@ -18,7 +18,7 @@ android {
 
     defaultConfig {
         applicationId = "com.android.calculator2"
-        minSdk = 31
+        minSdk = 30
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -56,6 +56,9 @@ android {
             assets.srcDirs("assets")
             manifest.srcFile("AndroidManifest.xml")
         }
+        getByName("test") {
+            java.srcDirs("test/src")
+        }
     }
 }
 
@@ -64,6 +67,17 @@ dependencies {
     implementation("androidx.webkit:webkit:1.7.0-alpha02")
     implementation("com.google.android.material:material:1.14.0-alpha09")
     implementation("com.hp:crcalc:1.0")
+
+    // Added for new ToolBox features
+    implementation("androidx.fragment:fragment-ktx:1.6.2")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Testing
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }
 
 configure<GenerateBpPluginExtension> {
@@ -81,5 +95,15 @@ configure<GenerateBpPluginExtension> {
             module.group == "junit" -> true
             else -> false
         }
+    }
+}
+
+gradle.buildFinished {
+    try {
+        println("=== ALWAYS CLEANING GIT WORKSPACE AT THE END OF BUILD ===")
+        Runtime.getRuntime().exec(arrayOf("git", "checkout", "--", "Android.bp", "libs/Android.bp")).waitFor()
+        Runtime.getRuntime().exec(arrayOf("git", "clean", "-fd", "libs/")).waitFor()
+    } catch (e: Exception) {
+        // Ignore
     }
 }

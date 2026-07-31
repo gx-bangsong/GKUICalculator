@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <HorizontalScrollView
+        android:id="@+id/scroll_view"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:scrollbars="none"
+        app:layout_constraintEnd_toStartOf="@id/gradient_mask"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chip_group"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:paddingStart="8dp"
+            android:paddingEnd="16dp"
+            app:singleLine="true"
+            app:selectionRequired="false" />
+    </HorizontalScrollView>
+
+    <View
+        android:id="@+id/gradient_mask"
+        android:layout_width="24dp"
+        android:layout_height="match_parent"
+        app:layout_constraintEnd_toStartOf="@id/btn_more"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <ImageView
+        android:id="@+id/btn_more"
+        android:layout_width="48dp"
+        android:layout_height="match_parent"
+        android:background="?attr/selectableItemBackground"
+        android:contentDescription="更多工具"
+        android:scaleType="center"
+        android:src="@drawable/ic_expand_more"
+        app:tint="?attr/colorOnSurface"
+        app:layout_constraintEnd_toStartOf="@id/btn_history"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <ImageView
+        android:id="@+id/btn_history"
+        android:layout_width="48dp"
+        android:layout_height="match_parent"
+        android:background="?attr/selectableItemBackground"
+        android:contentDescription="历史记录"
+        android:scaleType="center"
+        android:src="@drawable/ic_schedule"
+        app:tint="?attr/colorOnSurface"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+</merge>
