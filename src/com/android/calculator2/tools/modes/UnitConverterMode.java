@@ -9,10 +9,8 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
-import android.widget.Spinner;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -38,10 +36,8 @@ import java.util.List;
  * Offline unit conversion (length, area, volume, weight, temperature, ...), data-driven from
  * {@code assets/tools/units.json}.
  * <p>
- * The display is reused: the formula line shows {@code "value <from>"}, the result line shows
- * {@code "result <to>"}. The mode-specific controls (category / from / to selectors + swap) are
- * mounted into the host's {@link ToolHost#getToolControlSlot()}. Linear categories use
- * {@link UnitConversion}; temperature uses {@link TemperatureConversion}.
+ * The big display is cleared: the numbers and tappable unit/category buttons are placed
+ * in the host's {@link ToolHost#getToolControlSlot()} in a spacious, iOS-calculator style layout.
  */
 public class UnitConverterMode implements ToolMode {
 
@@ -65,12 +61,15 @@ public class UnitConverterMode implements ToolMode {
     @Nullable
     private View mControlRoot;
     @Nullable
-    private Spinner mCategorySpinner;
+    private TextView mCategoryView;
     @Nullable
-    private Spinner mFromSpinner;
+    private TextView mFromView;
     @Nullable
-    private Spinner mToSpinner;
-    private boolean mUpdating;
+    private TextView mToView;
+    @Nullable
+    private TextView mInputView;
+    @Nullable
+    private TextView mResultView;
 
     @NonNull
     @Override
@@ -156,23 +155,20 @@ public class UnitConverterMode implements ToolMode {
             return;
         }
         mControlRoot = LayoutInflater.from(context).inflate(R.layout.tool_unit_control, slot, false);
-        mCategorySpinner = mControlRoot.findViewById(R.id.unit_category);
-        mFromSpinner = mControlRoot.findViewById(R.id.unit_from);
-        mToSpinner = mControlRoot.findViewById(R.id.unit_to);
+        mCategoryView = mControlRoot.findViewById(R.id.unit_category);
+        mFromView = mControlRoot.findViewById(R.id.unit_from);
+        mToView = mControlRoot.findViewById(R.id.unit_to);
+        mInputView = mControlRoot.findViewById(R.id.unit_input_text);
+        mResultView = mControlRoot.findViewById(R.id.unit_result_text);
+
         final ImageButton swap = mControlRoot.findViewById(R.id.unit_swap);
         swap.setOnClickListener(v -> swapUnits());
 
-        mUpdating = true;
-        final ArrayAdapter<String> categoryAdapter = new ArrayAdapter<>(context,
-                android.R.layout.simple_spinner_item, categoryNames());
-        categoryAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        mCategorySpinner.setAdapter(categoryAdapter);
-        mCategorySpinner.setSelection(mCategoryIndex);
-        refreshUnitSpinners(context);
-        mCategorySpinner.setOnItemSelectedListener(new CategoryListener());
-        mFromSpinner.setOnItemSelectedListener(new UnitListener(true));
-        mToSpinner.setOnItemSelectedListener(new UnitListener(false));
-        mUpdating = false;
+        mCategoryView.setOnClickListener(v -> showCategoryPicker());
+        mFromView.setOnClickListener(v -> showUnitPicker(true));
+        mToView.setOnClickListener(v -> showUnitPicker(false));
+
+        updateLabels();
 
         slot.removeAllViews();
         slot.addView(mControlRoot);
@@ -186,81 +182,73 @@ public class UnitConverterMode implements ToolMode {
             slot.setVisibility(View.GONE);
         }
         mControlRoot = null;
-        mCategorySpinner = null;
-        mFromSpinner = null;
-        mToSpinner = null;
-    }
-
-    private void refreshUnitSpinners(@NonNull Context context) {
-        if (mFromSpinner == null || mToSpinner == null) {
-            return;
-        }
-        final ArrayAdapter<String> adapter = new ArrayAdapter<>(context,
-                android.R.layout.simple_spinner_item, unitNames(mCategoryIndex));
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        mFromSpinner.setAdapter(adapter);
-        mToSpinner.setAdapter(adapter);
-        mFromSpinner.setSelection(clamp(mFromIndex));
-        mToSpinner.setSelection(clamp(mToIndex));
+        mCategoryView = null;
+        mFromView = null;
+        mToView = null;
+        mInputView = null;
+        mResultView = null;
     }
 
     private void swapUnits() {
         final int tmp = mFromIndex;
         mFromIndex = mToIndex;
         mToIndex = tmp;
-        mUpdating = true;
-        if (mFromSpinner != null) {
-            mFromSpinner.setSelection(clamp(mFromIndex));
-        }
-        if (mToSpinner != null) {
-            mToSpinner.setSelection(clamp(mToIndex));
-        }
-        mUpdating = false;
+        updateLabels();
         redisplay();
     }
 
-    private final class CategoryListener implements AdapterView.OnItemSelectedListener {
-        @Override
-        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-            if (mUpdating) {
-                return;
-            }
-            mCategoryIndex = position;
-            mFromIndex = 0;
-            mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
-            mUpdating = true;
-            refreshUnitSpinners(parent.getContext());
-            mUpdating = false;
-            redisplay();
+    private void showCategoryPicker() {
+        if (mHost == null || mCategories.isEmpty()) {
+            return;
         }
-
-        @Override
-        public void onNothingSelected(AdapterView<?> parent) {
-        }
+        final Context ctx = mHost.getContext();
+        final String[] labels = categoryNames().toArray(new String[0]);
+        new android.app.AlertDialog.Builder(ctx)
+                .setSingleChoiceItems(labels, mCategoryIndex, (d, which) -> {
+                    mCategoryIndex = which;
+                    mFromIndex = 0;
+                    mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
+                    updateLabels();
+                    redisplay();
+                    d.dismiss();
+                })
+                .show();
     }
 
-    private final class UnitListener implements AdapterView.OnItemSelectedListener {
-        private final boolean mFrom;
-
-        UnitListener(boolean from) {
-            mFrom = from;
+    private void showUnitPicker(boolean isFrom) {
+        if (mHost == null || mCategories.isEmpty()) {
+            return;
         }
+        final Context ctx = mHost.getContext();
+        final String[] labels = unitNames(mCategoryIndex).toArray(new String[0]);
+        final int current = isFrom ? clamp(mFromIndex) : clamp(mToIndex);
+        new android.app.AlertDialog.Builder(ctx)
+                .setSingleChoiceItems(labels, current, (d, which) -> {
+                    if (isFrom) {
+                        mFromIndex = which;
+                    } else {
+                        mToIndex = which;
+                    }
+                    updateLabels();
+                    redisplay();
+                    d.dismiss();
+                })
+                .show();
+    }
 
-        @Override
-        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-            if (mUpdating) {
-                return;
-            }
-            if (mFrom) {
-                mFromIndex = position;
-            } else {
-                mToIndex = position;
-            }
-            redisplay();
+    private void updateLabels() {
+        final UnitCategory category = currentCategory();
+        if (category == null) {
+            return;
         }
-
-        @Override
-        public void onNothingSelected(AdapterView<?> parent) {
+        if (mCategoryView != null) {
+            mCategoryView.setText(category.getDisplayName());
+        }
+        if (mFromView != null && !category.getUnits().isEmpty()) {
+            mFromView.setText(category.getUnits().get(clamp(mFromIndex)).getDisplayName());
+        }
+        if (mToView != null && !category.getUnits().isEmpty()) {
+            mToView.setText(category.getUnits().get(clamp(mToIndex)).getDisplayName());
         }
     }
 
@@ -272,8 +260,14 @@ public class UnitConverterMode implements ToolMode {
             return;
         }
         if (mCategories.isEmpty()) {
+            if (mInputView != null) {
+                mInputView.setText("");
+            }
+            if (mResultView != null) {
+                mResultView.setText(host.getContext().getString(R.string.tool_unit_no_data));
+            }
             host.setToolFormula("");
-            host.setToolResult(host.getContext().getString(R.string.tool_unit_no_data));
+            host.setToolResult("");
             return;
         }
         final UnitCategory category = currentCategory();
@@ -281,16 +275,24 @@ public class UnitConverterMode implements ToolMode {
         final UnitDef to = category.getUnits().get(clamp(mToIndex));
         final BigDecimal value = parseInput();
 
-            host.setToolFormula(displayInput());
+        String resultText;
+        if (value == null) {
+            resultText = "—";
+        } else {
+            final BigDecimal out = convert(value, category, from, to);
+            resultText = (out == null ? "—" : format(out));
+        }
 
-            String result;
-            if (value == null) {
-                result = "—";
-            } else {
-                final BigDecimal out = convert(value, category, from, to);
-                result = (out == null ? "—" : format(out));
-            }
-            host.setToolResult(result);
+        if (mInputView != null) {
+            mInputView.setText(displayInput());
+        }
+        if (mResultView != null) {
+            mResultView.setText(resultText);
+        }
+
+        // Clear the big display lines so the UI layout looks neat, centered, and matches currency
+        host.setToolFormula("");
+        host.setToolResult("");
     }
 
     @Nullable

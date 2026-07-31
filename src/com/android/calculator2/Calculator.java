@@ -1461,8 +1461,17 @@ public class Calculator extends AppCompatActivity
         mScientificVisible = !mScientificVisible;
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 .edit().putBoolean(PREF_SCIENTIFIC, mScientificVisible).apply();
-        // Only flip the pad from the calculator; tools hide it regardless.
-        if (mToolManager == null || !mToolManager.isActive()) {
+
+        // If no tool is active, or if the active tool does not require an expanded display,
+        // we can apply the visibility change immediately.
+        boolean forceExpanded = false;
+        if (mToolManager != null && mToolManager.isActive()) {
+            com.android.calculator2.tools.ToolMode active = mToolManager.getActive();
+            if (active != null && active.wantsExpandedDisplay()) {
+                forceExpanded = true;
+            }
+        }
+        if (!forceExpanded) {
             applyAdvancedPadVisibility(mScientificVisible);
         }
         updateScientificToggleLabel();
@@ -1473,10 +1482,14 @@ public class Calculator extends AppCompatActivity
         if (advanced != null) {
             advanced.setVisibility(visible ? View.VISIBLE : View.GONE);
         }
-        // Force the MotionLayout to re-measure so the display grows/shrinks to match.
-        // Two passes: the immediate requestLayout + a post() for a second pass, because
-        // MotionLayout sometimes needs an extra frame to fully reflow after a visibility change.
         if (mMainCalculator != null) {
+            final int visibility = visible ? View.VISIBLE : View.GONE;
+            for (int stateId : new int[]{R.id.start_state, R.id.end_state}) {
+                androidx.constraintlayout.widget.ConstraintSet set = mMainCalculator.getConstraintSet(stateId);
+                if (set != null) {
+                    set.setVisibility(R.id.advanced_pad, visibility);
+                }
+            }
             mMainCalculator.requestLayout();
             mMainCalculator.post(() -> mMainCalculator.requestLayout());
         }

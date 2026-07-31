@@ -341,6 +341,7 @@
     <string name="tool_units_temperature">Temperature</string>
     <!-- Shown when the unit data failed to load. [CHAR_LIMIT=40] -->
     <string name="tool_unit_no_data">No unit data</string>
+    <string name="tool_unit_category_label">Category</string>
     <!-- Content description for the swap-units button. [CHAR_LIMIT=NONE] -->
     <string name="unit_swap_desc">Swap units</string>
 

@@ -104,6 +104,7 @@
     <string name="tool_units_weight">重量</string>
     <string name="tool_units_temperature">温度</string>
     <string name="tool_unit_no_data">暂无单位数据</string>
+    <string name="tool_unit_category_label">类别</string>
     <string name="unit_swap_desc">交换单位</string>
 
     <!-- 汇率换算 -->
