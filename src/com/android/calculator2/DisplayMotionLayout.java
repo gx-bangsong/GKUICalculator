@@ -48,6 +48,20 @@ public class DisplayMotionLayout extends MotionLayout {
 
                 findViewById(R.id.display).getHitRect(hitRect);
                 if (hitRect.contains((int) motionEvent.getX(), (int) motionEvent.getY())) {
+                    // If the touch lands on the tool control slot (visible when a tool is active),
+                    // don't track for history-drag — let clicks pass through to interactive controls.
+                    View controlSlot = findViewById(R.id.tool_control_slot);
+                    if (controlSlot != null && controlSlot.getVisibility() == View.VISIBLE) {
+                        Rect slotRect = new Rect();
+                        controlSlot.getHitRect(slotRect);
+                        if (slotRect.contains((int) motionEvent.getX(), (int) motionEvent.getY())) {
+                            mPointerId = -1;
+                            mIsScrolling = false;
+                            mOutOfBounds = true;
+                            clearLastMotion();
+                            break;
+                        }
+                    }
                     mPreviousPoint = new PointF(motionEvent.getX(),motionEvent.getY());
                     mPointerId = motionEvent.getPointerId(0);
                     mIsScrolling = false;

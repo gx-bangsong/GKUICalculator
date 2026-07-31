@@ -315,15 +315,8 @@ public class CurrencyConverterMode implements ToolMode {
 
     @NonNull
     private static String format(@NonNull BigDecimal value) {
-        BigDecimal rounded = value.round(DISPLAY_MC).stripTrailingZeros();
-        if (rounded.scale() < 0) {
-            rounded = rounded.setScale(0, RoundingMode.HALF_UP);
-        }
-        String text = rounded.toPlainString();
-        if (text.equals("-0")) {
-            text = "0";
-        }
-        return text;
+        return new java.text.DecimalFormat("#,##0.00##")
+                .format(value.setScale(4, RoundingMode.HALF_UP));
     }
 
     // ---- helpers ----
