@@ -13,6 +13,13 @@
 
     <include layout="@layout/toolbar" />
 
+    <!-- Slot into which the active tool mounts its mode-specific controls. Empty/GONE by default. -->
+    <FrameLayout
+        android:id="@+id/tool_control_slot"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"

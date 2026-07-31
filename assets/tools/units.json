@@ -1,0 +1,75 @@
+{
+  "categories": [
+    {
+      "id": "length",
+      "name": "@string/tool_units_length",
+      "base": "m",
+      "affine": false,
+      "units": [
+        { "id": "km", "name": "km", "factor": "1000" },
+        { "id": "m",  "name": "m",  "factor": "1" },
+        { "id": "cm", "name": "cm", "factor": "0.01" },
+        { "id": "mm", "name": "mm", "factor": "0.001" },
+        { "id": "mi", "name": "mi", "factor": "1609.344" },
+        { "id": "yd", "name": "yd", "factor": "0.9144" },
+        { "id": "ft", "name": "ft", "factor": "0.3048" },
+        { "id": "in", "name": "in", "factor": "0.0254" }
+      ]
+    },
+    {
+      "id": "area",
+      "name": "@string/tool_units_area",
+      "base": "m2",
+      "affine": false,
+      "units": [
+        { "id": "km2", "name": "km²", "factor": "1000000" },
+        { "id": "m2",  "name": "m²",  "factor": "1" },
+        { "id": "cm2", "name": "cm²", "factor": "0.0001" },
+        { "id": "ha",  "name": "ha",  "factor": "10000" },
+        { "id": "acre","name": "acre","factor": "4046.8564224" },
+        { "id": "ft2", "name": "ft²", "factor": "0.09290304" },
+        { "id": "in2", "name": "in²", "factor": "0.00064516" }
+      ]
+    },
+    {
+      "id": "volume",
+      "name": "@string/tool_units_volume",
+      "base": "l",
+      "affine": false,
+      "units": [
+        { "id": "l",   "name": "L",   "factor": "1" },
+        { "id": "ml",  "name": "mL",  "factor": "0.001" },
+        { "id": "m3",  "name": "m³",  "factor": "1000" },
+        { "id": "gal", "name": "gal", "factor": "3.785411784" },
+        { "id": "qt",  "name": "qt",  "factor": "0.946352946" },
+        { "id": "pt",  "name": "pt",  "factor": "0.473176473" },
+        { "id": "floz","name": "fl oz","factor": "0.0295735295625" }
+      ]
+    },
+    {
+      "id": "weight",
+      "name": "@string/tool_units_weight",
+      "base": "kg",
+      "affine": false,
+      "units": [
+        { "id": "t",  "name": "t",  "factor": "1000" },
+        { "id": "kg", "name": "kg", "factor": "1" },
+        { "id": "g",  "name": "g",  "factor": "0.001" },
+        { "id": "mg", "name": "mg", "factor": "0.000001" },
+        { "id": "lb", "name": "lb", "factor": "0.45359237" },
+        { "id": "oz", "name": "oz", "factor": "0.028349523125" }
+      ]
+    },
+    {
+      "id": "temperature",
+      "name": "@string/tool_units_temperature",
+      "base": "C",
+      "affine": true,
+      "units": [
+        { "id": "C", "name": "°C" },
+        { "id": "F", "name": "°F" },
+        { "id": "K", "name": "K" }
+      ]
+    }
+  ]
+}

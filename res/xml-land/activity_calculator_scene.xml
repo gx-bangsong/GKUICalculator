@@ -22,26 +22,46 @@
 
     <ConstraintSet android:id="@+id/end_state">
         <Constraint
-            android:id="@id/history_frame"
-            android:layout_width="match_parent"
+            android:id="@+id/history_frame"
+            android:layout_width="0dp"
             motion:layout_constraintBottom_toTopOf="@id/display"
+            motion:layout_constraintEnd_toEndOf="parent"
+            motion:layout_constraintStart_toStartOf="parent"
             motion:layout_constraintTop_toTopOf="parent" />
         <Constraint
-            android:id="@id/display"
-            android:layout_width="match_parent"
-            motion:layout_constraintBottom_toTopOf="@id/advanced_pad"
-            motion:layout_constraintHeight_percent="@dimen/layout_display_ratio" />
-        <Constraint
-            android:id="@id/advanced_pad"
-            motion:layout_constraintBottom_toBottomOf="@id/animation_helper"
-            motion:layout_constraintEnd_toStartOf="@id/layout_vertical_guideline"
-            motion:layout_constraintHeight_percent="@dimen/layout_pads_ratio"
+            android:id="@+id/display"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            motion:layout_constraintBottom_toTopOf="@id/tool_bar"
+            motion:layout_constraintEnd_toEndOf="parent"
+            motion:layout_constraintHeight_percent="@dimen/layout_display_ratio"
             motion:layout_constraintStart_toStartOf="parent" />
         <Constraint
-            android:id="@id/input_pad"
+            android:id="@+id/tool_bar"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            motion:layout_constraintBottom_toTopOf="@id/advanced_pad"
+            motion:layout_constraintEnd_toEndOf="parent"
+            motion:layout_constraintHeight_percent="@dimen/layout_tool_bar_ratio"
+            motion:layout_constraintStart_toStartOf="parent" />
+        <Constraint
+            android:id="@+id/advanced_pad"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            motion:layout_constraintBottom_toBottomOf="@id/animation_helper"
+            motion:layout_constraintEnd_toStartOf="@id/input_pad"
+            motion:layout_constraintHeight_percent="@dimen/layout_pads_ratio"
+            motion:layout_constraintHorizontal_chainStyle="spread"
+            motion:layout_constraintHorizontal_weight="0.33"
+            motion:layout_constraintStart_toStartOf="parent" />
+        <Constraint
+            android:id="@+id/input_pad"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
             motion:layout_constraintBottom_toBottomOf="@id/animation_helper"
             motion:layout_constraintEnd_toEndOf="parent"
             motion:layout_constraintHeight_percent="@dimen/layout_pads_ratio"
-            motion:layout_constraintStart_toEndOf="@id/layout_vertical_guideline" />
+            motion:layout_constraintHorizontal_weight="0.67"
+            motion:layout_constraintStart_toEndOf="@id/advanced_pad" />
     </ConstraintSet>
 </MotionScene>

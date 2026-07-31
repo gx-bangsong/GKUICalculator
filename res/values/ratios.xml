@@ -1,13 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     SPDX-FileCopyrightText: The LineageOS Project
+     SPDX-FileCopyrightText: 2014 The Android Open Source Project
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-    <!-- layout_display_ratio + layout_pads_ratio = 1 -->
-    <item type="dimen" format="float" name="layout_display_ratio">0.3</item>
-    <!-- layout_pads_ratio = layout_advanced_pad_ratio + layout_input_pad_ratio -->
-    <item type="dimen" format="float" name="layout_pads_ratio">0.7</item>
-    <item type="dimen" format="float" name="layout_advanced_pad_ratio">0.2</item>
-    <item type="dimen" format="float" name="layout_input_pad_ratio">0.5</item>
+    <!-- Portrait: display + tool_bar + (advanced_pad + input_pad) = 1
+         tool_bar sits between the display and the pads. -->
+    <item type="dimen" format="float" name="layout_display_ratio">0.30</item>
+    <item type="dimen" format="float" name="layout_tool_bar_ratio">0.08</item>
+    <item type="dimen" format="float" name="layout_advanced_pad_ratio">0.17</item>
+    <item type="dimen" format="float" name="layout_input_pad_ratio">0.45</item>
+    <!-- layout_pads_ratio = layout_advanced_pad_ratio + layout_input_pad_ratio
+         (used by animation_helper in the history motion scene). -->
+    <item type="dimen" format="float" name="layout_pads_ratio">0.62</item>
 </resources>

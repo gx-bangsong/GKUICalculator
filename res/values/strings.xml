@@ -295,4 +295,138 @@
     <!-- Placeholder string when there is no history to be shown. [CHAR_LIMIT=40] -->
     <string name="no_history">No History</string>
 
+    <!-- ============ Life-calculation tool bar (Stage 1) ============ -->
+
+    <!-- Tool mode: the calculator itself (always first chip in the bar). [CHAR_LIMIT=20] -->
+    <string name="tool_calculator">Calculator</string>
+    <!-- Tool mode: unit conversion. [CHAR_LIMIT=20] -->
+    <string name="tool_unit">Units</string>
+    <!-- Tool mode: currency exchange. [CHAR_LIMIT=20] -->
+    <string name="tool_currency">Currency</string>
+    <!-- Tool mode: mortgage / loan. [CHAR_LIMIT=20] -->
+    <string name="tool_mortgage">Mortgage</string>
+    <!-- Tool mode: individual income tax. [CHAR_LIMIT=20] -->
+    <string name="tool_tax">Income tax</string>
+    <!-- Tool mode: body mass index. [CHAR_LIMIT=20] -->
+    <string name="tool_bmi">BMI</string>
+    <!-- Tool mode: date interval. [CHAR_LIMIT=20] -->
+    <string name="tool_date">Date</string>
+
+    <!-- "More" button to expand the tool overlay panel. [CHAR_LIMIT=20] -->
+    <string name="tool_more">More</string>
+    <!-- "More" button when the panel is expanded (acts as collapse). [CHAR_LIMIT=20] -->
+    <string name="tool_more_close">Close</string>
+    <!-- Scientific-pad toggle: shown when the scientific pad is hidden (tap to reveal). [CHAR_LIMIT=12] -->
+    <string name="tool_scientific_show">Sci</string>
+    <!-- Scientific-pad toggle: shown when the scientific pad is visible (tap to hide). [CHAR_LIMIT=12] -->
+    <string name="tool_scientific_hide">Hide</string>
+    <!-- Title of the expanded tool overlay panel. [CHAR_LIMIT=40] -->
+    <string name="tool_panel_title">All tools</string>
+    <!-- Empty state shown in the overlay panel when no tools are available. [CHAR_LIMIT=40] -->
+    <string name="tool_panel_empty">No more tools</string>
+    <!-- Placeholder message for a not-yet-implemented tool. %1$s is the tool name. [CHAR_LIMIT=NONE] -->
+    <string name="tool_coming_soon">\"%1$s\" is coming soon</string>
+
+    <!-- ============ Unit conversion (Stage 2) ============ -->
+
+    <!-- Unit category: length. [CHAR_LIMIT=20] -->
+    <string name="tool_units_length">Length</string>
+    <!-- Unit category: area. [CHAR_LIMIT=20] -->
+    <string name="tool_units_area">Area</string>
+    <!-- Unit category: volume. [CHAR_LIMIT=20] -->
+    <string name="tool_units_volume">Volume</string>
+    <!-- Unit category: weight / mass. [CHAR_LIMIT=20] -->
+    <string name="tool_units_weight">Weight</string>
+    <!-- Unit category: temperature. [CHAR_LIMIT=20] -->
+    <string name="tool_units_temperature">Temperature</string>
+    <!-- Shown when the unit data failed to load. [CHAR_LIMIT=40] -->
+    <string name="tool_unit_no_data">No unit data</string>
+    <!-- Content description for the swap-units button. [CHAR_LIMIT=NONE] -->
+    <string name="unit_swap_desc">Swap units</string>
+
+    <!-- ============ Currency conversion (Stage 3) ============ -->
+
+    <!-- Menu item: toggle automatic currency-rate updates. [CHAR_LIMIT=40] -->
+    <string name="menu_auto_update_rates">Auto-update rates</string>
+    <!-- Shown while exchange rates are loading. [CHAR_LIMIT=40] -->
+    <string name="currency_loading">Loading rates…</string>
+    <!-- Update-time label. %1$s is the reference date. [CHAR_LIMIT=NONE] -->
+    <string name="currency_updated">Updated: %1$s</string>
+    <!-- Shown when only offline fallback rates are available. [CHAR_LIMIT=40] -->
+    <string name="currency_offline">Offline rates</string>
+    <!-- Shown when the currency configuration failed to load. [CHAR_LIMIT=40] -->
+    <string name="tool_currency_no_data">No currency data</string>
+
+    <!-- ============ Mortgage (Stage 4) ============ -->
+
+    <!-- Mortgage input field: loan principal. [CHAR_LIMIT=20] -->
+    <string name="tool_mortgage_field_principal">Loan</string>
+    <!-- Mortgage input field: annual interest rate (percent). [CHAR_LIMIT=20] -->
+    <string name="tool_mortgage_field_rate">Rate %</string>
+    <!-- Mortgage input field: term in years. [CHAR_LIMIT=20] -->
+    <string name="tool_mortgage_field_years">Years</string>
+    <!-- Mortgage repayment-method toggle label. [CHAR_LIMIT=20] -->
+    <string name="tool_mortgage_method">Method</string>
+    <!-- Mortgage method: equal monthly payment (等额本息). [CHAR_LIMIT=20] -->
+    <string name="tool_mortgage_equal">Equal payment</string>
+    <!-- Mortgage method: equal principal (等额本金). [CHAR_LIMIT=20] -->
+    <string name="tool_mortgage_principal">Equal principal</string>
+    <!-- Mortgage result: monthly payment. [CHAR_LIMIT=20] -->
+    <string name="tool_mortgage_monthly">Monthly</string>
+    <!-- Mortgage result: first-month payment. [CHAR_LIMIT=20] -->
+    <string name="tool_mortgage_first_month">First mo</string>
+    <!-- Mortgage result: monthly decrease (equal principal). [CHAR_LIMIT=20] -->
+    <string name="tool_mortgage_decrease">Decr/mo</string>
+    <!-- Mortgage result: total interest. [CHAR_LIMIT=20] -->
+    <string name="tool_mortgage_interest">Interest</string>
+    <!-- Mortgage result: total payment. [CHAR_LIMIT=20] -->
+    <string name="tool_mortgage_total">Total</string>
+
+    <!-- ============ Income tax (Stage 4) ============ -->
+
+    <!-- Tax input field: monthly salary (pre-tax). [CHAR_LIMIT=20] -->
+    <string name="tool_tax_field_salary">Salary</string>
+    <!-- Tax input field: monthly social insurance / housing fund. [CHAR_LIMIT=20] -->
+    <string name="tool_tax_field_insurance">Insurance</string>
+    <!-- Tax input field: monthly special additional deductions. [CHAR_LIMIT=20] -->
+    <string name="tool_tax_field_special">Special ded.</string>
+    <!-- Tax result: annual tax. [CHAR_LIMIT=20] -->
+    <string name="tool_tax_annual_tax">Annual tax</string>
+    <!-- Tax result: annual after-tax income. [CHAR_LIMIT=20] -->
+    <string name="tool_tax_annual_after_tax">After tax</string>
+    <!-- Tax result: last month's withholding. [CHAR_LIMIT=20] -->
+    <string name="tool_tax_last_month">Last mo</string>
+
+    <!-- ============ BMI (Stage 4) ============ -->
+
+    <!-- BMI input field: height in centimeters. [CHAR_LIMIT=20] -->
+    <string name="tool_bmi_field_height">Height cm</string>
+    <!-- BMI input field: weight in kilograms. [CHAR_LIMIT=20] -->
+    <string name="tool_bmi_field_weight">Weight kg</string>
+    <!-- BMI result label. [CHAR_LIMIT=20] -->
+    <string name="tool_bmi_value">BMI</string>
+    <!-- BMI category: underweight. [CHAR_LIMIT=20] -->
+    <string name="tool_bmi_underweight">Underweight</string>
+    <!-- BMI category: normal. [CHAR_LIMIT=20] -->
+    <string name="tool_bmi_normal">Normal</string>
+    <!-- BMI category: overweight. [CHAR_LIMIT=20] -->
+    <string name="tool_bmi_overweight">Overweight</string>
+    <!-- BMI category: obese. [CHAR_LIMIT=20] -->
+    <string name="tool_bmi_obese">Obese</string>
+
+    <!-- ============ Date interval (Stage 4) ============ -->
+
+    <!-- Date interval: number of days. %1$d is the day count. [CHAR_LIMIT=NONE] -->
+    <string name="tool_date_days">%1$d days</string>
+    <!-- Date interval: years unit (short). [CHAR_LIMIT=NONE] -->
+    <string name="tool_date_years">y</string>
+    <!-- Date interval: months unit (short). [CHAR_LIMIT=NONE] -->
+    <string name="tool_date_months">m</string>
+    <!-- Date interval: days unit (short). [CHAR_LIMIT=NONE] -->
+    <string name="tool_date_days_short">d</string>
+    <!-- Date interval: note when the end date precedes the start. [CHAR_LIMIT=NONE] -->
+    <string name="tool_date_swapped">reversed</string>
+    <!-- Date interval: arrow between the two date pickers. [CHAR_LIMIT=NONE] -->
+    <string name="tool_date_arrow">→</string>
+
 </resources>

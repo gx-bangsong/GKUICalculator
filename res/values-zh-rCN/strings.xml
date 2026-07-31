@@ -80,4 +80,75 @@
     <string name="dialog_clear" msgid="7137395395908350702">"要清除历史记录和存储内容吗？"</string>
     <string name="title_current_expression" msgid="2442754548537900591">"目前的表达式"</string>
     <string name="no_history" msgid="4331262030447527188">"没有历史记录"</string>
+
+    <!-- ============ 生活计算工具栏 ============ -->
+    <string name="tool_calculator">计算器</string>
+    <string name="tool_unit">单位换算</string>
+    <string name="tool_currency">汇率换算</string>
+    <string name="tool_mortgage">房贷</string>
+    <string name="tool_tax">个税</string>
+    <string name="tool_bmi" translatable="false">BMI</string>
+    <string name="tool_date">日期</string>
+    <string name="tool_more">更多</string>
+    <string name="tool_more_close">收起</string>
+    <string name="tool_scientific_show">科学</string>
+    <string name="tool_scientific_hide">收起</string>
+    <string name="tool_panel_title">全部工具</string>
+    <string name="tool_panel_empty">暂无更多工具</string>
+    <string name="tool_coming_soon">“%1$s”功能即将上线</string>
+
+    <!-- 单位换算 -->
+    <string name="tool_units_length">长度</string>
+    <string name="tool_units_area">面积</string>
+    <string name="tool_units_volume">体积</string>
+    <string name="tool_units_weight">重量</string>
+    <string name="tool_units_temperature">温度</string>
+    <string name="tool_unit_no_data">暂无单位数据</string>
+    <string name="unit_swap_desc">交换单位</string>
+
+    <!-- 汇率换算 -->
+    <string name="menu_auto_update_rates">自动更新汇率</string>
+    <string name="currency_loading">正在获取汇率…</string>
+    <string name="currency_updated">更新于：%1$s</string>
+    <string name="currency_offline">离线汇率</string>
+    <string name="tool_currency_no_data">暂无汇率数据</string>
+
+    <!-- 房贷 -->
+    <string name="tool_mortgage_field_principal">贷款额</string>
+    <string name="tool_mortgage_field_rate">年利率 %</string>
+    <string name="tool_mortgage_field_years">年限</string>
+    <string name="tool_mortgage_method">方式</string>
+    <string name="tool_mortgage_equal">等额本息</string>
+    <string name="tool_mortgage_principal">等额本金</string>
+    <string name="tool_mortgage_monthly">月供</string>
+    <string name="tool_mortgage_first_month">首月</string>
+    <string name="tool_mortgage_decrease">月减</string>
+    <string name="tool_mortgage_interest">总利息</string>
+    <string name="tool_mortgage_total">总额</string>
+
+    <!-- 个税 -->
+    <string name="tool_tax_field_salary">月薪</string>
+    <string name="tool_tax_field_insurance">五险一金</string>
+    <string name="tool_tax_field_special">专项附加</string>
+    <string name="tool_tax_annual_tax">年度税额</string>
+    <string name="tool_tax_annual_after_tax">年度税后</string>
+    <string name="tool_tax_last_month">末月税</string>
+
+    <!-- BMI -->
+    <string name="tool_bmi_field_height">身高 cm</string>
+    <string name="tool_bmi_field_weight">体重 kg</string>
+    <string name="tool_bmi_value" translatable="false">BMI</string>
+    <string name="tool_bmi_underweight">偏瘦</string>
+    <string name="tool_bmi_normal">正常</string>
+    <string name="tool_bmi_overweight">偏胖</string>
+    <string name="tool_bmi_obese">肥胖</string>
+
+    <!-- 日期 -->
+    <string name="tool_date_days">%1$d 天</string>
+    <string name="tool_date_years">年</string>
+    <string name="tool_date_months">月</string>
+    <string name="tool_date_days_short">日</string>
+    <string name="tool_date_swapped">已反序</string>
+    <string name="tool_date_arrow" translatable="false">→</string>
+
 </resources>

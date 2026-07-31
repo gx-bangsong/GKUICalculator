@@ -4,9 +4,11 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-    <!-- layout_display_ratio + layout_pads_ratio = 1 -->
-    <item type="dimen" format="float" name="layout_display_ratio">0.4</item>
-    <item type="dimen" format="float" name="layout_pads_ratio">0.6</item>
-
+    <!-- Landscape: display + tool_bar + pads_row = 1.
+         layout_pads_ratio is the height of the side-by-side pad row;
+         layout_advanced_pad_ratio is the vertical guideline percent (width split). -->
+    <item type="dimen" format="float" name="layout_display_ratio">0.34</item>
+    <item type="dimen" format="float" name="layout_tool_bar_ratio">0.08</item>
+    <item type="dimen" format="float" name="layout_pads_ratio">0.58</item>
     <item type="dimen" format="float" name="layout_advanced_pad_ratio">0.33</item>
 </resources>
