@@ -9,7 +9,7 @@
     android:id="@+id/main_calculator"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/activity_background"
+    android:background="?attr/colorSurface"
     android:orientation="vertical"
     app:layoutDescription="@xml/activity_calculator_scene">
 
@@ -28,37 +28,69 @@
         layout="@layout/display_two_line"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHeight_percent="@dimen/layout_display_ratio"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/tool_strip"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent" />
 
-    <include
-        android:id="@+id/advanced_pad"
-        layout="@layout/advanced_pad"
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/content_panel"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHeight_percent="@dimen/layout_advanced_pad_ratio"
+        android:background="?attr/colorSurface"
+        android:clickable="true"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/tool_strip"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/display" />
+        app:layout_constraintEnd_toEndOf="parent" />
 
-    <include
-        android:id="@+id/input_pad"
-        layout="@layout/input_pad"
+    <com.android.calculator2.toolbox.ToolStripView
+        android:id="@+id/tool_strip"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        app:layout_constraintBottom_toTopOf="@id/keypad_container"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/keypad_container"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHeight_percent="@dimen/layout_input_pad_ratio"
+        app:layout_constraintHeight_percent="0.55"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/advanced_pad" />
+        app:layout_constraintEnd_toEndOf="parent">
+        
+        <include
+            android:id="@+id/advanced_pad"
+            layout="@layout/advanced_pad"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@+id/input_pad"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintVertical_weight="0.4" />
+
+        <include
+            android:id="@+id/input_pad"
+            layout="@layout/input_pad"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toBottomOf="@+id/advanced_pad"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintVertical_weight="0.6" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <FrameLayout
         android:id="@+id/animation_helper"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHeight_percent="@dimen/layout_pads_ratio"
+        app:layout_constraintHeight_percent="0.55"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="parent" />
 

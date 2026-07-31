@@ -13,8 +13,8 @@
         motion:layoutDuringTransition="honorRequest">
         <OnSwipe
             motion:dragDirection="dragDown"
-            motion:limitBoundsTo="@id/display"
-            motion:touchAnchorId="@id/display"
+            motion:limitBoundsTo="@id/display_panel"
+            motion:touchAnchorId="@id/display_panel"
             motion:touchAnchorSide="bottom" />
     </Transition>
 
@@ -25,33 +25,39 @@
             android:id="@id/history_frame"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            motion:layout_constraintBottom_toTopOf="@id/display"
-            motion:layout_constraintEnd_toEndOf="parent"
-            motion:layout_constraintStart_toStartOf="parent"
+            motion:layout_constraintBottom_toTopOf="@id/display_panel"
+            motion:layout_constraintEnd_toEndOf="@id/display_panel"
+            motion:layout_constraintStart_toStartOf="@id/display_panel"
             motion:layout_constraintTop_toTopOf="parent" />
         <Constraint
-            android:id="@+id/display"
+            android:id="@+id/display_panel"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            motion:layout_constraintBottom_toTopOf="@id/advanced_pad"
-            motion:layout_constraintEnd_toEndOf="parent"
-            motion:layout_constraintHeight_percent="@dimen/layout_display_ratio"
-            motion:layout_constraintStart_toStartOf="parent" />
+            motion:layout_constraintBottom_toTopOf="@id/tool_strip"
+            motion:layout_constraintEnd_toEndOf="@id/display_panel"
+            motion:layout_constraintStart_toStartOf="@id/display_panel" />
         <Constraint
-            android:id="@id/advanced_pad"
+            android:id="@id/tool_strip"
             android:layout_width="0dp"
-            android:layout_height="0dp"
-            motion:layout_constraintBottom_toTopOf="@id/input_pad"
+            android:layout_height="48dp"
+            motion:layout_constraintBottom_toTopOf="@id/content_panel"
             motion:layout_constraintEnd_toEndOf="parent"
-            motion:layout_constraintHeight_percent="@dimen/layout_advanced_pad_ratio"
             motion:layout_constraintStart_toStartOf="parent" />
         <Constraint
-            android:id="@id/input_pad"
+            android:id="@id/content_panel"
             android:layout_width="0dp"
             android:layout_height="0dp"
             motion:layout_constraintBottom_toBottomOf="@id/animation_helper"
             motion:layout_constraintEnd_toEndOf="parent"
-            motion:layout_constraintHeight_percent="@dimen/layout_input_pad_ratio"
+            motion:layout_constraintHeight_percent="0.52"
+            motion:layout_constraintStart_toStartOf="parent" />
+        <Constraint
+            android:id="@id/keypad_container"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            motion:layout_constraintBottom_toBottomOf="@id/animation_helper"
+            motion:layout_constraintEnd_toEndOf="parent"
+            motion:layout_constraintHeight_percent="0.52"
             motion:layout_constraintStart_toStartOf="parent" />
     </ConstraintSet>
 </MotionScene>

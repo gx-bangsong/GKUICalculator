@@ -324,6 +324,9 @@ public class Calculator extends AppCompatActivity
         mResultText.setEvaluator(mEvaluator, Evaluator.MAIN_INDEX);
         KeyMaps.setActivity(this);
 
+        // 初始化全能工具箱
+        com.android.calculator2.toolbox.ToolboxInitializer.initialize(this);
+
         final TextView dpButton = findViewById(R.id.input_pad).findViewById(R.id.dec_point);
         dpButton.setText(getDecimalSeparator());
 
@@ -703,6 +706,9 @@ public class Calculator extends AppCompatActivity
     }
 
     public void onButtonClick(View view) {
+        if (com.android.calculator2.toolbox.ToolboxInitializer.INSTANCE.handleButtonClick(view)) {
+            return;
+        }
         // Any animation is ended before we get here.
         stopActionModeOrContextMenu();
 
