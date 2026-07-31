@@ -45,25 +45,20 @@ public class DisplayMotionLayout extends MotionLayout {
         switch (motionEvent.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN:
+                // When a tool's control slot is visible, disable the history drag entirely so
+                // taps on interactive controls (currency/unit selectors, fields) pass through.
+                View controlSlot = findViewById(R.id.tool_control_slot);
+                if (controlSlot != null && controlSlot.getVisibility() == View.VISIBLE) {
+                    mPointerId = -1;
+                    mIsScrolling = false;
+                    mOutOfBounds = true;
+                    clearLastMotion();
+                    return false;
+                }
                 Rect hitRect = new Rect();
 
                 findViewById(R.id.display).getHitRect(hitRect);
                 if (hitRect.contains((int) motionEvent.getX(), (int) motionEvent.getY())) {
-                    // If the touch lands on the tool control slot (visible when a tool is active),
-                    // don't track for history-drag — let clicks pass through to interactive controls.
-                    View controlSlot = findViewById(R.id.tool_control_slot);
-                    if (controlSlot != null && controlSlot.getVisibility() == View.VISIBLE) {
-                        Rect slotRect = new Rect();
-                        controlSlot.getHitRect(slotRect);
-                        if (slotRect.contains((int) motionEvent.getX(), (int) motionEvent.getY())) {
-                            mPointerId = -1;
-                            mIsScrolling = false;
-                            mOutOfBounds = true;
-                            clearLastMotion();
-                            break;
-                        }
-                    }
-                    mPreviousPoint = new PointF(motionEvent.getX(),motionEvent.getY());
                     mPointerId = motionEvent.getPointerId(0);
                     mIsScrolling = false;
                     mOutOfBounds = false;
