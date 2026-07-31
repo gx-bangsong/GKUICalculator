@@ -9,10 +9,7 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
-import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -65,12 +62,11 @@ public class CurrencyConverterMode implements ToolMode {
     @Nullable
     private View mControlRoot;
     @Nullable
-    private Spinner mFromSpinner;
+    private TextView mFromView;
     @Nullable
-    private Spinner mToSpinner;
+    private TextView mToView;
     @Nullable
     private TextView mUpdateLabel;
-    private boolean mUpdating;
 
     @NonNull
     @Override
@@ -192,24 +188,14 @@ public class CurrencyConverterMode implements ToolMode {
         }
         mControlRoot = LayoutInflater.from(context)
                 .inflate(R.layout.tool_currency_control, slot, false);
-        mFromSpinner = mControlRoot.findViewById(R.id.currency_from);
-        mToSpinner = mControlRoot.findViewById(R.id.currency_to);
+        mFromView = mControlRoot.findViewById(R.id.currency_from);
+        mToView = mControlRoot.findViewById(R.id.currency_to);
         mUpdateLabel = mControlRoot.findViewById(R.id.currency_update_label);
         final ImageButton swap = mControlRoot.findViewById(R.id.currency_swap);
         swap.setOnClickListener(v -> swapCurrencies());
-
-        final ArrayAdapter<String> adapter = new ArrayAdapter<>(context,
-                android.R.layout.simple_spinner_item, shortLabels());
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-
-        mUpdating = true;
-        mFromSpinner.setAdapter(adapter);
-        mToSpinner.setAdapter(adapter);
-        mFromSpinner.setSelection(clamp(mFromIndex));
-        mToSpinner.setSelection(clamp(mToIndex));
-        mFromSpinner.setOnItemSelectedListener(new SelectionListener(true));
-        mToSpinner.setOnItemSelectedListener(new SelectionListener(false));
-        mUpdating = false;
+        mFromView.setOnClickListener(v -> showCurrencyPicker(true));
+        mToView.setOnClickListener(v -> showCurrencyPicker(false));
+        updateCurrencyLabels();
 
         if (mUpdateLabel != null) {
             mUpdateLabel.setText(R.string.currency_loading);
@@ -227,8 +213,8 @@ public class CurrencyConverterMode implements ToolMode {
             slot.setVisibility(View.GONE);
         }
         mControlRoot = null;
-        mFromSpinner = null;
-        mToSpinner = null;
+        mFromView = null;
+        mToView = null;
         mUpdateLabel = null;
     }
 
@@ -236,39 +222,42 @@ public class CurrencyConverterMode implements ToolMode {
         final int tmp = mFromIndex;
         mFromIndex = mToIndex;
         mToIndex = tmp;
-        mUpdating = true;
-        if (mFromSpinner != null) {
-            mFromSpinner.setSelection(clamp(mFromIndex));
-        }
-        if (mToSpinner != null) {
-            mToSpinner.setSelection(clamp(mToIndex));
-        }
-        mUpdating = false;
+        updateCurrencyLabels();
         redisplay();
     }
 
-    private final class SelectionListener implements AdapterView.OnItemSelectedListener {
-        private final boolean mFrom;
-
-        SelectionListener(boolean from) {
-            mFrom = from;
+    private void showCurrencyPicker(boolean isFrom) {
+        if (mHost == null || mControlRoot == null || mCurrencies.isEmpty()) {
+            return;
         }
-
-        @Override
-        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-            if (mUpdating) {
-                return;
-            }
-            if (mFrom) {
-                mFromIndex = position;
+        final TextView anchor = isFrom ? mFromView : mToView;
+        if (anchor == null) {
+            return;
+        }
+        final android.widget.PopupMenu popup =
+                new android.widget.PopupMenu(mHost.getContext(), anchor);
+        for (int i = 0; i < mCurrencies.size(); i++) {
+            popup.getMenu().add(0, i, i, mCurrencies.get(i).shortLabel());
+        }
+        popup.setOnMenuItemClickListener(item -> {
+            if (isFrom) {
+                mFromIndex = item.getItemId();
             } else {
-                mToIndex = position;
+                mToIndex = item.getItemId();
             }
+            updateCurrencyLabels();
             redisplay();
-        }
+            return true;
+        });
+        popup.show();
+    }
 
-        @Override
-        public void onNothingSelected(AdapterView<?> parent) {
+    private void updateCurrencyLabels() {
+        if (mFromView != null && !mCurrencies.isEmpty()) {
+            mFromView.setText(mCurrencies.get(clamp(mFromIndex)).shortLabel());
+        }
+        if (mToView != null && !mCurrencies.isEmpty()) {
+            mToView.setText(mCurrencies.get(clamp(mToIndex)).shortLabel());
         }
     }
 

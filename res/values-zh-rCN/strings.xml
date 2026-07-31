@@ -151,4 +151,6 @@
     <string name="tool_date_swapped">已反序</string>
     <string name="tool_date_arrow" translatable="false">→</string>
 
+    <string name="tool_date_weeks">周</string>
+    <string name="tool_date_hours">时</string>
 </resources>

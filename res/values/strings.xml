@@ -429,4 +429,7 @@
     <!-- Date interval: arrow between the two date pickers. [CHAR_LIMIT=NONE] -->
     <string name="tool_date_arrow">→</string>
 
+    <!-- Date interval: weeks/hours units -->
+    <string name="tool_date_weeks">w</string>
+    <string name="tool_date_hours">h</string>
 </resources>

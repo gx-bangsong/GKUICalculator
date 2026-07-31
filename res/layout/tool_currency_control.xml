@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-     Currency-converter control, mounted by CurrencyConverterMode into tool_control_slot.
-     Row 1: [ from ] [ swap ] [ to ]; Row 2: small update-time / status label.
--->
+<!-- Currency: from/to as tappable TextViews (tap to pick currency via popup), swap, update time. -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -16,36 +13,40 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-        <Spinner
+        <TextView
             android:id="@+id/currency_from"
+            style="@style/ToolFieldStyle"
             android:layout_width="0dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:spinnerMode="dropdown" />
+            android:paddingStart="@dimen/tool_chip_spacing"
+            android:paddingEnd="@dimen/tool_chip_spacing"
+            android:text="→"
+            android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+        <TextView
+            android:id="@+id/currency_to"
+            style="@style/ToolFieldStyle"
+            android:layout_width="0dp"
+            android:layout_weight="1" />
 
         <ImageButton
             android:id="@+id/currency_swap"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/tool_chip_spacing"
-            android:layout_marginEnd="@dimen/tool_chip_spacing"
-            android:minWidth="@dimen/button_iconsize"
-            android:minHeight="@dimen/button_iconsize"
-            android:padding="@dimen/tool_bar_vertical_padding"
             android:background="?attr/selectableItemBackgroundBorderless"
+            android:minWidth="36dp"
+            android:minHeight="36dp"
+            android:padding="6dp"
             android:src="@drawable/ic_unit_swap"
             android:contentDescription="@string/unit_swap_desc" />
-
-        <Spinner
-            android:id="@+id/currency_to"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:spinnerMode="dropdown" />
-
     </LinearLayout>
 
     <TextView
@@ -53,7 +54,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="end"
-        android:paddingTop="2dp"
+        android:paddingTop="1dp"
         android:textAppearance="?attr/textAppearanceLabelSmall"
         android:textColor="?colorOnSurfaceVariant"
         android:text="@string/currency_loading" />

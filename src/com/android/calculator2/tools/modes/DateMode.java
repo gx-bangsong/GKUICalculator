@@ -170,8 +170,25 @@ public class DateMode implements ToolMode {
             return;
         }
         final Context ctx = host.getContext();
+        // Formula line: total days.
         host.setToolFormula(ctx.getString(R.string.tool_date_days, r.days));
-        host.setToolResult(periodText(ctx, r.period, r.swapped));
+        // Result line: weeks + remaining days + total hours (no redundant period breakdown).
+        final long days = r.days;
+        final long weeks = days / 7;
+        final long remDays = days % 7;
+        final long hours = days * 24;
+        final StringBuilder sb = new StringBuilder();
+        if (weeks > 0) {
+            sb.append(weeks).append(ctx.getString(R.string.tool_date_weeks)).append(" ");
+        }
+        sb.append(remDays).append(ctx.getString(R.string.tool_date_days_short));
+        if (hours > 0) {
+            sb.append(" · ").append(hours).append(ctx.getString(R.string.tool_date_hours));
+        }
+        if (r.swapped) {
+            sb.append("  (").append(ctx.getString(R.string.tool_date_swapped)).append(")");
+        }
+        host.setToolResult(sb.toString().trim());
     }
 
     @NonNull
