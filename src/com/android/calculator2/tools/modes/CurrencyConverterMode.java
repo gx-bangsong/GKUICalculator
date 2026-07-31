@@ -66,6 +66,10 @@ public class CurrencyConverterMode implements ToolMode {
     @Nullable
     private TextView mToView;
     @Nullable
+    private TextView mInputView;
+    @Nullable
+    private TextView mResultView;
+    @Nullable
     private TextView mUpdateLabel;
 
     @NonNull
@@ -190,6 +194,8 @@ public class CurrencyConverterMode implements ToolMode {
                 .inflate(R.layout.tool_currency_control, slot, false);
         mFromView = mControlRoot.findViewById(R.id.currency_from);
         mToView = mControlRoot.findViewById(R.id.currency_to);
+        mInputView = mControlRoot.findViewById(R.id.currency_input_text);
+        mResultView = mControlRoot.findViewById(R.id.currency_result_text);
         mUpdateLabel = mControlRoot.findViewById(R.id.currency_update_label);
         final ImageButton swap = mControlRoot.findViewById(R.id.currency_swap);
         swap.setOnClickListener(v -> swapCurrencies());
@@ -221,6 +227,8 @@ public class CurrencyConverterMode implements ToolMode {
         mControlRoot = null;
         mFromView = null;
         mToView = null;
+        mInputView = null;
+        mResultView = null;
         mUpdateLabel = null;
     }
 
@@ -281,18 +289,25 @@ public class CurrencyConverterMode implements ToolMode {
         final CurrencyDef to = mCurrencies.get(clamp(mToIndex));
         final BigDecimal value = parseInput();
 
-        host.setToolFormula(displayInput());
-
-        String result;
+        final String resultText;
         if (value == null || mRates == null) {
-            result = "—";
+            resultText = "—";
         } else {
             final BigDecimal fromRate = mRates.rateFor(from.getId());
             final BigDecimal toRate = mRates.rateFor(to.getId());
             final BigDecimal out = CurrencyConversion.convert(value, fromRate, toRate, MC);
-            result = (out == null ? "—" : format(out));
+            resultText = (out == null ? "—" : format(out));
         }
-        host.setToolResult(result);
+        // Update the inline number+unit display in the control slot (not the big display lines).
+        if (mInputView != null) {
+            mInputView.setText(displayInput());
+        }
+        if (mResultView != null) {
+            mResultView.setText(resultText);
+        }
+        // Keep the big display lines empty — the conversion with tappable units is in the slot.
+        host.setToolFormula("");
+        host.setToolResult("");
     }
 
     @Nullable
