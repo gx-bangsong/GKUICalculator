@@ -227,29 +227,27 @@ public class CurrencyConverterMode implements ToolMode {
     }
 
     private void showCurrencyPicker(boolean isFrom) {
-        if (mHost == null || mControlRoot == null || mCurrencies.isEmpty()) {
+        if (mHost == null || mCurrencies.isEmpty()) {
             return;
         }
-        final TextView anchor = isFrom ? mFromView : mToView;
-        if (anchor == null) {
-            return;
-        }
-        final android.widget.PopupMenu popup =
-                new android.widget.PopupMenu(mHost.getContext(), anchor);
+        final Context ctx = mHost.getContext();
+        final String[] labels = new String[mCurrencies.size()];
         for (int i = 0; i < mCurrencies.size(); i++) {
-            popup.getMenu().add(0, i, i, mCurrencies.get(i).shortLabel());
+            labels[i] = mCurrencies.get(i).shortLabel();
         }
-        popup.setOnMenuItemClickListener(item -> {
-            if (isFrom) {
-                mFromIndex = item.getItemId();
-            } else {
-                mToIndex = item.getItemId();
-            }
-            updateCurrencyLabels();
-            redisplay();
-            return true;
-        });
-        popup.show();
+        final int current = isFrom ? clamp(mFromIndex) : clamp(mToIndex);
+        new android.app.AlertDialog.Builder(ctx)
+                .setSingleChoiceItems(labels, current, (d, which) -> {
+                    if (isFrom) {
+                        mFromIndex = which;
+                    } else {
+                        mToIndex = which;
+                    }
+                    updateCurrencyLabels();
+                    redisplay();
+                    d.dismiss();
+                })
+                .show();
     }
 
     private void updateCurrencyLabels() {
