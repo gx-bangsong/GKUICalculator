@@ -610,6 +610,41 @@ public class Calculator extends AppCompatActivity
         // Stop the action mode or context menu if it's showing.
         stopActionModeOrContextMenu();
 
+        // If a non-calculator tool is active, only allow numeric input and edit keys;
+        // completely block arithmetic operators (+, -, *, /) and scientific operations.
+        if (mToolManager != null && mToolManager.isActive()) {
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_DEL:
+                    mToolManager.handlePadClick(R.id.del);
+                    return true;
+                case KeyEvent.KEYCODE_CLEAR:
+                    mToolManager.handlePadClick(R.id.clr);
+                    return true;
+                case KeyEvent.KEYCODE_NUMPAD_DOT:
+                case KeyEvent.KEYCODE_PERIOD:
+                    mToolManager.handlePadClick(R.id.dec_point);
+                    return true;
+                default:
+                    int digit = -1;
+                    if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) {
+                        digit = keyCode - KeyEvent.KEYCODE_0;
+                    } else if (keyCode >= KeyEvent.KEYCODE_NUMPAD_0 && keyCode <= KeyEvent.KEYCODE_NUMPAD_9) {
+                        digit = keyCode - KeyEvent.KEYCODE_NUMPAD_0;
+                    }
+                    if (digit != -1) {
+                        int[] digitIds = {
+                            R.id.digit_0, R.id.digit_1, R.id.digit_2,
+                            R.id.digit_3, R.id.digit_4, R.id.digit_5,
+                            R.id.digit_6, R.id.digit_7, R.id.digit_8,
+                            R.id.digit_9
+                        };
+                        mToolManager.handlePadClick(digitIds[digit]);
+                    }
+                    // Silently consume all other keys (including +, -, *, /, enters, brackets, etc.)
+                    return true;
+            }
+        }
+
         // Always cancel unrequested in-progress evaluation of the main expression, so that
         // we don't have to worry about subsequent asynchronous completion.
         // Requested in-progress evaluations are handled below.
@@ -1431,6 +1466,7 @@ public class Calculator extends AppCompatActivity
         setState(CalculatorState.INPUT);
         mResultText.setShouldEvaluateResult(CalculatorResult.SHOULD_EVALUATE, this);
         evaluateInstantIfNecessary();
+        updateScientificToggleVisibility();
     }
 
     @Override
@@ -1444,6 +1480,24 @@ public class Calculator extends AppCompatActivity
         // Input-heavy tools want more display room: hide the scientific pad. The layout grows
         // the display automatically when it is gone. In calculator mode the user's toggle wins.
         applyAdvancedPadVisibility(expanded ? false : mScientificVisible);
+        updateScientificToggleVisibility();
+    }
+
+    private void updateScientificToggleVisibility() {
+        if (mScientificToggle == null) {
+            return;
+        }
+        if (mToolManager == null || !mToolManager.isActive()) {
+            mScientificToggle.setVisibility(View.VISIBLE);
+            return;
+        }
+        final String activeId = mToolManager.getActive().getId();
+        if (com.android.calculator2.tools.ToolId.CURRENCY.equals(activeId)
+                || com.android.calculator2.tools.ToolId.UNIT.equals(activeId)) {
+            mScientificToggle.setVisibility(View.VISIBLE);
+        } else {
+            mScientificToggle.setVisibility(View.GONE);
+        }
     }
 
     private void setupScientificToggle() {
@@ -1454,6 +1508,7 @@ public class Calculator extends AppCompatActivity
                 .getBoolean(PREF_SCIENTIFIC, true);
         applyAdvancedPadVisibility(mScientificVisible);
         updateScientificToggleLabel();
+        updateScientificToggleVisibility();
     }
 
     /** android:onClick handler for the scientific-pad toggle. */
