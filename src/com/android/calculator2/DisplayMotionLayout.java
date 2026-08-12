@@ -79,12 +79,14 @@ public class DisplayMotionLayout extends MotionLayout {
                 clearLastMotion();
                 break;
             case MotionEvent.ACTION_MOVE:
-                int pointerIndex = motionEvent.findPointerIndex(mPointerId);
-                if (mPointerId != -1 && pointerIndex != -1 && !mOutOfBounds) {
-                    float y = Math.abs(motionEvent.getY(pointerIndex) - mPreviousPoint.y);
-                    if (y > mTouchSlop) {
-                        mIsScrolling = true;
-                        onTouchEvent(mPreviousEvent);
+                if (mPointerId != -1 && !mOutOfBounds && mPreviousPoint != null) {
+                    int pointerIndex = motionEvent.findPointerIndex(mPointerId);
+                    if (pointerIndex != -1) {
+                        float y = Math.abs(motionEvent.getY(pointerIndex) - mPreviousPoint.y);
+                        if (y > mTouchSlop) {
+                            mIsScrolling = true;
+                            onTouchEvent(mPreviousEvent);
+                        }
                     }
                 }
                 break;
@@ -100,6 +102,13 @@ public class DisplayMotionLayout extends MotionLayout {
             mPreviousEvent.recycle();
         }
         mPreviousEvent = MotionEvent.obtain(motionEvent);
+        int pointerIndex = motionEvent.findPointerIndex(mPointerId);
+        if (pointerIndex != -1) {
+            if (mPreviousPoint == null) {
+                mPreviousPoint = new PointF();
+            }
+            mPreviousPoint.set(motionEvent.getX(pointerIndex), motionEvent.getY(pointerIndex));
+        }
     }
 
     private void clearLastMotion()
@@ -108,5 +117,6 @@ public class DisplayMotionLayout extends MotionLayout {
             mPreviousEvent.recycle();
             mPreviousEvent = null;
         }
+        mPreviousPoint = null;
     }
 }
