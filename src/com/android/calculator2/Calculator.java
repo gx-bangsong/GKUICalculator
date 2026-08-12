@@ -1435,8 +1435,13 @@ public class Calculator extends AppCompatActivity
             mToolControlSlot.removeAllViews();
             mToolControlSlot.setVisibility(View.GONE);
         }
-        // Reset the result text size to the default; tools that need a smaller size set their own.
-        mResultText.setTextSize(TypedValue.COMPLEX_UNIT_PX, mResultTextSizeOriginalPx);
+        // Cap the formula auto-size: labeled tool outputs (e.g. "年度税额 11,880") must not
+        // grow to the tablet/foldable calculator max (128dip). Result line uses a compact
+        // size so secondary numbers stay on one line.
+        mFormulaText.setMaximumTextSizeOverride(
+                getResources().getDimension(R.dimen.tool_formula_max_textsize));
+        mResultText.setTextSize(TypedValue.COMPLEX_UNIT_PX,
+                getResources().getDimension(R.dimen.tool_result_textsize));
         // Compact the formula/result paddings (the default has 32dp bottom for the calculator's
         // big result — that wastes space and causes field rows to push results out of view).
         final int fs = mFormulaText.getPaddingStart();
@@ -1456,6 +1461,7 @@ public class Calculator extends AppCompatActivity
             mToolControlSlot.setVisibility(View.GONE);
         }
         mResultText.setTextSize(TypedValue.COMPLEX_UNIT_PX, mResultTextSizeOriginalPx);
+        mFormulaText.clearMaximumTextSizeOverride();
         // Restore the original formula/result paddings.
         mFormulaText.setPadding(mFormulaText.getPaddingStart(), mFormulaPadTop,
                 mFormulaText.getPaddingEnd(), mFormulaPadBottom);

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: 2026 The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <!-- How many non-calculator tools to pin on the bar. 0 = pin every registered tool. -->
+    <integer name="tool_bar_pinned_count">3</integer>
+</resources>

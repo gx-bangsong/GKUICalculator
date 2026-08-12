@@ -40,7 +40,7 @@ import java.text.DecimalFormat;
  */
 public abstract class FieldToolMode implements ToolMode {
 
-    /** Compact result-line text size (sp) for multi-field tools, so long results fit. */
+    /** Compact result-line text size (sp) fallback if the dimen is missing. */
     private static final float TOOL_RESULT_TEXT_SP = 14f;
 
     @Nullable
@@ -93,7 +93,11 @@ public abstract class FieldToolMode implements ToolMode {
             mFields.set(0, carryValue);
         }
         // Multi-field results are long; use a compact result text size so they fit.
-        host.setToolResultTextSizeSp(TOOL_RESULT_TEXT_SP);
+        // Prefer the resource so tablets/foldables can use a slightly larger (but still
+        // compact) size than phones.
+        final float px = context.getResources().getDimension(R.dimen.tool_result_textsize);
+        final float sp = px / context.getResources().getDisplayMetrics().scaledDensity;
+        host.setToolResultTextSizeSp(sp > 0f ? sp : TOOL_RESULT_TEXT_SP);
         mountControls(context);
         recomputeAndDisplay();
     }

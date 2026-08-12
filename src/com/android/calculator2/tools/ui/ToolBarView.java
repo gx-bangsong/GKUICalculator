@@ -26,7 +26,8 @@ import java.util.List;
  * The persistent tool bar shown between the display and the pads (collapsed state).
  * <p>
  * A horizontally scrollable row of chips (always led by the calculator chip, followed by the
- * most-frequently-used tools) plus a trailing "more" button that toggles the overlay panel.
+ * most-frequently-used tools — or every tool on tablets/unfolded foldables) plus a trailing
+ * "more" button that toggles the overlay panel.
  * The active mode's chip is highlighted; tapping the active chip returns to the calculator.
  */
 public class ToolBarView extends LinearLayout {

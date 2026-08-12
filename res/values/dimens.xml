@@ -44,6 +44,11 @@
     <dimen name="tool_bar_vertical_padding">2dp</dimen>
     <dimen name="tool_chip_spacing">4dp</dimen>
 
+    <!-- Tool-mode display: labeled outputs (tax / BMI / mortgage) must not use the
+         calculator's huge auto-sized formula. -->
+    <dimen name="tool_formula_max_textsize">32sp</dimen>
+    <dimen name="tool_result_textsize">14sp</dimen>
+
     <!-- Tool overlay panel -->
     <dimen name="tool_panel_corner_radius">20dp</dimen>
     <dimen name="tool_panel_elevation">6dp</dimen>
