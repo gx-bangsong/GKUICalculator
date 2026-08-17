@@ -9,6 +9,7 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
@@ -23,6 +24,7 @@ import com.android.calculator2.tools.data.CachedRates;
 import com.android.calculator2.tools.data.CurrencyDef;
 import com.android.calculator2.tools.data.ExchangeRateRepository;
 import com.android.calculator2.tools.model.CurrencyConversion;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -62,9 +64,9 @@ public class CurrencyConverterMode implements ToolMode {
     @Nullable
     private View mControlRoot;
     @Nullable
-    private TextView mFromView;
+    private MaterialAutoCompleteTextView mFromView;
     @Nullable
-    private TextView mToView;
+    private MaterialAutoCompleteTextView mToView;
     @Nullable
     private TextView mInputView;
     @Nullable
@@ -199,14 +201,8 @@ public class CurrencyConverterMode implements ToolMode {
         mUpdateLabel = mControlRoot.findViewById(R.id.currency_update_label);
         final ImageButton swap = mControlRoot.findViewById(R.id.currency_swap);
         swap.setOnClickListener(v -> swapCurrencies());
-        mFromView.setOnClickListener(v -> {
-            android.util.Log.d("ToolDebug", "currency FROM clicked — showing picker");
-            showCurrencyPicker(true);
-        });
-        mToView.setOnClickListener(v -> {
-            android.util.Log.d("ToolDebug", "currency TO clicked — showing picker");
-            showCurrencyPicker(false);
-        });
+        configureCurrencyDropdown(mFromView, true, context);
+        configureCurrencyDropdown(mToView, false, context);
         updateCurrencyLabels();
 
         if (mUpdateLabel != null) {
@@ -240,36 +236,35 @@ public class CurrencyConverterMode implements ToolMode {
         redisplay();
     }
 
-    private void showCurrencyPicker(boolean isFrom) {
-        if (mHost == null || mCurrencies.isEmpty()) {
+    private void configureCurrencyDropdown(@Nullable MaterialAutoCompleteTextView dropdown,
+            boolean isFrom, @NonNull Context context) {
+        if (dropdown == null) {
             return;
         }
-        final Context ctx = mHost.getContext();
-        final String[] labels = new String[mCurrencies.size()];
-        for (int i = 0; i < mCurrencies.size(); i++) {
-            labels[i] = mCurrencies.get(i).shortLabel();
-        }
-        final int current = isFrom ? clamp(mFromIndex) : clamp(mToIndex);
-        new android.app.AlertDialog.Builder(ctx)
-                .setSingleChoiceItems(labels, current, (d, which) -> {
-                    if (isFrom) {
-                        mFromIndex = which;
-                    } else {
-                        mToIndex = which;
-                    }
-                    updateCurrencyLabels();
-                    redisplay();
-                    d.dismiss();
-                })
-                .show();
+        dropdown.setAdapter(new ArrayAdapter<>(
+                context, R.layout.tool_dropdown_item, currencyMenuLabels()));
+        dropdown.setOnItemClickListener((parent, view, position, id) -> {
+            if (position < 0 || position >= mCurrencies.size()) {
+                return;
+            }
+            if (isFrom) {
+                mFromIndex = position;
+            } else {
+                mToIndex = position;
+            }
+            updateCurrencyLabels();
+            redisplay();
+        });
+        dropdown.setOnClickListener(v ->
+                ((MaterialAutoCompleteTextView) v).showDropDown());
     }
 
     private void updateCurrencyLabels() {
         if (mFromView != null && !mCurrencies.isEmpty()) {
-            mFromView.setText(mCurrencies.get(clamp(mFromIndex)).shortLabel());
+            mFromView.setText(mCurrencies.get(clamp(mFromIndex)).shortLabel(), false);
         }
         if (mToView != null && !mCurrencies.isEmpty()) {
-            mToView.setText(mCurrencies.get(clamp(mToIndex)).shortLabel());
+            mToView.setText(mCurrencies.get(clamp(mToIndex)).shortLabel(), false);
         }
     }
 
@@ -359,10 +354,10 @@ public class CurrencyConverterMode implements ToolMode {
     }
 
     @NonNull
-    private List<String> shortLabels() {
-        List<String> labels = new ArrayList<>();
+    private List<String> currencyMenuLabels() {
+        final List<String> labels = new ArrayList<>();
         for (CurrencyDef currency : mCurrencies) {
-            labels.add(currency.shortLabel());
+            labels.add(currency.shortLabel() + " · " + currency.getName());
         }
         return labels;
     }

@@ -9,11 +9,13 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 
 import com.android.calculator2.R;
 import com.android.calculator2.tools.ToolHost;
@@ -24,6 +26,10 @@ import com.android.calculator2.tools.data.UnitDef;
 import com.android.calculator2.tools.data.UnitRepository;
 import com.android.calculator2.tools.model.TemperatureConversion;
 import com.android.calculator2.tools.model.UnitConversion;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -33,11 +39,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Offline unit conversion (length, area, volume, weight, temperature, ...), data-driven from
- * {@code assets/tools/units.json}.
- * <p>
- * The big display is cleared: the numbers and tappable unit/category buttons are placed
- * in the host's {@link ToolHost#getToolControlSlot()} in a spacious, iOS-calculator style layout.
+ * Offline, data-driven unit conversion. Category and unit selection use anchored exposed menus.
+ * Linear categories also expose an "Add custom unit" action that opens a Material 3 form and
+ * persists the resulting exact conversion factor through {@link UnitRepository}.
  */
 public class UnitConverterMode implements ToolMode {
 
@@ -61,11 +65,11 @@ public class UnitConverterMode implements ToolMode {
     @Nullable
     private View mControlRoot;
     @Nullable
-    private TextView mCategoryView;
+    private MaterialAutoCompleteTextView mCategoryView;
     @Nullable
-    private TextView mFromView;
+    private MaterialAutoCompleteTextView mFromView;
     @Nullable
-    private TextView mToView;
+    private MaterialAutoCompleteTextView mToView;
     @Nullable
     private TextView mInputView;
     @Nullable
@@ -154,7 +158,8 @@ public class UnitConverterMode implements ToolMode {
         if (slot == null) {
             return;
         }
-        mControlRoot = LayoutInflater.from(context).inflate(R.layout.tool_unit_control, slot, false);
+        mControlRoot = LayoutInflater.from(context)
+                .inflate(R.layout.tool_unit_control, slot, false);
         mCategoryView = mControlRoot.findViewById(R.id.unit_category);
         mFromView = mControlRoot.findViewById(R.id.unit_from);
         mToView = mControlRoot.findViewById(R.id.unit_to);
@@ -164,10 +169,8 @@ public class UnitConverterMode implements ToolMode {
         final ImageButton swap = mControlRoot.findViewById(R.id.unit_swap);
         swap.setOnClickListener(v -> swapUnits());
 
-        mCategoryView.setOnClickListener(v -> showCategoryPicker());
-        mFromView.setOnClickListener(v -> showUnitPicker(true));
-        mToView.setOnClickListener(v -> showUnitPicker(false));
-
+        configureCategoryDropdown(context);
+        configureUnitDropdowns(context);
         updateLabels();
 
         slot.removeAllViews();
@@ -189,6 +192,176 @@ public class UnitConverterMode implements ToolMode {
         mResultView = null;
     }
 
+    private void configureCategoryDropdown(@NonNull Context context) {
+        if (mCategoryView == null) {
+            return;
+        }
+        mCategoryView.setAdapter(dropdownAdapter(context, categoryNames()));
+        mCategoryView.setOnItemClickListener((parent, view, position, id) -> {
+            if (position < 0 || position >= mCategories.size()) {
+                return;
+            }
+            mCategoryIndex = position;
+            mFromIndex = 0;
+            mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
+            configureUnitDropdowns(context);
+            updateLabels();
+            redisplay();
+        });
+        showMenuOnClick(mCategoryView);
+    }
+
+    private void configureUnitDropdowns(@NonNull Context context) {
+        final UnitCategory category = currentCategory();
+        if (category == null) {
+            return;
+        }
+        final List<String> labels = unitMenuNames(category);
+        if (mFromView != null) {
+            mFromView.setAdapter(dropdownAdapter(context, labels));
+            mFromView.setOnItemClickListener((parent, view, position, id) ->
+                    onUnitMenuItemSelected(true, position));
+            showMenuOnClick(mFromView);
+        }
+        if (mToView != null) {
+            mToView.setAdapter(dropdownAdapter(context, labels));
+            mToView.setOnItemClickListener((parent, view, position, id) ->
+                    onUnitMenuItemSelected(false, position));
+            showMenuOnClick(mToView);
+        }
+    }
+
+    private void onUnitMenuItemSelected(boolean isFrom, int position) {
+        final UnitCategory category = currentCategory();
+        if (category == null) {
+            return;
+        }
+        final int unitCount = category.getUnits().size();
+        if (!category.isAffine() && position == unitCount) {
+            // Restore the current value while the form is open instead of displaying the action
+            // label as though it were a selected unit.
+            updateLabels();
+            showCustomUnitDialog(isFrom);
+            return;
+        }
+        if (position < 0 || position >= unitCount) {
+            updateLabels();
+            return;
+        }
+        if (isFrom) {
+            mFromIndex = position;
+        } else {
+            mToIndex = position;
+        }
+        updateLabels();
+        redisplay();
+    }
+
+    private void showCustomUnitDialog(boolean selectAsFrom) {
+        final ToolHost host = mHost;
+        final UnitRepository repository = mRepository;
+        final UnitCategory category = currentCategory();
+        if (host == null || repository == null || category == null || category.isAffine()
+                || category.getUnits().isEmpty()) {
+            return;
+        }
+        final Context context = host.getContext();
+        final View content = LayoutInflater.from(context)
+                .inflate(R.layout.dialog_custom_unit, null);
+        final TextInputLayout nameLayout = content.findViewById(R.id.custom_unit_name_layout);
+        final TextInputLayout valueLayout = content.findViewById(R.id.custom_unit_value_layout);
+        final TextInputEditText nameInput = content.findViewById(R.id.custom_unit_name);
+        final TextInputEditText valueInput = content.findViewById(R.id.custom_unit_value);
+        final MaterialAutoCompleteTextView baseDropdown =
+                content.findViewById(R.id.custom_unit_base);
+
+        // Snapshot the units shown in this modal form so selection remains stable.
+        final List<UnitDef> baseUnits = new ArrayList<>(category.getUnits());
+        final List<String> baseNames = new ArrayList<>();
+        for (UnitDef unit : baseUnits) {
+            baseNames.add(unit.getDisplayName());
+        }
+        baseDropdown.setAdapter(dropdownAdapter(context, baseNames));
+        final int[] selectedBase = {baseUnitIndex(category)};
+        baseDropdown.setText(baseUnits.get(selectedBase[0]).getDisplayName(), false);
+        baseDropdown.setOnItemClickListener((parent, view, position, id) -> {
+            if (position >= 0 && position < baseUnits.size()) {
+                selectedBase[0] = position;
+            }
+        });
+        showMenuOnClick(baseDropdown);
+
+        final AlertDialog dialog = new MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.custom_unit_title)
+                .setView(content)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.custom_unit_add, null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    nameLayout.setError(null);
+                    valueLayout.setError(null);
+
+                    final String name = nameInput.getText() == null
+                            ? "" : nameInput.getText().toString().trim();
+                    if (name.isEmpty()) {
+                        nameLayout.setError(context.getString(R.string.custom_unit_name_required));
+                        return;
+                    }
+                    if (hasUnitName(category, name)) {
+                        nameLayout.setError(
+                                context.getString(R.string.custom_unit_name_duplicate));
+                        return;
+                    }
+
+                    final String valueText = valueInput.getText() == null
+                            ? "" : valueInput.getText().toString().trim();
+                    final BigDecimal conversionValue;
+                    try {
+                        conversionValue = new BigDecimal(valueText);
+                    } catch (NumberFormatException e) {
+                        valueLayout.setError(
+                                context.getString(R.string.custom_unit_value_invalid));
+                        return;
+                    }
+                    if (conversionValue.signum() <= 0) {
+                        valueLayout.setError(
+                                context.getString(R.string.custom_unit_value_invalid));
+                        return;
+                    }
+
+                    final UnitDef selected = baseUnits.get(selectedBase[0]);
+                    if (selected.getFactor() == null) {
+                        valueLayout.setError(
+                                context.getString(R.string.custom_unit_value_invalid));
+                        return;
+                    }
+                    // Example: 1 new unit = 2 ft, and 1 ft = 0.3048 m, therefore the stored
+                    // category-base factor for the new unit is 0.6096 m.
+                    final BigDecimal factor = conversionValue.multiply(selected.getFactor());
+                    final UnitDef added = repository.addCustomUnit(
+                            category.getId(), name, factor);
+                    if (added == null) {
+                        valueLayout.setError(
+                                context.getString(R.string.custom_unit_save_failed));
+                        return;
+                    }
+
+                    mCategories = repository.getCategories();
+                    final int addedIndex = indexOfUnitId(currentCategory(), added.getId());
+                    if (selectAsFrom) {
+                        mFromIndex = addedIndex;
+                    } else {
+                        mToIndex = addedIndex;
+                    }
+                    configureUnitDropdowns(context);
+                    updateLabels();
+                    redisplay();
+                    dialog.dismiss();
+                }));
+        dialog.show();
+    }
+
     private void swapUnits() {
         final int tmp = mFromIndex;
         mFromIndex = mToIndex;
@@ -197,59 +370,30 @@ public class UnitConverterMode implements ToolMode {
         redisplay();
     }
 
-    private void showCategoryPicker() {
-        if (mHost == null || mCategories.isEmpty()) {
-            return;
-        }
-        final Context ctx = mHost.getContext();
-        final String[] labels = categoryNames().toArray(new String[0]);
-        new android.app.AlertDialog.Builder(ctx)
-                .setSingleChoiceItems(labels, mCategoryIndex, (d, which) -> {
-                    mCategoryIndex = which;
-                    mFromIndex = 0;
-                    mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
-                    updateLabels();
-                    redisplay();
-                    d.dismiss();
-                })
-                .show();
-    }
-
-    private void showUnitPicker(boolean isFrom) {
-        if (mHost == null || mCategories.isEmpty()) {
-            return;
-        }
-        final Context ctx = mHost.getContext();
-        final String[] labels = unitNames(mCategoryIndex).toArray(new String[0]);
-        final int current = isFrom ? clamp(mFromIndex) : clamp(mToIndex);
-        new android.app.AlertDialog.Builder(ctx)
-                .setSingleChoiceItems(labels, current, (d, which) -> {
-                    if (isFrom) {
-                        mFromIndex = which;
-                    } else {
-                        mToIndex = which;
-                    }
-                    updateLabels();
-                    redisplay();
-                    d.dismiss();
-                })
-                .show();
-    }
-
     private void updateLabels() {
         final UnitCategory category = currentCategory();
         if (category == null) {
             return;
         }
         if (mCategoryView != null) {
-            mCategoryView.setText(category.getDisplayName());
+            mCategoryView.setText(category.getDisplayName(), false);
         }
         if (mFromView != null && !category.getUnits().isEmpty()) {
-            mFromView.setText(category.getUnits().get(clamp(mFromIndex)).getDisplayName());
+            mFromView.setText(category.getUnits().get(clamp(mFromIndex)).getDisplayName(), false);
         }
         if (mToView != null && !category.getUnits().isEmpty()) {
-            mToView.setText(category.getUnits().get(clamp(mToIndex)).getDisplayName());
+            mToView.setText(category.getUnits().get(clamp(mToIndex)).getDisplayName(), false);
         }
+    }
+
+    private static void showMenuOnClick(@NonNull MaterialAutoCompleteTextView view) {
+        view.setOnClickListener(v -> ((MaterialAutoCompleteTextView) v).showDropDown());
+    }
+
+    @NonNull
+    private static ArrayAdapter<String> dropdownAdapter(@NonNull Context context,
+            @NonNull List<String> labels) {
+        return new ArrayAdapter<>(context, R.layout.tool_dropdown_item, labels);
     }
 
     // ---- computation & display ----
@@ -275,7 +419,7 @@ public class UnitConverterMode implements ToolMode {
         final UnitDef to = category.getUnits().get(clamp(mToIndex));
         final BigDecimal value = parseInput();
 
-        String resultText;
+        final String resultText;
         if (value == null) {
             resultText = "—";
         } else {
@@ -289,8 +433,6 @@ public class UnitConverterMode implements ToolMode {
         if (mResultView != null) {
             mResultView.setText(resultText);
         }
-
-        // Clear the big display lines so the UI layout looks neat, centered, and matches currency
         host.setToolFormula("");
         host.setToolResult("");
     }
@@ -344,12 +486,8 @@ public class UnitConverterMode implements ToolMode {
         if (rounded.scale() < 0) {
             rounded = rounded.setScale(0, RoundingMode.HALF_UP);
         }
-        String text = rounded.toPlainString();
-        // Avoid a "-0" result.
-        if (text.equals("-0")) {
-            text = "0";
-        }
-        return text;
+        final String text = rounded.toPlainString();
+        return text.equals("-0") ? "0" : text;
     }
 
     // ---- helpers ----
@@ -375,9 +513,41 @@ public class UnitConverterMode implements ToolMode {
         return Math.max(0, Math.min(index, category.getUnits().size() - 1));
     }
 
+    private int baseUnitIndex(@NonNull UnitCategory category) {
+        final String baseId = category.getBaseUnitId();
+        if (baseId != null) {
+            for (int i = 0; i < category.getUnits().size(); i++) {
+                if (baseId.equals(category.getUnits().get(i).getId())) {
+                    return i;
+                }
+            }
+        }
+        return 0;
+    }
+
+    private static int indexOfUnitId(@Nullable UnitCategory category, @NonNull String id) {
+        if (category != null) {
+            for (int i = 0; i < category.getUnits().size(); i++) {
+                if (id.equals(category.getUnits().get(i).getId())) {
+                    return i;
+                }
+            }
+        }
+        return 0;
+    }
+
+    private static boolean hasUnitName(@NonNull UnitCategory category, @NonNull String name) {
+        for (UnitDef unit : category.getUnits()) {
+            if (name.equalsIgnoreCase(unit.getDisplayName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @NonNull
     private List<String> categoryNames() {
-        List<String> names = new ArrayList<>();
+        final List<String> names = new ArrayList<>();
         for (UnitCategory category : mCategories) {
             names.add(category.getDisplayName());
         }
@@ -385,12 +555,13 @@ public class UnitConverterMode implements ToolMode {
     }
 
     @NonNull
-    private List<String> unitNames(int categoryIndex) {
-        List<String> names = new ArrayList<>();
-        if (categoryIndex >= 0 && categoryIndex < mCategories.size()) {
-            for (UnitDef unit : mCategories.get(categoryIndex).getUnits()) {
-                names.add(unit.getDisplayName());
-            }
+    private List<String> unitMenuNames(@NonNull UnitCategory category) {
+        final List<String> names = new ArrayList<>();
+        for (UnitDef unit : category.getUnits()) {
+            names.add(unit.getDisplayName());
+        }
+        if (!category.isAffine() && mHost != null) {
+            names.add(mHost.getContext().getString(R.string.custom_unit_add_item));
         }
         return names;
     }

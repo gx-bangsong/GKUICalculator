@@ -339,11 +339,35 @@
     <string name="tool_units_weight">Weight</string>
     <!-- Unit category: temperature. [CHAR_LIMIT=20] -->
     <string name="tool_units_temperature">Temperature</string>
+    <string name="tool_units_time">Time</string>
+    <string name="tool_units_energy">Energy</string>
+    <string name="tool_units_power">Power</string>
+    <string name="tool_units_data">Data</string>
+    <string name="tool_units_pressure">Pressure</string>
+    <string name="tool_units_angle">Angle</string>
+    <string name="tool_units_speed">Speed</string>
     <!-- Shown when the unit data failed to load. [CHAR_LIMIT=40] -->
     <string name="tool_unit_no_data">No unit data</string>
     <string name="tool_unit_category_label">Category</string>
+    <string name="unit_from_desc">From unit</string>
+    <string name="unit_to_desc">To unit</string>
+    <string name="currency_from_desc">From currency</string>
+    <string name="currency_to_desc">To currency</string>
     <!-- Content description for the swap-units button. [CHAR_LIMIT=NONE] -->
     <string name="unit_swap_desc">Swap units</string>
+
+    <!-- Custom unit dialog. -->
+    <string name="custom_unit_add_item">＋ Add custom unit…</string>
+    <string name="custom_unit_title">Add custom unit</string>
+    <string name="custom_unit_name">New unit name</string>
+    <string name="custom_unit_base">Base unit</string>
+    <string name="custom_unit_value">Conversion value</string>
+    <string name="custom_unit_value_helper">1 new unit equals this many base units</string>
+    <string name="custom_unit_add">Add</string>
+    <string name="custom_unit_name_required">Enter a unit name</string>
+    <string name="custom_unit_name_duplicate">This unit name already exists</string>
+    <string name="custom_unit_value_invalid">Enter a number greater than zero</string>
+    <string name="custom_unit_save_failed">Could not save the custom unit</string>
 
     <!-- ============ Currency conversion (Stage 3) ============ -->
 

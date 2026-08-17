@@ -107,12 +107,14 @@
         <item name="android:gravity">center_vertical</item>
     </style>
 
-    <!-- Pill-shaped button style for unit and currency selections, styled like iOS calculator -->
+    <!-- Pill-shaped base style for compact selectors in the converter display. -->
     <style name="ToolUnitButtonStyle">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:minWidth">80dp</item>
-        <item name="android:gravity">center</item>
+        <item name="android:minWidth">96dp</item>
+        <item name="android:maxWidth">152dp</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="android:gravity">center_vertical</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
         <item name="android:background">@drawable/tool_unit_button_background</item>
@@ -120,9 +122,22 @@
         <item name="android:textSize">16sp</item>
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="android:paddingStart">16dp</item>
-        <item name="android:paddingEnd">16dp</item>
+        <item name="android:paddingEnd">8dp</item>
         <item name="android:paddingTop">8dp</item>
         <item name="android:paddingBottom">8dp</item>
+    </style>
+
+    <!-- Anchored exposed menu used instead of a full-screen/single-choice picker dialog. -->
+    <style name="ToolDropdownStyle" parent="ToolUnitButtonStyle">
+        <item name="android:inputType">none</item>
+        <item name="android:importantForAutofill">no</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:completionThreshold">0</item>
+        <item name="android:dropDownWidth">wrap_content</item>
+        <item name="android:popupElevation">8dp</item>
+        <item name="android:drawableEnd">@drawable/ic_arrow_drop_down</item>
+        <item name="android:drawablePadding">4dp</item>
     </style>
 
 </resources>

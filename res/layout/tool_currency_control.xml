@@ -29,12 +29,13 @@
             android:fontFamily="sans-serif-medium"
             android:textColor="?colorOnSurface" />
 
-        <TextView
+        <com.google.android.material.textfield.MaterialAutoCompleteTextView
             android:id="@+id/currency_from"
-            style="@style/ToolUnitButtonStyle"
+            style="@style/ToolDropdownStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp" />
+            android:layout_marginStart="16dp"
+            android:contentDescription="@string/currency_from_desc" />
 
         <!-- Placeholder view to align with Row 2's swap button -->
         <View
@@ -61,12 +62,13 @@
             android:fontFamily="sans-serif-medium"
             android:textColor="?colorOnSurface" />
 
-        <TextView
+        <com.google.android.material.textfield.MaterialAutoCompleteTextView
             android:id="@+id/currency_to"
-            style="@style/ToolUnitButtonStyle"
+            style="@style/ToolDropdownStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp" />
+            android:layout_marginStart="16dp"
+            android:contentDescription="@string/currency_to_desc" />
 
         <ImageButton
             android:id="@+id/currency_swap"
