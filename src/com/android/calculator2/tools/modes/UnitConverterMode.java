@@ -7,6 +7,7 @@ package com.android.calculator2.tools.modes;
 
 import android.content.Context;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
@@ -16,6 +17,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.PopupMenu;
 
 import com.android.calculator2.R;
 import com.android.calculator2.tools.ToolHost;
@@ -39,7 +41,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Offline, data-driven unit conversion. Category and unit selection use anchored exposed menus.
+ * Offline, data-driven unit conversion. Category and unit selection use anchored popup menus.
  * Linear categories also expose an "Add custom unit" action that opens a Material 3 form and
  * persists the resulting exact conversion factor through {@link UnitRepository}.
  */
@@ -65,15 +67,17 @@ public class UnitConverterMode implements ToolMode {
     @Nullable
     private View mControlRoot;
     @Nullable
-    private MaterialAutoCompleteTextView mCategoryView;
+    private TextView mCategoryView;
     @Nullable
-    private MaterialAutoCompleteTextView mFromView;
+    private TextView mFromView;
     @Nullable
-    private MaterialAutoCompleteTextView mToView;
+    private TextView mToView;
     @Nullable
     private TextView mInputView;
     @Nullable
     private TextView mResultView;
+    @Nullable
+    private PopupMenu mOpenDropdown;
 
     @NonNull
     @Override
@@ -169,8 +173,8 @@ public class UnitConverterMode implements ToolMode {
         final ImageButton swap = mControlRoot.findViewById(R.id.unit_swap);
         swap.setOnClickListener(v -> swapUnits());
 
-        configureCategoryDropdown(context);
-        configureUnitDropdowns(context);
+        configureCategoryDropdown();
+        configureUnitDropdowns();
         updateLabels();
 
         slot.removeAllViews();
@@ -179,6 +183,10 @@ public class UnitConverterMode implements ToolMode {
     }
 
     private void unmountControls(@NonNull ToolHost host) {
+        if (mOpenDropdown != null) {
+            mOpenDropdown.dismiss();
+            mOpenDropdown = null;
+        }
         final ViewGroup slot = host.getToolControlSlot();
         if (slot != null) {
             slot.removeAllViews();
@@ -192,43 +200,80 @@ public class UnitConverterMode implements ToolMode {
         mResultView = null;
     }
 
-    private void configureCategoryDropdown(@NonNull Context context) {
-        if (mCategoryView == null) {
+    private void configureCategoryDropdown() {
+        if (mCategoryView != null) {
+            mCategoryView.setOnClickListener(v -> showCategoryDropdown());
+        }
+    }
+
+    /** Uses one click source only; AutoCompleteTextView used to race its internal touch handler. */
+    private void showCategoryDropdown() {
+        if (mCategoryView == null || mCategories.isEmpty() || mOpenDropdown != null) {
             return;
         }
-        mCategoryView.setAdapter(dropdownAdapter(context, categoryNames()));
-        mCategoryView.setOnItemClickListener((parent, view, position, id) -> {
+        final PopupMenu popup = createPopup(mCategoryView);
+        for (int i = 0; i < mCategories.size(); i++) {
+            popup.getMenu().add(Menu.NONE, i + 1, i, mCategories.get(i).getDisplayName())
+                    .setCheckable(true)
+                    .setChecked(i == mCategoryIndex);
+        }
+        popup.setOnMenuItemClickListener(item -> {
+            final int position = item.getItemId() - 1;
             if (position < 0 || position >= mCategories.size()) {
-                return;
+                return false;
             }
             mCategoryIndex = position;
             mFromIndex = 0;
             mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
-            configureUnitDropdowns(context);
+            configureUnitDropdowns();
             updateLabels();
             redisplay();
+            return true;
         });
-        showMenuOnClick(mCategoryView);
+        popup.show();
     }
 
-    private void configureUnitDropdowns(@NonNull Context context) {
-        final UnitCategory category = currentCategory();
-        if (category == null) {
-            return;
-        }
-        final List<String> labels = unitMenuNames(category);
+    private void configureUnitDropdowns() {
         if (mFromView != null) {
-            mFromView.setAdapter(dropdownAdapter(context, labels));
-            mFromView.setOnItemClickListener((parent, view, position, id) ->
-                    onUnitMenuItemSelected(true, position));
-            showMenuOnClick(mFromView);
+            mFromView.setOnClickListener(v -> showUnitDropdown(true));
         }
         if (mToView != null) {
-            mToView.setAdapter(dropdownAdapter(context, labels));
-            mToView.setOnItemClickListener((parent, view, position, id) ->
-                    onUnitMenuItemSelected(false, position));
-            showMenuOnClick(mToView);
+            mToView.setOnClickListener(v -> showUnitDropdown(false));
         }
+    }
+
+    private void showUnitDropdown(boolean isFrom) {
+        final UnitCategory category = currentCategory();
+        final TextView anchor = isFrom ? mFromView : mToView;
+        if (category == null || anchor == null || mOpenDropdown != null) {
+            return;
+        }
+        final PopupMenu popup = createPopup(anchor);
+        final List<String> labels = unitMenuNames(category);
+        final int selected = isFrom ? clamp(mFromIndex) : clamp(mToIndex);
+        for (int i = 0; i < labels.size(); i++) {
+            final boolean isUnit = i < category.getUnits().size();
+            popup.getMenu().add(Menu.NONE, i + 1, i, labels.get(i))
+                    .setCheckable(isUnit)
+                    .setChecked(isUnit && i == selected);
+        }
+        popup.setOnMenuItemClickListener(item -> {
+            onUnitMenuItemSelected(isFrom, item.getItemId() - 1);
+            return true;
+        });
+        popup.show();
+    }
+
+    @NonNull
+    private PopupMenu createPopup(@NonNull TextView anchor) {
+        final PopupMenu popup = new PopupMenu(anchor.getContext(), anchor);
+        mOpenDropdown = popup;
+        popup.setOnDismissListener(dismissed -> {
+            if (mOpenDropdown == dismissed) {
+                mOpenDropdown = null;
+            }
+        });
+        return popup;
     }
 
     private void onUnitMenuItemSelected(boolean isFrom, int position) {
@@ -282,6 +327,7 @@ public class UnitConverterMode implements ToolMode {
             baseNames.add(unit.getDisplayName());
         }
         baseDropdown.setAdapter(dropdownAdapter(context, baseNames));
+        baseDropdown.setThreshold(1);
         final int[] selectedBase = {baseUnitIndex(category)};
         baseDropdown.setText(baseUnits.get(selectedBase[0]).getDisplayName(), false);
         baseDropdown.setOnItemClickListener((parent, view, position, id) -> {
@@ -289,7 +335,6 @@ public class UnitConverterMode implements ToolMode {
                 selectedBase[0] = position;
             }
         });
-        showMenuOnClick(baseDropdown);
 
         final AlertDialog dialog = new MaterialAlertDialogBuilder(context)
                 .setTitle(R.string.custom_unit_title)
@@ -354,7 +399,7 @@ public class UnitConverterMode implements ToolMode {
                     } else {
                         mToIndex = addedIndex;
                     }
-                    configureUnitDropdowns(context);
+                    configureUnitDropdowns();
                     updateLabels();
                     redisplay();
                     dialog.dismiss();
@@ -376,18 +421,14 @@ public class UnitConverterMode implements ToolMode {
             return;
         }
         if (mCategoryView != null) {
-            mCategoryView.setText(category.getDisplayName(), false);
+            mCategoryView.setText(category.getDisplayName());
         }
         if (mFromView != null && !category.getUnits().isEmpty()) {
-            mFromView.setText(category.getUnits().get(clamp(mFromIndex)).getDisplayName(), false);
+            mFromView.setText(category.getUnits().get(clamp(mFromIndex)).getDisplayName());
         }
         if (mToView != null && !category.getUnits().isEmpty()) {
-            mToView.setText(category.getUnits().get(clamp(mToIndex)).getDisplayName(), false);
+            mToView.setText(category.getUnits().get(clamp(mToIndex)).getDisplayName());
         }
-    }
-
-    private static void showMenuOnClick(@NonNull MaterialAutoCompleteTextView view) {
-        view.setOnClickListener(v -> ((MaterialAutoCompleteTextView) v).showDropDown());
     }
 
     @NonNull

@@ -29,7 +29,7 @@
             android:textColor="?colorOnSurfaceVariant"
             android:text="@string/tool_unit_category_label" />
 
-        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+        <TextView
             android:id="@+id/unit_category"
             style="@style/ToolDropdownStyle"
             android:layout_width="wrap_content"
@@ -61,7 +61,7 @@
             android:fontFamily="sans-serif-medium"
             android:textColor="?colorOnSurface" />
 
-        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+        <TextView
             android:id="@+id/unit_from"
             style="@style/ToolDropdownStyle"
             android:layout_width="wrap_content"
@@ -93,7 +93,7 @@
             android:fontFamily="sans-serif-medium"
             android:textColor="?colorOnSurface" />
 
-        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+        <TextView
             android:id="@+id/unit_to"
             style="@style/ToolDropdownStyle"
             android:layout_width="wrap_content"

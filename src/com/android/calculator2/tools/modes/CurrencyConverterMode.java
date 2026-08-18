@@ -7,14 +7,15 @@ package com.android.calculator2.tools.modes;
 
 import android.content.Context;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.PopupMenu;
 
 import com.android.calculator2.R;
 import com.android.calculator2.tools.ToolHost;
@@ -24,7 +25,6 @@ import com.android.calculator2.tools.data.CachedRates;
 import com.android.calculator2.tools.data.CurrencyDef;
 import com.android.calculator2.tools.data.ExchangeRateRepository;
 import com.android.calculator2.tools.model.CurrencyConversion;
-import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -64,15 +64,17 @@ public class CurrencyConverterMode implements ToolMode {
     @Nullable
     private View mControlRoot;
     @Nullable
-    private MaterialAutoCompleteTextView mFromView;
+    private TextView mFromView;
     @Nullable
-    private MaterialAutoCompleteTextView mToView;
+    private TextView mToView;
     @Nullable
     private TextView mInputView;
     @Nullable
     private TextView mResultView;
     @Nullable
     private TextView mUpdateLabel;
+    @Nullable
+    private PopupMenu mOpenDropdown;
 
     @NonNull
     @Override
@@ -201,8 +203,8 @@ public class CurrencyConverterMode implements ToolMode {
         mUpdateLabel = mControlRoot.findViewById(R.id.currency_update_label);
         final ImageButton swap = mControlRoot.findViewById(R.id.currency_swap);
         swap.setOnClickListener(v -> swapCurrencies());
-        configureCurrencyDropdown(mFromView, true, context);
-        configureCurrencyDropdown(mToView, false, context);
+        configureCurrencyDropdown(mFromView, true);
+        configureCurrencyDropdown(mToView, false);
         updateCurrencyLabels();
 
         if (mUpdateLabel != null) {
@@ -215,6 +217,10 @@ public class CurrencyConverterMode implements ToolMode {
     }
 
     private void unmountControls(@NonNull ToolHost host) {
+        if (mOpenDropdown != null) {
+            mOpenDropdown.dismiss();
+            mOpenDropdown = null;
+        }
         final ViewGroup slot = host.getToolControlSlot();
         if (slot != null) {
             slot.removeAllViews();
@@ -236,16 +242,34 @@ public class CurrencyConverterMode implements ToolMode {
         redisplay();
     }
 
-    private void configureCurrencyDropdown(@Nullable MaterialAutoCompleteTextView dropdown,
-            boolean isFrom, @NonNull Context context) {
-        if (dropdown == null) {
+    private void configureCurrencyDropdown(@Nullable TextView dropdown, boolean isFrom) {
+        if (dropdown != null) {
+            dropdown.setOnClickListener(v -> showCurrencyDropdown(dropdown, isFrom));
+        }
+    }
+
+    private void showCurrencyDropdown(@NonNull TextView anchor, boolean isFrom) {
+        if (mCurrencies.isEmpty() || mOpenDropdown != null) {
             return;
         }
-        dropdown.setAdapter(new ArrayAdapter<>(
-                context, R.layout.tool_dropdown_item, currencyMenuLabels()));
-        dropdown.setOnItemClickListener((parent, view, position, id) -> {
+        final PopupMenu popup = new PopupMenu(anchor.getContext(), anchor);
+        mOpenDropdown = popup;
+        popup.setOnDismissListener(dismissed -> {
+            if (mOpenDropdown == dismissed) {
+                mOpenDropdown = null;
+            }
+        });
+        final List<String> labels = currencyMenuLabels();
+        final int selected = isFrom ? clamp(mFromIndex) : clamp(mToIndex);
+        for (int i = 0; i < labels.size(); i++) {
+            popup.getMenu().add(Menu.NONE, i + 1, i, labels.get(i))
+                    .setCheckable(true)
+                    .setChecked(i == selected);
+        }
+        popup.setOnMenuItemClickListener(item -> {
+            final int position = item.getItemId() - 1;
             if (position < 0 || position >= mCurrencies.size()) {
-                return;
+                return false;
             }
             if (isFrom) {
                 mFromIndex = position;
@@ -254,17 +278,17 @@ public class CurrencyConverterMode implements ToolMode {
             }
             updateCurrencyLabels();
             redisplay();
+            return true;
         });
-        dropdown.setOnClickListener(v ->
-                ((MaterialAutoCompleteTextView) v).showDropDown());
+        popup.show();
     }
 
     private void updateCurrencyLabels() {
         if (mFromView != null && !mCurrencies.isEmpty()) {
-            mFromView.setText(mCurrencies.get(clamp(mFromIndex)).shortLabel(), false);
+            mFromView.setText(mCurrencies.get(clamp(mFromIndex)).shortLabel());
         }
         if (mToView != null && !mCurrencies.isEmpty()) {
-            mToView.setText(mCurrencies.get(clamp(mToIndex)).shortLabel(), false);
+            mToView.setText(mCurrencies.get(clamp(mToIndex)).shortLabel());
         }
     }
 

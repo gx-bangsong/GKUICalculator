@@ -113,7 +113,7 @@
         <item name="android:layout_height">wrap_content</item>
         <item name="android:minWidth">96dp</item>
         <item name="android:maxWidth">152dp</item>
-        <item name="android:minHeight">40dp</item>
+        <item name="android:minHeight">48dp</item>
         <item name="android:gravity">center_vertical</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
@@ -127,14 +127,10 @@
         <item name="android:paddingBottom">8dp</item>
     </style>
 
-    <!-- Anchored exposed menu used instead of a full-screen/single-choice picker dialog. -->
+    <!-- Single-tap anchor for the Material-themed popup menus used by converters. -->
     <style name="ToolDropdownStyle" parent="ToolUnitButtonStyle">
-        <item name="android:inputType">none</item>
-        <item name="android:importantForAutofill">no</item>
         <item name="android:singleLine">true</item>
         <item name="android:ellipsize">end</item>
-        <item name="android:dropDownWidth">wrap_content</item>
-        <item name="android:popupElevation">8dp</item>
         <item name="android:drawableEnd">@drawable/ic_arrow_drop_down</item>
         <item name="android:drawablePadding">4dp</item>
     </style>
