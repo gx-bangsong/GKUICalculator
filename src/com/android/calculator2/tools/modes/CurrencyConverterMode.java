@@ -7,6 +7,7 @@ package com.android.calculator2.tools.modes;
 
 import android.content.Context;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
@@ -14,6 +15,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.PopupMenu;
 
 import com.android.calculator2.R;
 import com.android.calculator2.tools.ToolHost;
@@ -44,6 +46,11 @@ public class CurrencyConverterMode implements ToolMode {
     private static final MathContext MC = new MathContext(15, RoundingMode.HALF_UP);
     private static final MathContext DISPLAY_MC = new MathContext(12, RoundingMode.HALF_UP);
     private static final String DEFAULT_INPUT = "1";
+    private static final String PREFS_NAME = "calc_tools";
+    private static final String PREF_SECONDARY = "currency_secondary_output";
+    private static final int SELECTOR_FROM = 0;
+    private static final int SELECTOR_TO = 1;
+    private static final int SELECTOR_TO_SECONDARY = 2;
 
     @Nullable
     private ExchangeRateRepository mRepository;
@@ -54,6 +61,8 @@ public class CurrencyConverterMode implements ToolMode {
 
     private int mFromIndex;
     private int mToIndex;
+    private int mToSecondaryIndex;
+    private boolean mSecondaryEnabled;
 
     private final StringBuilder mInput = new StringBuilder();
 
@@ -71,6 +80,14 @@ public class CurrencyConverterMode implements ToolMode {
     private TextView mResultView;
     @Nullable
     private TextView mUpdateLabel;
+    @Nullable
+    private View mSecondaryRow;
+    @Nullable
+    private TextView mToSecondaryView;
+    @Nullable
+    private TextView mSecondaryResultView;
+    @Nullable
+    private PopupMenu mOpenDropdown;
 
     @NonNull
     @Override
@@ -99,6 +116,27 @@ public class CurrencyConverterMode implements ToolMode {
     }
 
     @Override
+    public boolean supportsSecondaryOutput() {
+        return true;
+    }
+
+    @Override
+    public boolean isSecondaryOutputEnabled() {
+        return mSecondaryEnabled;
+    }
+
+    @Override
+    public void setSecondaryOutputEnabled(boolean enabled) {
+        mSecondaryEnabled = enabled;
+        if (mHost != null) {
+            mHost.getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().putBoolean(PREF_SECONDARY, enabled).apply();
+        }
+        updateSecondaryVisibility();
+        redisplay();
+    }
+
+    @Override
     public void onActivate(@NonNull ToolHost host, @Nullable String carryValue) {
         mHost = host;
         final Context context = host.getContext();
@@ -114,11 +152,16 @@ public class CurrencyConverterMode implements ToolMode {
         // Sensible defaults: CNY -> USD when both exist, otherwise the first two.
         int cny = indexOfCode("CNY");
         int usd = indexOfCode("USD");
+        int jpy = indexOfCode("JPY");
         mFromIndex = cny >= 0 ? cny : 0;
         mToIndex = usd >= 0 ? usd : Math.min(1, Math.max(0, mCurrencies.size() - 1));
+        mToSecondaryIndex = jpy >= 0 ? jpy
+                : Math.min(2, Math.max(0, mCurrencies.size() - 1));
         if (mFromIndex == mToIndex && mCurrencies.size() > 1) {
             mToIndex = (mFromIndex + 1) % mCurrencies.size();
         }
+        mSecondaryEnabled = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean(PREF_SECONDARY, false);
 
         mountControls(context);
         redisplay();
@@ -197,17 +240,16 @@ public class CurrencyConverterMode implements ToolMode {
         mInputView = mControlRoot.findViewById(R.id.currency_input_text);
         mResultView = mControlRoot.findViewById(R.id.currency_result_text);
         mUpdateLabel = mControlRoot.findViewById(R.id.currency_update_label);
+        mSecondaryRow = mControlRoot.findViewById(R.id.currency_secondary_row);
+        mToSecondaryView = mControlRoot.findViewById(R.id.currency_to_2);
+        mSecondaryResultView = mControlRoot.findViewById(R.id.currency_result_2_text);
         final ImageButton swap = mControlRoot.findViewById(R.id.currency_swap);
         swap.setOnClickListener(v -> swapCurrencies());
-        mFromView.setOnClickListener(v -> {
-            android.util.Log.d("ToolDebug", "currency FROM clicked — showing picker");
-            showCurrencyPicker(true);
-        });
-        mToView.setOnClickListener(v -> {
-            android.util.Log.d("ToolDebug", "currency TO clicked — showing picker");
-            showCurrencyPicker(false);
-        });
+        configureCurrencyDropdown(mFromView, SELECTOR_FROM);
+        configureCurrencyDropdown(mToView, SELECTOR_TO);
+        configureCurrencyDropdown(mToSecondaryView, SELECTOR_TO_SECONDARY);
         updateCurrencyLabels();
+        updateSecondaryVisibility();
 
         if (mUpdateLabel != null) {
             mUpdateLabel.setText(R.string.currency_loading);
@@ -219,6 +261,10 @@ public class CurrencyConverterMode implements ToolMode {
     }
 
     private void unmountControls(@NonNull ToolHost host) {
+        if (mOpenDropdown != null) {
+            mOpenDropdown.dismiss();
+            mOpenDropdown = null;
+        }
         final ViewGroup slot = host.getToolControlSlot();
         if (slot != null) {
             slot.removeAllViews();
@@ -230,6 +276,9 @@ public class CurrencyConverterMode implements ToolMode {
         mInputView = null;
         mResultView = null;
         mUpdateLabel = null;
+        mSecondaryRow = null;
+        mToSecondaryView = null;
+        mSecondaryResultView = null;
     }
 
     private void swapCurrencies() {
@@ -240,28 +289,45 @@ public class CurrencyConverterMode implements ToolMode {
         redisplay();
     }
 
-    private void showCurrencyPicker(boolean isFrom) {
-        if (mHost == null || mCurrencies.isEmpty()) {
+    private void configureCurrencyDropdown(@Nullable TextView dropdown, int selector) {
+        if (dropdown != null) {
+            dropdown.setOnClickListener(v -> showCurrencyDropdown(dropdown, selector));
+        }
+    }
+
+    private void showCurrencyDropdown(@NonNull TextView anchor, int selector) {
+        if (mCurrencies.isEmpty() || mOpenDropdown != null) {
             return;
         }
-        final Context ctx = mHost.getContext();
-        final String[] labels = new String[mCurrencies.size()];
-        for (int i = 0; i < mCurrencies.size(); i++) {
-            labels[i] = mCurrencies.get(i).shortLabel();
+        final PopupMenu popup = new PopupMenu(anchor.getContext(), anchor);
+        mOpenDropdown = popup;
+        popup.setOnDismissListener(dismissed -> {
+            if (mOpenDropdown == dismissed) {
+                mOpenDropdown = null;
+            }
+        });
+        final List<String> labels = currencyMenuLabels();
+        for (int i = 0; i < labels.size(); i++) {
+            // The selected currency is already shown by the anchor; no checkbox is needed.
+            popup.getMenu().add(Menu.NONE, i + 1, i, labels.get(i));
         }
-        final int current = isFrom ? clamp(mFromIndex) : clamp(mToIndex);
-        new android.app.AlertDialog.Builder(ctx)
-                .setSingleChoiceItems(labels, current, (d, which) -> {
-                    if (isFrom) {
-                        mFromIndex = which;
-                    } else {
-                        mToIndex = which;
-                    }
-                    updateCurrencyLabels();
-                    redisplay();
-                    d.dismiss();
-                })
-                .show();
+        popup.setOnMenuItemClickListener(item -> {
+            final int position = item.getItemId() - 1;
+            if (position < 0 || position >= mCurrencies.size()) {
+                return false;
+            }
+            if (selector == SELECTOR_FROM) {
+                mFromIndex = position;
+            } else if (selector == SELECTOR_TO) {
+                mToIndex = position;
+            } else {
+                mToSecondaryIndex = position;
+            }
+            updateCurrencyLabels();
+            redisplay();
+            return true;
+        });
+        popup.show();
     }
 
     private void updateCurrencyLabels() {
@@ -270,6 +336,16 @@ public class CurrencyConverterMode implements ToolMode {
         }
         if (mToView != null && !mCurrencies.isEmpty()) {
             mToView.setText(mCurrencies.get(clamp(mToIndex)).shortLabel());
+        }
+        if (mToSecondaryView != null && !mCurrencies.isEmpty()) {
+            mToSecondaryView.setText(
+                    mCurrencies.get(clamp(mToSecondaryIndex)).shortLabel());
+        }
+    }
+
+    private void updateSecondaryVisibility() {
+        if (mSecondaryRow != null) {
+            mSecondaryRow.setVisibility(mSecondaryEnabled ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -287,16 +363,23 @@ public class CurrencyConverterMode implements ToolMode {
         }
         final CurrencyDef from = mCurrencies.get(clamp(mFromIndex));
         final CurrencyDef to = mCurrencies.get(clamp(mToIndex));
+        final CurrencyDef toSecondary = mCurrencies.get(clamp(mToSecondaryIndex));
         final BigDecimal value = parseInput();
 
         final String resultText;
+        final String secondaryResultText;
         if (value == null || mRates == null) {
             resultText = "—";
+            secondaryResultText = "—";
         } else {
             final BigDecimal fromRate = mRates.rateFor(from.getId());
             final BigDecimal toRate = mRates.rateFor(to.getId());
+            final BigDecimal secondaryRate = mRates.rateFor(toSecondary.getId());
             final BigDecimal out = CurrencyConversion.convert(value, fromRate, toRate, MC);
+            final BigDecimal secondaryOut = CurrencyConversion.convert(
+                    value, fromRate, secondaryRate, MC);
             resultText = (out == null ? "—" : format(out));
+            secondaryResultText = secondaryOut == null ? "—" : format(secondaryOut);
         }
         // Update the inline number+unit display in the control slot (not the big display lines).
         if (mInputView != null) {
@@ -304,6 +387,9 @@ public class CurrencyConverterMode implements ToolMode {
         }
         if (mResultView != null) {
             mResultView.setText(resultText);
+        }
+        if (mSecondaryResultView != null) {
+            mSecondaryResultView.setText(secondaryResultText);
         }
         // Keep the big display lines empty — the conversion with tappable units is in the slot.
         host.setToolFormula("");
@@ -359,10 +445,10 @@ public class CurrencyConverterMode implements ToolMode {
     }
 
     @NonNull
-    private List<String> shortLabels() {
-        List<String> labels = new ArrayList<>();
+    private List<String> currencyMenuLabels() {
+        final List<String> labels = new ArrayList<>();
         for (CurrencyDef currency : mCurrencies) {
-            labels.add(currency.shortLabel());
+            labels.add(currency.shortLabel() + " · " + currency.getName());
         }
         return labels;
     }

@@ -26,7 +26,7 @@
         { "id": "m2",  "name": "m²",  "factor": "1" },
         { "id": "cm2", "name": "cm²", "factor": "0.0001" },
         { "id": "ha",  "name": "ha",  "factor": "10000" },
-        { "id": "acre","name": "acre","factor": "4046.8564224" },
+        { "id": "acre", "name": "acre", "factor": "4046.8564224" },
         { "id": "ft2", "name": "ft²", "factor": "0.09290304" },
         { "id": "in2", "name": "in²", "factor": "0.00064516" }
       ]
@@ -37,13 +37,13 @@
       "base": "l",
       "affine": false,
       "units": [
-        { "id": "l",   "name": "L",   "factor": "1" },
-        { "id": "ml",  "name": "mL",  "factor": "0.001" },
-        { "id": "m3",  "name": "m³",  "factor": "1000" },
+        { "id": "l", "name": "L", "factor": "1" },
+        { "id": "ml", "name": "mL", "factor": "0.001" },
+        { "id": "m3", "name": "m³", "factor": "1000" },
         { "id": "gal", "name": "gal", "factor": "3.785411784" },
-        { "id": "qt",  "name": "qt",  "factor": "0.946352946" },
-        { "id": "pt",  "name": "pt",  "factor": "0.473176473" },
-        { "id": "floz","name": "fl oz","factor": "0.0295735295625" }
+        { "id": "qt", "name": "qt", "factor": "0.946352946" },
+        { "id": "pt", "name": "pt", "factor": "0.473176473" },
+        { "id": "floz", "name": "fl oz", "factor": "0.0295735295625" }
       ]
     },
     {
@@ -52,9 +52,9 @@
       "base": "kg",
       "affine": false,
       "units": [
-        { "id": "t",  "name": "t",  "factor": "1000" },
+        { "id": "t", "name": "t", "factor": "1000" },
         { "id": "kg", "name": "kg", "factor": "1" },
-        { "id": "g",  "name": "g",  "factor": "0.001" },
+        { "id": "g", "name": "g", "factor": "0.001" },
         { "id": "mg", "name": "mg", "factor": "0.000001" },
         { "id": "lb", "name": "lb", "factor": "0.45359237" },
         { "id": "oz", "name": "oz", "factor": "0.028349523125" }
@@ -69,6 +69,119 @@
         { "id": "C", "name": "°C" },
         { "id": "F", "name": "°F" },
         { "id": "K", "name": "K" }
+      ]
+    },
+    {
+      "id": "time",
+      "name": "@string/tool_units_time",
+      "base": "s",
+      "affine": false,
+      "units": [
+        { "id": "ns", "name": "ns", "factor": "0.000000001" },
+        { "id": "us", "name": "µs", "factor": "0.000001" },
+        { "id": "ms", "name": "ms", "factor": "0.001" },
+        { "id": "s", "name": "s", "factor": "1" },
+        { "id": "min", "name": "min", "factor": "60" },
+        { "id": "h", "name": "h", "factor": "3600" },
+        { "id": "day", "name": "day", "factor": "86400" },
+        { "id": "week", "name": "wk", "factor": "604800" },
+        { "id": "year", "name": "yr", "factor": "31557600" }
+      ]
+    },
+    {
+      "id": "energy",
+      "name": "@string/tool_units_energy",
+      "base": "J",
+      "affine": false,
+      "units": [
+        { "id": "J", "name": "J", "factor": "1" },
+        { "id": "kJ", "name": "kJ", "factor": "1000" },
+        { "id": "MJ", "name": "MJ", "factor": "1000000" },
+        { "id": "cal", "name": "cal", "factor": "4.184" },
+        { "id": "kcal", "name": "kcal", "factor": "4184" },
+        { "id": "Wh", "name": "Wh", "factor": "3600" },
+        { "id": "kWh", "name": "kWh", "factor": "3600000" },
+        { "id": "BTU", "name": "BTU", "factor": "1055.05585262" },
+        { "id": "eV", "name": "eV", "factor": "0.0000000000000000001602176634" }
+      ]
+    },
+    {
+      "id": "power",
+      "name": "@string/tool_units_power",
+      "base": "W",
+      "affine": false,
+      "units": [
+        { "id": "mW", "name": "mW", "factor": "0.001" },
+        { "id": "W", "name": "W", "factor": "1" },
+        { "id": "kW", "name": "kW", "factor": "1000" },
+        { "id": "MW", "name": "MW", "factor": "1000000" },
+        { "id": "hp", "name": "hp", "factor": "745.69987158227022" },
+        { "id": "PS", "name": "PS", "factor": "735.49875" },
+        { "id": "BTU_h", "name": "BTU/h", "factor": "0.2930710701722222" }
+      ]
+    },
+    {
+      "id": "data",
+      "name": "@string/tool_units_data",
+      "base": "B",
+      "affine": false,
+      "units": [
+        { "id": "bit", "name": "bit", "factor": "0.125" },
+        { "id": "B", "name": "B", "factor": "1" },
+        { "id": "kB", "name": "kB", "factor": "1000" },
+        { "id": "MB", "name": "MB", "factor": "1000000" },
+        { "id": "GB", "name": "GB", "factor": "1000000000" },
+        { "id": "TB", "name": "TB", "factor": "1000000000000" },
+        { "id": "KiB", "name": "KiB", "factor": "1024" },
+        { "id": "MiB", "name": "MiB", "factor": "1048576" },
+        { "id": "GiB", "name": "GiB", "factor": "1073741824" },
+        { "id": "TiB", "name": "TiB", "factor": "1099511627776" }
+      ]
+    },
+    {
+      "id": "pressure",
+      "name": "@string/tool_units_pressure",
+      "base": "Pa",
+      "affine": false,
+      "units": [
+        { "id": "Pa", "name": "Pa", "factor": "1" },
+        { "id": "hPa", "name": "hPa", "factor": "100" },
+        { "id": "kPa", "name": "kPa", "factor": "1000" },
+        { "id": "MPa", "name": "MPa", "factor": "1000000" },
+        { "id": "bar", "name": "bar", "factor": "100000" },
+        { "id": "atm", "name": "atm", "factor": "101325" },
+        { "id": "psi", "name": "psi", "factor": "6894.757293168" },
+        { "id": "torr", "name": "Torr", "factor": "133.32236842105263" },
+        { "id": "mmHg", "name": "mmHg", "factor": "133.322387415" }
+      ]
+    },
+    {
+      "id": "angle",
+      "name": "@string/tool_units_angle",
+      "base": "deg",
+      "affine": false,
+      "units": [
+        { "id": "deg", "name": "°", "factor": "1" },
+        { "id": "rad", "name": "rad", "factor": "57.2957795130823208768" },
+        { "id": "grad", "name": "grad", "factor": "0.9" },
+        { "id": "turn", "name": "turn", "factor": "360" },
+        { "id": "arcmin", "name": "arcmin", "factor": "0.0166666666666666666667" },
+        { "id": "arcsec", "name": "arcsec", "factor": "0.000277777777777777777778" }
+      ]
+    },
+    {
+      "id": "speed",
+      "name": "@string/tool_units_speed",
+      "base": "m_s",
+      "affine": false,
+      "units": [
+        { "id": "m_s", "name": "m/s", "factor": "1" },
+        { "id": "km_h", "name": "km/h", "factor": "0.277777777777777777778" },
+        { "id": "mph", "name": "mph", "factor": "0.44704" },
+        { "id": "knot", "name": "kn", "factor": "0.514444444444444444444" },
+        { "id": "ft_s", "name": "ft/s", "factor": "0.3048" },
+        { "id": "cm_s", "name": "cm/s", "factor": "0.01" },
+        { "id": "mach", "name": "Mach", "factor": "343" }
       ]
     }
   ]

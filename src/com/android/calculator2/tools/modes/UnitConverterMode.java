@@ -7,13 +7,17 @@ package com.android.calculator2.tools.modes;
 
 import android.content.Context;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.PopupMenu;
 
 import com.android.calculator2.R;
 import com.android.calculator2.tools.ToolHost;
@@ -24,6 +28,10 @@ import com.android.calculator2.tools.data.UnitDef;
 import com.android.calculator2.tools.data.UnitRepository;
 import com.android.calculator2.tools.model.TemperatureConversion;
 import com.android.calculator2.tools.model.UnitConversion;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -33,17 +41,20 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Offline unit conversion (length, area, volume, weight, temperature, ...), data-driven from
- * {@code assets/tools/units.json}.
- * <p>
- * The big display is cleared: the numbers and tappable unit/category buttons are placed
- * in the host's {@link ToolHost#getToolControlSlot()} in a spacious, iOS-calculator style layout.
+ * Offline, data-driven unit conversion. Category and unit selection use anchored popup menus.
+ * Linear categories also expose an "Add custom unit" action that opens a Material 3 form and
+ * persists the resulting exact conversion factor through {@link UnitRepository}.
  */
 public class UnitConverterMode implements ToolMode {
 
     private static final MathContext MC = new MathContext(15, RoundingMode.HALF_UP);
     private static final MathContext DISPLAY_MC = new MathContext(12, RoundingMode.HALF_UP);
     private static final String DEFAULT_INPUT = "1";
+    private static final String PREFS_NAME = "calc_tools";
+    private static final String PREF_SECONDARY = "unit_secondary_output";
+    private static final int SELECTOR_FROM = 0;
+    private static final int SELECTOR_TO = 1;
+    private static final int SELECTOR_TO_SECONDARY = 2;
 
     @Nullable
     private UnitRepository mRepository;
@@ -53,6 +64,8 @@ public class UnitConverterMode implements ToolMode {
     private int mCategoryIndex;
     private int mFromIndex;
     private int mToIndex;
+    private int mToSecondaryIndex;
+    private boolean mSecondaryEnabled;
 
     private final StringBuilder mInput = new StringBuilder();
 
@@ -70,6 +83,14 @@ public class UnitConverterMode implements ToolMode {
     private TextView mInputView;
     @Nullable
     private TextView mResultView;
+    @Nullable
+    private View mSecondaryRow;
+    @Nullable
+    private TextView mToSecondaryView;
+    @Nullable
+    private TextView mSecondaryResultView;
+    @Nullable
+    private PopupMenu mOpenDropdown;
 
     @NonNull
     @Override
@@ -88,6 +109,33 @@ public class UnitConverterMode implements ToolMode {
     }
 
     @Override
+    public boolean wantsExpandedDisplay() {
+        return mSecondaryEnabled;
+    }
+
+    @Override
+    public boolean supportsSecondaryOutput() {
+        return true;
+    }
+
+    @Override
+    public boolean isSecondaryOutputEnabled() {
+        return mSecondaryEnabled;
+    }
+
+    @Override
+    public void setSecondaryOutputEnabled(boolean enabled) {
+        mSecondaryEnabled = enabled;
+        if (mHost != null) {
+            mHost.getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().putBoolean(PREF_SECONDARY, enabled).apply();
+            mHost.setExpandedDisplay(enabled);
+        }
+        updateSecondaryVisibility();
+        redisplay();
+    }
+
+    @Override
     public void onActivate(@NonNull ToolHost host, @Nullable String carryValue) {
         mHost = host;
         final Context context = host.getContext();
@@ -101,6 +149,12 @@ public class UnitConverterMode implements ToolMode {
         mCategoryIndex = 0;
         mFromIndex = 0;
         mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
+        mToSecondaryIndex = Math.min(2, Math.max(0, currentUnitCount() - 1));
+        mSecondaryEnabled = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean(PREF_SECONDARY, false);
+        if (mSecondaryEnabled) {
+            host.setExpandedDisplay(true);
+        }
 
         mountControls(context);
         redisplay();
@@ -154,21 +208,24 @@ public class UnitConverterMode implements ToolMode {
         if (slot == null) {
             return;
         }
-        mControlRoot = LayoutInflater.from(context).inflate(R.layout.tool_unit_control, slot, false);
+        mControlRoot = LayoutInflater.from(context)
+                .inflate(R.layout.tool_unit_control, slot, false);
         mCategoryView = mControlRoot.findViewById(R.id.unit_category);
         mFromView = mControlRoot.findViewById(R.id.unit_from);
         mToView = mControlRoot.findViewById(R.id.unit_to);
         mInputView = mControlRoot.findViewById(R.id.unit_input_text);
         mResultView = mControlRoot.findViewById(R.id.unit_result_text);
+        mSecondaryRow = mControlRoot.findViewById(R.id.unit_secondary_row);
+        mToSecondaryView = mControlRoot.findViewById(R.id.unit_to_2);
+        mSecondaryResultView = mControlRoot.findViewById(R.id.unit_result_2_text);
 
         final ImageButton swap = mControlRoot.findViewById(R.id.unit_swap);
         swap.setOnClickListener(v -> swapUnits());
 
-        mCategoryView.setOnClickListener(v -> showCategoryPicker());
-        mFromView.setOnClickListener(v -> showUnitPicker(true));
-        mToView.setOnClickListener(v -> showUnitPicker(false));
-
+        configureCategoryDropdown();
+        configureUnitDropdowns();
         updateLabels();
+        updateSecondaryVisibility();
 
         slot.removeAllViews();
         slot.addView(mControlRoot);
@@ -176,6 +233,10 @@ public class UnitConverterMode implements ToolMode {
     }
 
     private void unmountControls(@NonNull ToolHost host) {
+        if (mOpenDropdown != null) {
+            mOpenDropdown.dismiss();
+            mOpenDropdown = null;
+        }
         final ViewGroup slot = host.getToolControlSlot();
         if (slot != null) {
             slot.removeAllViews();
@@ -187,6 +248,222 @@ public class UnitConverterMode implements ToolMode {
         mToView = null;
         mInputView = null;
         mResultView = null;
+        mSecondaryRow = null;
+        mToSecondaryView = null;
+        mSecondaryResultView = null;
+    }
+
+    private void configureCategoryDropdown() {
+        if (mCategoryView != null) {
+            mCategoryView.setOnClickListener(v -> showCategoryDropdown());
+        }
+    }
+
+    /** Uses one click source only; AutoCompleteTextView used to race its internal touch handler. */
+    private void showCategoryDropdown() {
+        if (mCategoryView == null || mCategories.isEmpty() || mOpenDropdown != null) {
+            return;
+        }
+        final PopupMenu popup = createPopup(mCategoryView);
+        for (int i = 0; i < mCategories.size(); i++) {
+            popup.getMenu().add(Menu.NONE, i + 1, i,
+                    mCategories.get(i).getDisplayName());
+        }
+        popup.setOnMenuItemClickListener(item -> {
+            final int position = item.getItemId() - 1;
+            if (position < 0 || position >= mCategories.size()) {
+                return false;
+            }
+            mCategoryIndex = position;
+            mFromIndex = 0;
+            mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
+            mToSecondaryIndex = Math.min(2, Math.max(0, currentUnitCount() - 1));
+            configureUnitDropdowns();
+            updateLabels();
+            redisplay();
+            return true;
+        });
+        popup.show();
+    }
+
+    private void configureUnitDropdowns() {
+        if (mFromView != null) {
+            mFromView.setOnClickListener(v -> showUnitDropdown(SELECTOR_FROM));
+        }
+        if (mToView != null) {
+            mToView.setOnClickListener(v -> showUnitDropdown(SELECTOR_TO));
+        }
+        if (mToSecondaryView != null) {
+            mToSecondaryView.setOnClickListener(v -> showUnitDropdown(SELECTOR_TO_SECONDARY));
+        }
+    }
+
+    private void showUnitDropdown(int selector) {
+        final UnitCategory category = currentCategory();
+        final TextView anchor = selector == SELECTOR_FROM ? mFromView
+                : selector == SELECTOR_TO ? mToView : mToSecondaryView;
+        if (category == null || anchor == null || mOpenDropdown != null) {
+            return;
+        }
+        final PopupMenu popup = createPopup(anchor);
+        final List<String> labels = unitMenuNames(category);
+        for (int i = 0; i < labels.size(); i++) {
+            // Selection is already visible on the anchor, so menu rows intentionally have no
+            // checkbox/checkmark.
+            popup.getMenu().add(Menu.NONE, i + 1, i, labels.get(i));
+        }
+        popup.setOnMenuItemClickListener(item -> {
+            onUnitMenuItemSelected(selector, item.getItemId() - 1);
+            return true;
+        });
+        popup.show();
+    }
+
+    @NonNull
+    private PopupMenu createPopup(@NonNull TextView anchor) {
+        final PopupMenu popup = new PopupMenu(anchor.getContext(), anchor);
+        mOpenDropdown = popup;
+        popup.setOnDismissListener(dismissed -> {
+            if (mOpenDropdown == dismissed) {
+                mOpenDropdown = null;
+            }
+        });
+        return popup;
+    }
+
+    private void onUnitMenuItemSelected(int selector, int position) {
+        final UnitCategory category = currentCategory();
+        if (category == null) {
+            return;
+        }
+        final int unitCount = category.getUnits().size();
+        if (!category.isAffine() && position == unitCount) {
+            // Restore the current value while the form is open instead of displaying the action
+            // label as though it were a selected unit.
+            updateLabels();
+            showCustomUnitDialog(selector);
+            return;
+        }
+        if (position < 0 || position >= unitCount) {
+            updateLabels();
+            return;
+        }
+        if (selector == SELECTOR_FROM) {
+            mFromIndex = position;
+        } else if (selector == SELECTOR_TO) {
+            mToIndex = position;
+        } else {
+            mToSecondaryIndex = position;
+        }
+        updateLabels();
+        redisplay();
+    }
+
+    private void showCustomUnitDialog(int selector) {
+        final ToolHost host = mHost;
+        final UnitRepository repository = mRepository;
+        final UnitCategory category = currentCategory();
+        if (host == null || repository == null || category == null || category.isAffine()
+                || category.getUnits().isEmpty()) {
+            return;
+        }
+        final Context context = host.getContext();
+        final View content = LayoutInflater.from(context)
+                .inflate(R.layout.dialog_custom_unit, null);
+        final TextInputLayout nameLayout = content.findViewById(R.id.custom_unit_name_layout);
+        final TextInputLayout valueLayout = content.findViewById(R.id.custom_unit_value_layout);
+        final TextInputEditText nameInput = content.findViewById(R.id.custom_unit_name);
+        final TextInputEditText valueInput = content.findViewById(R.id.custom_unit_value);
+        final MaterialAutoCompleteTextView baseDropdown =
+                content.findViewById(R.id.custom_unit_base);
+
+        // Snapshot the units shown in this modal form so selection remains stable.
+        final List<UnitDef> baseUnits = new ArrayList<>(category.getUnits());
+        final List<String> baseNames = new ArrayList<>();
+        for (UnitDef unit : baseUnits) {
+            baseNames.add(unit.getDisplayName());
+        }
+        baseDropdown.setAdapter(dropdownAdapter(context, baseNames));
+        baseDropdown.setThreshold(1);
+        final int[] selectedBase = {baseUnitIndex(category)};
+        baseDropdown.setText(baseUnits.get(selectedBase[0]).getDisplayName(), false);
+        baseDropdown.setOnItemClickListener((parent, view, position, id) -> {
+            if (position >= 0 && position < baseUnits.size()) {
+                selectedBase[0] = position;
+            }
+        });
+
+        final AlertDialog dialog = new MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.custom_unit_title)
+                .setView(content)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.custom_unit_add, null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    nameLayout.setError(null);
+                    valueLayout.setError(null);
+
+                    final String name = nameInput.getText() == null
+                            ? "" : nameInput.getText().toString().trim();
+                    if (name.isEmpty()) {
+                        nameLayout.setError(context.getString(R.string.custom_unit_name_required));
+                        return;
+                    }
+                    if (hasUnitName(category, name)) {
+                        nameLayout.setError(
+                                context.getString(R.string.custom_unit_name_duplicate));
+                        return;
+                    }
+
+                    final String valueText = valueInput.getText() == null
+                            ? "" : valueInput.getText().toString().trim();
+                    final BigDecimal conversionValue;
+                    try {
+                        conversionValue = new BigDecimal(valueText);
+                    } catch (NumberFormatException e) {
+                        valueLayout.setError(
+                                context.getString(R.string.custom_unit_value_invalid));
+                        return;
+                    }
+                    if (conversionValue.signum() <= 0) {
+                        valueLayout.setError(
+                                context.getString(R.string.custom_unit_value_invalid));
+                        return;
+                    }
+
+                    final UnitDef selected = baseUnits.get(selectedBase[0]);
+                    if (selected.getFactor() == null) {
+                        valueLayout.setError(
+                                context.getString(R.string.custom_unit_value_invalid));
+                        return;
+                    }
+                    // Example: 1 new unit = 2 ft, and 1 ft = 0.3048 m, therefore the stored
+                    // category-base factor for the new unit is 0.6096 m.
+                    final BigDecimal factor = conversionValue.multiply(selected.getFactor());
+                    final UnitDef added = repository.addCustomUnit(
+                            category.getId(), name, factor);
+                    if (added == null) {
+                        valueLayout.setError(
+                                context.getString(R.string.custom_unit_save_failed));
+                        return;
+                    }
+
+                    mCategories = repository.getCategories();
+                    final int addedIndex = indexOfUnitId(currentCategory(), added.getId());
+                    if (selector == SELECTOR_FROM) {
+                        mFromIndex = addedIndex;
+                    } else if (selector == SELECTOR_TO) {
+                        mToIndex = addedIndex;
+                    } else {
+                        mToSecondaryIndex = addedIndex;
+                    }
+                    configureUnitDropdowns();
+                    updateLabels();
+                    redisplay();
+                    dialog.dismiss();
+                }));
+        dialog.show();
     }
 
     private void swapUnits() {
@@ -195,45 +472,6 @@ public class UnitConverterMode implements ToolMode {
         mToIndex = tmp;
         updateLabels();
         redisplay();
-    }
-
-    private void showCategoryPicker() {
-        if (mHost == null || mCategories.isEmpty()) {
-            return;
-        }
-        final Context ctx = mHost.getContext();
-        final String[] labels = categoryNames().toArray(new String[0]);
-        new android.app.AlertDialog.Builder(ctx)
-                .setSingleChoiceItems(labels, mCategoryIndex, (d, which) -> {
-                    mCategoryIndex = which;
-                    mFromIndex = 0;
-                    mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
-                    updateLabels();
-                    redisplay();
-                    d.dismiss();
-                })
-                .show();
-    }
-
-    private void showUnitPicker(boolean isFrom) {
-        if (mHost == null || mCategories.isEmpty()) {
-            return;
-        }
-        final Context ctx = mHost.getContext();
-        final String[] labels = unitNames(mCategoryIndex).toArray(new String[0]);
-        final int current = isFrom ? clamp(mFromIndex) : clamp(mToIndex);
-        new android.app.AlertDialog.Builder(ctx)
-                .setSingleChoiceItems(labels, current, (d, which) -> {
-                    if (isFrom) {
-                        mFromIndex = which;
-                    } else {
-                        mToIndex = which;
-                    }
-                    updateLabels();
-                    redisplay();
-                    d.dismiss();
-                })
-                .show();
     }
 
     private void updateLabels() {
@@ -250,6 +488,22 @@ public class UnitConverterMode implements ToolMode {
         if (mToView != null && !category.getUnits().isEmpty()) {
             mToView.setText(category.getUnits().get(clamp(mToIndex)).getDisplayName());
         }
+        if (mToSecondaryView != null && !category.getUnits().isEmpty()) {
+            mToSecondaryView.setText(category.getUnits()
+                    .get(clamp(mToSecondaryIndex)).getDisplayName());
+        }
+    }
+
+    private void updateSecondaryVisibility() {
+        if (mSecondaryRow != null) {
+            mSecondaryRow.setVisibility(mSecondaryEnabled ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    @NonNull
+    private static ArrayAdapter<String> dropdownAdapter(@NonNull Context context,
+            @NonNull List<String> labels) {
+        return new ArrayAdapter<>(context, R.layout.tool_dropdown_item, labels);
     }
 
     // ---- computation & display ----
@@ -273,14 +527,19 @@ public class UnitConverterMode implements ToolMode {
         final UnitCategory category = currentCategory();
         final UnitDef from = category.getUnits().get(clamp(mFromIndex));
         final UnitDef to = category.getUnits().get(clamp(mToIndex));
+        final UnitDef toSecondary = category.getUnits().get(clamp(mToSecondaryIndex));
         final BigDecimal value = parseInput();
 
-        String resultText;
+        final String resultText;
+        final String secondaryResultText;
         if (value == null) {
             resultText = "—";
+            secondaryResultText = "—";
         } else {
             final BigDecimal out = convert(value, category, from, to);
+            final BigDecimal secondaryOut = convert(value, category, from, toSecondary);
             resultText = (out == null ? "—" : format(out));
+            secondaryResultText = secondaryOut == null ? "—" : format(secondaryOut);
         }
 
         if (mInputView != null) {
@@ -289,8 +548,9 @@ public class UnitConverterMode implements ToolMode {
         if (mResultView != null) {
             mResultView.setText(resultText);
         }
-
-        // Clear the big display lines so the UI layout looks neat, centered, and matches currency
+        if (mSecondaryResultView != null) {
+            mSecondaryResultView.setText(secondaryResultText);
+        }
         host.setToolFormula("");
         host.setToolResult("");
     }
@@ -344,12 +604,8 @@ public class UnitConverterMode implements ToolMode {
         if (rounded.scale() < 0) {
             rounded = rounded.setScale(0, RoundingMode.HALF_UP);
         }
-        String text = rounded.toPlainString();
-        // Avoid a "-0" result.
-        if (text.equals("-0")) {
-            text = "0";
-        }
-        return text;
+        final String text = rounded.toPlainString();
+        return text.equals("-0") ? "0" : text;
     }
 
     // ---- helpers ----
@@ -375,9 +631,41 @@ public class UnitConverterMode implements ToolMode {
         return Math.max(0, Math.min(index, category.getUnits().size() - 1));
     }
 
+    private int baseUnitIndex(@NonNull UnitCategory category) {
+        final String baseId = category.getBaseUnitId();
+        if (baseId != null) {
+            for (int i = 0; i < category.getUnits().size(); i++) {
+                if (baseId.equals(category.getUnits().get(i).getId())) {
+                    return i;
+                }
+            }
+        }
+        return 0;
+    }
+
+    private static int indexOfUnitId(@Nullable UnitCategory category, @NonNull String id) {
+        if (category != null) {
+            for (int i = 0; i < category.getUnits().size(); i++) {
+                if (id.equals(category.getUnits().get(i).getId())) {
+                    return i;
+                }
+            }
+        }
+        return 0;
+    }
+
+    private static boolean hasUnitName(@NonNull UnitCategory category, @NonNull String name) {
+        for (UnitDef unit : category.getUnits()) {
+            if (name.equalsIgnoreCase(unit.getDisplayName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @NonNull
     private List<String> categoryNames() {
-        List<String> names = new ArrayList<>();
+        final List<String> names = new ArrayList<>();
         for (UnitCategory category : mCategories) {
             names.add(category.getDisplayName());
         }
@@ -385,12 +673,13 @@ public class UnitConverterMode implements ToolMode {
     }
 
     @NonNull
-    private List<String> unitNames(int categoryIndex) {
-        List<String> names = new ArrayList<>();
-        if (categoryIndex >= 0 && categoryIndex < mCategories.size()) {
-            for (UnitDef unit : mCategories.get(categoryIndex).getUnits()) {
-                names.add(unit.getDisplayName());
-            }
+    private List<String> unitMenuNames(@NonNull UnitCategory category) {
+        final List<String> names = new ArrayList<>();
+        for (UnitDef unit : category.getUnits()) {
+            names.add(unit.getDisplayName());
+        }
+        if (!category.isAffine() && mHost != null) {
+            names.add(mHost.getContext().getString(R.string.custom_unit_add_item));
         }
         return names;
     }
