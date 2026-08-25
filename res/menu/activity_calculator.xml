@@ -18,9 +18,16 @@
     <item android:id="@+id/menu_licenses"
         android:title="@string/menu_licenses" />
 
+    <!-- Mode-only setting: show another unit/currency conversion output. -->
+    <item android:id="@+id/menu_second_conversion"
+        android:title="@string/menu_second_conversion"
+        android:checkable="true"
+        android:visible="false" />
+
     <!-- Settings: toggle automatic currency-rate updates. [CHAR_LIMIT=40] -->
     <item android:id="@+id/menu_auto_update_rates"
         android:title="@string/menu_auto_update_rates"
-        android:checkable="true" />
+        android:checkable="true"
+        android:visible="false" />
 
 </menu>

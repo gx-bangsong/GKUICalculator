@@ -80,4 +80,10 @@ public interface ToolHost {
      * Called by {@code ToolManager} based on {@link ToolMode#wantsExpandedDisplay()}.
      */
     void setExpandedDisplay(boolean expanded);
+
+    /** Relabel/restore the scientific pad for Programmer mode and enable valid radix digits. */
+    void setProgrammerPadMode(boolean enabled, int radix);
+
+    /** Re-evaluate mode-specific items in the activity overflow menu. */
+    void refreshOptionsMenu();
 }

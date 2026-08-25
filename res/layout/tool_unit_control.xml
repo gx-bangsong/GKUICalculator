@@ -114,4 +114,38 @@
             app:tint="?colorOnSurface" />
     </LinearLayout>
 
+    <!-- Optional second conversion output, toggled from the activity overflow menu. -->
+    <LinearLayout
+        android:id="@+id/unit_secondary_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/unit_result_2_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="end"
+            android:textColor="?colorOnSurface"
+            android:textSize="28sp" />
+
+        <TextView
+            android:id="@+id/unit_to_2"
+            style="@style/ToolDropdownStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:contentDescription="@string/unit_second_to_desc" />
+
+        <View
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="12dp" />
+    </LinearLayout>
+
 </LinearLayout>

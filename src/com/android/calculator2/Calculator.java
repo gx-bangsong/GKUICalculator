@@ -64,12 +64,14 @@ import androidx.fragment.app.FragmentManager;
 import com.android.calculator2.CalculatorFormula.OnTextSizeChangeListener;
 import com.android.calculator2.tools.ToolHost;
 import com.android.calculator2.tools.ToolManager;
+import com.android.calculator2.tools.ToolMode;
 import com.android.calculator2.tools.data.ExchangeRateRepository;
 import com.android.calculator2.tools.modes.BmiMode;
 import com.android.calculator2.tools.modes.CalculatorMode;
 import com.android.calculator2.tools.modes.CurrencyConverterMode;
 import com.android.calculator2.tools.modes.DateMode;
 import com.android.calculator2.tools.modes.MortgageMode;
+import com.android.calculator2.tools.modes.ProgrammerMode;
 import com.android.calculator2.tools.modes.TaxMode;
 import com.android.calculator2.tools.modes.UnitConverterMode;
 
@@ -433,6 +435,7 @@ public class Calculator extends AppCompatActivity
         mToolManager.register(new TaxMode());
         mToolManager.register(new BmiMode());
         mToolManager.register(new DateMode());
+        mToolManager.register(new ProgrammerMode());
         mToolManager.init();
         // DEBUG: record the overlay's initial visibility to diagnose "expanded at launch".
         final View overlay = findViewById(R.id.tool_panel_overlay);
@@ -1166,10 +1169,25 @@ public class Calculator extends AppCompatActivity
         visible &= mainResult != null && mainResult.exactlyDisplayable();
         menu.findItem(R.id.menu_fraction).setVisible(visible);
 
-        // Reflect the currency auto-update setting on its checkable menu item.
+        final ToolMode activeTool = mToolManager == null ? null : mToolManager.getActive();
+        final boolean currencyActive = activeTool != null
+                && com.android.calculator2.tools.ToolId.CURRENCY.equals(activeTool.getId());
+
+        // Currency network settings only make sense while the currency converter is visible.
         final MenuItem autoUpdate = menu.findItem(R.id.menu_auto_update_rates);
         if (autoUpdate != null) {
+            autoUpdate.setVisible(currencyActive);
             autoUpdate.setChecked(ExchangeRateRepository.isAutoUpdateEnabled(this));
+        }
+
+        // Units and Currency can optionally show one additional conversion output row.
+        final MenuItem secondConversion = menu.findItem(R.id.menu_second_conversion);
+        if (secondConversion != null) {
+            final boolean supported = activeTool != null
+                    && activeTool.supportsSecondaryOutput();
+            secondConversion.setVisible(supported);
+            secondConversion.setChecked(supported
+                    && activeTool.isSecondaryOutputEnabled());
         }
 
         return true;
@@ -1190,6 +1208,14 @@ public class Calculator extends AppCompatActivity
         } else if (itemId == R.id.menu_licenses) {
             startActivity(new Intent(this, Licenses.class));
             return true;
+        } else if (itemId == R.id.menu_second_conversion) {
+            final ToolMode activeTool = mToolManager == null ? null : mToolManager.getActive();
+            if (activeTool != null && activeTool.supportsSecondaryOutput()) {
+                final boolean enabled = !activeTool.isSecondaryOutputEnabled();
+                activeTool.setSecondaryOutputEnabled(enabled);
+                item.setChecked(enabled);
+                return true;
+            }
         } else if (itemId == R.id.menu_auto_update_rates) {
             final boolean enabled = !ExchangeRateRepository.isAutoUpdateEnabled(this);
             ExchangeRateRepository.setAutoUpdateEnabled(this, enabled);
@@ -1487,6 +1513,82 @@ public class Calculator extends AppCompatActivity
         // the display automatically when it is gone. In calculator mode the user's toggle wins.
         applyAdvancedPadVisibility(expanded ? false : mScientificVisible);
         updateScientificToggleVisibility();
+    }
+
+    @Override
+    public void refreshOptionsMenu() {
+        invalidateOptionsMenu();
+    }
+
+    @Override
+    public void setProgrammerPadMode(boolean enabled, int radix) {
+        // Programmer keys A-F and bitwise operators live in this pad, so force it visible while
+        // the mode is active and restore the user's scientific-pad preference afterward.
+        applyAdvancedPadVisibility(enabled || mScientificVisible);
+        final int[] programmerIds = {
+                R.id.op_sqrt, R.id.const_pi, R.id.op_pow, R.id.op_fact,
+                R.id.toggle_mode, R.id.fun_sin, R.id.fun_cos, R.id.fun_tan,
+                R.id.toggle_inv, R.id.const_e, R.id.fun_ln, R.id.fun_log
+        };
+        final int[] programmerLabels = {
+                R.string.programmer_key_a, R.string.programmer_key_b,
+                R.string.programmer_key_c, R.string.programmer_key_d,
+                R.string.programmer_key_e, R.string.programmer_key_f,
+                R.string.programmer_and, R.string.programmer_or,
+                R.string.programmer_xor, R.string.programmer_not,
+                R.string.programmer_shift_left, R.string.programmer_shift_right
+        };
+
+        if (enabled) {
+            for (View inverse : mInverseButtons) {
+                inverse.setVisibility(View.GONE);
+            }
+            for (int i = 0; i < programmerIds.length; i++) {
+                final TextView key = findViewById(programmerIds[i]);
+                key.setVisibility(View.VISIBLE);
+                key.setText(programmerLabels[i]);
+                key.setContentDescription(getString(programmerLabels[i]));
+                // A-F are valid only in hexadecimal; bitwise keys are always available.
+                key.setEnabled(i >= 6 || radix == 16);
+            }
+            mModeView.setText(R.string.tool_programmer);
+            mModeView.setContentDescription(getString(R.string.tool_programmer));
+        } else {
+            restoreScientificPadLabels();
+            onModeChanged(mEvaluator.getDegreeMode(Evaluator.MAIN_INDEX));
+            onInverseToggled(mInverseToggle.isSelected());
+        }
+
+        final int[] digitIds = {
+                R.id.digit_0, R.id.digit_1, R.id.digit_2, R.id.digit_3, R.id.digit_4,
+                R.id.digit_5, R.id.digit_6, R.id.digit_7, R.id.digit_8, R.id.digit_9
+        };
+        for (int digit = 0; digit < digitIds.length; digit++) {
+            findViewById(digitIds[digit]).setEnabled(!enabled || digit < radix);
+        }
+        findViewById(R.id.dec_point).setEnabled(!enabled);
+    }
+
+    private void restoreScientificPadLabels() {
+        findViewById(R.id.toggle_mode).setEnabled(true);
+        setPadLabel(R.id.op_sqrt, R.string.op_sqrt, R.string.desc_op_sqrt);
+        setPadLabel(R.id.const_pi, R.string.const_pi, R.string.desc_const_pi);
+        setPadLabel(R.id.op_pow, R.string.op_pow, R.string.desc_op_pow);
+        setPadLabel(R.id.op_fact, R.string.op_fact, R.string.desc_op_fact);
+        setPadLabel(R.id.fun_sin, R.string.fun_sin, R.string.desc_fun_sin);
+        setPadLabel(R.id.fun_cos, R.string.fun_cos, R.string.desc_fun_cos);
+        setPadLabel(R.id.fun_tan, R.string.fun_tan, R.string.desc_fun_tan);
+        setPadLabel(R.id.toggle_inv, R.string.inv, R.string.desc_inv_off);
+        setPadLabel(R.id.const_e, R.string.const_e, R.string.desc_const_e);
+        setPadLabel(R.id.fun_ln, R.string.fun_ln, R.string.desc_fun_ln);
+        setPadLabel(R.id.fun_log, R.string.fun_log, R.string.desc_fun_log);
+    }
+
+    private void setPadLabel(int viewId, int textRes, int descriptionRes) {
+        final TextView key = findViewById(viewId);
+        key.setText(textRes);
+        key.setContentDescription(getString(descriptionRes));
+        key.setEnabled(true);
     }
 
     private void updateScientificToggleVisibility() {

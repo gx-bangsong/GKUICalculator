@@ -50,6 +50,11 @@ public class UnitConverterMode implements ToolMode {
     private static final MathContext MC = new MathContext(15, RoundingMode.HALF_UP);
     private static final MathContext DISPLAY_MC = new MathContext(12, RoundingMode.HALF_UP);
     private static final String DEFAULT_INPUT = "1";
+    private static final String PREFS_NAME = "calc_tools";
+    private static final String PREF_SECONDARY = "unit_secondary_output";
+    private static final int SELECTOR_FROM = 0;
+    private static final int SELECTOR_TO = 1;
+    private static final int SELECTOR_TO_SECONDARY = 2;
 
     @Nullable
     private UnitRepository mRepository;
@@ -59,6 +64,8 @@ public class UnitConverterMode implements ToolMode {
     private int mCategoryIndex;
     private int mFromIndex;
     private int mToIndex;
+    private int mToSecondaryIndex;
+    private boolean mSecondaryEnabled;
 
     private final StringBuilder mInput = new StringBuilder();
 
@@ -76,6 +83,12 @@ public class UnitConverterMode implements ToolMode {
     private TextView mInputView;
     @Nullable
     private TextView mResultView;
+    @Nullable
+    private View mSecondaryRow;
+    @Nullable
+    private TextView mToSecondaryView;
+    @Nullable
+    private TextView mSecondaryResultView;
     @Nullable
     private PopupMenu mOpenDropdown;
 
@@ -96,6 +109,33 @@ public class UnitConverterMode implements ToolMode {
     }
 
     @Override
+    public boolean wantsExpandedDisplay() {
+        return mSecondaryEnabled;
+    }
+
+    @Override
+    public boolean supportsSecondaryOutput() {
+        return true;
+    }
+
+    @Override
+    public boolean isSecondaryOutputEnabled() {
+        return mSecondaryEnabled;
+    }
+
+    @Override
+    public void setSecondaryOutputEnabled(boolean enabled) {
+        mSecondaryEnabled = enabled;
+        if (mHost != null) {
+            mHost.getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().putBoolean(PREF_SECONDARY, enabled).apply();
+            mHost.setExpandedDisplay(enabled);
+        }
+        updateSecondaryVisibility();
+        redisplay();
+    }
+
+    @Override
     public void onActivate(@NonNull ToolHost host, @Nullable String carryValue) {
         mHost = host;
         final Context context = host.getContext();
@@ -109,6 +149,12 @@ public class UnitConverterMode implements ToolMode {
         mCategoryIndex = 0;
         mFromIndex = 0;
         mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
+        mToSecondaryIndex = Math.min(2, Math.max(0, currentUnitCount() - 1));
+        mSecondaryEnabled = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean(PREF_SECONDARY, false);
+        if (mSecondaryEnabled) {
+            host.setExpandedDisplay(true);
+        }
 
         mountControls(context);
         redisplay();
@@ -169,6 +215,9 @@ public class UnitConverterMode implements ToolMode {
         mToView = mControlRoot.findViewById(R.id.unit_to);
         mInputView = mControlRoot.findViewById(R.id.unit_input_text);
         mResultView = mControlRoot.findViewById(R.id.unit_result_text);
+        mSecondaryRow = mControlRoot.findViewById(R.id.unit_secondary_row);
+        mToSecondaryView = mControlRoot.findViewById(R.id.unit_to_2);
+        mSecondaryResultView = mControlRoot.findViewById(R.id.unit_result_2_text);
 
         final ImageButton swap = mControlRoot.findViewById(R.id.unit_swap);
         swap.setOnClickListener(v -> swapUnits());
@@ -176,6 +225,7 @@ public class UnitConverterMode implements ToolMode {
         configureCategoryDropdown();
         configureUnitDropdowns();
         updateLabels();
+        updateSecondaryVisibility();
 
         slot.removeAllViews();
         slot.addView(mControlRoot);
@@ -198,6 +248,9 @@ public class UnitConverterMode implements ToolMode {
         mToView = null;
         mInputView = null;
         mResultView = null;
+        mSecondaryRow = null;
+        mToSecondaryView = null;
+        mSecondaryResultView = null;
     }
 
     private void configureCategoryDropdown() {
@@ -213,9 +266,8 @@ public class UnitConverterMode implements ToolMode {
         }
         final PopupMenu popup = createPopup(mCategoryView);
         for (int i = 0; i < mCategories.size(); i++) {
-            popup.getMenu().add(Menu.NONE, i + 1, i, mCategories.get(i).getDisplayName())
-                    .setCheckable(true)
-                    .setChecked(i == mCategoryIndex);
+            popup.getMenu().add(Menu.NONE, i + 1, i,
+                    mCategories.get(i).getDisplayName());
         }
         popup.setOnMenuItemClickListener(item -> {
             final int position = item.getItemId() - 1;
@@ -225,6 +277,7 @@ public class UnitConverterMode implements ToolMode {
             mCategoryIndex = position;
             mFromIndex = 0;
             mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
+            mToSecondaryIndex = Math.min(2, Math.max(0, currentUnitCount() - 1));
             configureUnitDropdowns();
             updateLabels();
             redisplay();
@@ -235,30 +288,32 @@ public class UnitConverterMode implements ToolMode {
 
     private void configureUnitDropdowns() {
         if (mFromView != null) {
-            mFromView.setOnClickListener(v -> showUnitDropdown(true));
+            mFromView.setOnClickListener(v -> showUnitDropdown(SELECTOR_FROM));
         }
         if (mToView != null) {
-            mToView.setOnClickListener(v -> showUnitDropdown(false));
+            mToView.setOnClickListener(v -> showUnitDropdown(SELECTOR_TO));
+        }
+        if (mToSecondaryView != null) {
+            mToSecondaryView.setOnClickListener(v -> showUnitDropdown(SELECTOR_TO_SECONDARY));
         }
     }
 
-    private void showUnitDropdown(boolean isFrom) {
+    private void showUnitDropdown(int selector) {
         final UnitCategory category = currentCategory();
-        final TextView anchor = isFrom ? mFromView : mToView;
+        final TextView anchor = selector == SELECTOR_FROM ? mFromView
+                : selector == SELECTOR_TO ? mToView : mToSecondaryView;
         if (category == null || anchor == null || mOpenDropdown != null) {
             return;
         }
         final PopupMenu popup = createPopup(anchor);
         final List<String> labels = unitMenuNames(category);
-        final int selected = isFrom ? clamp(mFromIndex) : clamp(mToIndex);
         for (int i = 0; i < labels.size(); i++) {
-            final boolean isUnit = i < category.getUnits().size();
-            popup.getMenu().add(Menu.NONE, i + 1, i, labels.get(i))
-                    .setCheckable(isUnit)
-                    .setChecked(isUnit && i == selected);
+            // Selection is already visible on the anchor, so menu rows intentionally have no
+            // checkbox/checkmark.
+            popup.getMenu().add(Menu.NONE, i + 1, i, labels.get(i));
         }
         popup.setOnMenuItemClickListener(item -> {
-            onUnitMenuItemSelected(isFrom, item.getItemId() - 1);
+            onUnitMenuItemSelected(selector, item.getItemId() - 1);
             return true;
         });
         popup.show();
@@ -276,7 +331,7 @@ public class UnitConverterMode implements ToolMode {
         return popup;
     }
 
-    private void onUnitMenuItemSelected(boolean isFrom, int position) {
+    private void onUnitMenuItemSelected(int selector, int position) {
         final UnitCategory category = currentCategory();
         if (category == null) {
             return;
@@ -286,23 +341,25 @@ public class UnitConverterMode implements ToolMode {
             // Restore the current value while the form is open instead of displaying the action
             // label as though it were a selected unit.
             updateLabels();
-            showCustomUnitDialog(isFrom);
+            showCustomUnitDialog(selector);
             return;
         }
         if (position < 0 || position >= unitCount) {
             updateLabels();
             return;
         }
-        if (isFrom) {
+        if (selector == SELECTOR_FROM) {
             mFromIndex = position;
-        } else {
+        } else if (selector == SELECTOR_TO) {
             mToIndex = position;
+        } else {
+            mToSecondaryIndex = position;
         }
         updateLabels();
         redisplay();
     }
 
-    private void showCustomUnitDialog(boolean selectAsFrom) {
+    private void showCustomUnitDialog(int selector) {
         final ToolHost host = mHost;
         final UnitRepository repository = mRepository;
         final UnitCategory category = currentCategory();
@@ -394,10 +451,12 @@ public class UnitConverterMode implements ToolMode {
 
                     mCategories = repository.getCategories();
                     final int addedIndex = indexOfUnitId(currentCategory(), added.getId());
-                    if (selectAsFrom) {
+                    if (selector == SELECTOR_FROM) {
                         mFromIndex = addedIndex;
-                    } else {
+                    } else if (selector == SELECTOR_TO) {
                         mToIndex = addedIndex;
+                    } else {
+                        mToSecondaryIndex = addedIndex;
                     }
                     configureUnitDropdowns();
                     updateLabels();
@@ -429,6 +488,16 @@ public class UnitConverterMode implements ToolMode {
         if (mToView != null && !category.getUnits().isEmpty()) {
             mToView.setText(category.getUnits().get(clamp(mToIndex)).getDisplayName());
         }
+        if (mToSecondaryView != null && !category.getUnits().isEmpty()) {
+            mToSecondaryView.setText(category.getUnits()
+                    .get(clamp(mToSecondaryIndex)).getDisplayName());
+        }
+    }
+
+    private void updateSecondaryVisibility() {
+        if (mSecondaryRow != null) {
+            mSecondaryRow.setVisibility(mSecondaryEnabled ? View.VISIBLE : View.GONE);
+        }
     }
 
     @NonNull
@@ -458,14 +527,19 @@ public class UnitConverterMode implements ToolMode {
         final UnitCategory category = currentCategory();
         final UnitDef from = category.getUnits().get(clamp(mFromIndex));
         final UnitDef to = category.getUnits().get(clamp(mToIndex));
+        final UnitDef toSecondary = category.getUnits().get(clamp(mToSecondaryIndex));
         final BigDecimal value = parseInput();
 
         final String resultText;
+        final String secondaryResultText;
         if (value == null) {
             resultText = "—";
+            secondaryResultText = "—";
         } else {
             final BigDecimal out = convert(value, category, from, to);
+            final BigDecimal secondaryOut = convert(value, category, from, toSecondary);
             resultText = (out == null ? "—" : format(out));
+            secondaryResultText = secondaryOut == null ? "—" : format(secondaryOut);
         }
 
         if (mInputView != null) {
@@ -473,6 +547,9 @@ public class UnitConverterMode implements ToolMode {
         }
         if (mResultView != null) {
             mResultView.setText(resultText);
+        }
+        if (mSecondaryResultView != null) {
+            mSecondaryResultView.setText(secondaryResultText);
         }
         host.setToolFormula("");
         host.setToolResult("");
