@@ -80,4 +80,142 @@
     <string name="dialog_clear" msgid="7137395395908350702">"要清除記錄和儲存內容嗎？"</string>
     <string name="title_current_expression" msgid="2442754548537900591">"目前算式"</string>
     <string name="no_history" msgid="4331262030447527188">"沒有記錄"</string>
+
+    <!-- ============ 生活計算工具列 ============ -->
+    <string name="tool_calculator">計算機</string>
+    <string name="tool_unit">單位換算</string>
+    <string name="tool_currency">匯率換算</string>
+    <string name="tool_mortgage">房貸</string>
+    <string name="tool_tax">所得稅</string>
+    <string name="tool_bmi" translatable="false">BMI</string>
+    <string name="tool_date">日期</string>
+    <string name="tool_programmer">程式設計</string>
+    <string name="tool_more">更多</string>
+    <string name="tool_more_close">收合</string>
+    <string name="tool_scientific_show">科學</string>
+    <string name="tool_scientific_hide">隱藏</string>
+    <string name="tool_panel_title">全部工具</string>
+    <string name="tool_panel_empty">沒有其他工具</string>
+    <string name="tool_coming_soon">「%1$s」即將推出</string>
+
+    <!-- 單位換算 -->
+    <string name="tool_units_length">長度</string>
+    <string name="tool_units_area">面積</string>
+    <string name="tool_units_volume">體積</string>
+    <string name="tool_units_weight">重量</string>
+    <string name="tool_units_temperature">溫度</string>
+    <string name="tool_units_time">時間</string>
+    <string name="tool_units_energy">能量</string>
+    <string name="tool_units_power">功率</string>
+    <string name="tool_units_data">數據</string>
+    <string name="tool_units_pressure">壓力</string>
+    <string name="tool_units_angle">角度</string>
+    <string name="tool_units_speed">速度</string>
+    <string name="tool_unit_no_data">沒有單位資料</string>
+    <string name="tool_unit_category_label">類別</string>
+    <string name="unit_from_desc">來源單位</string>
+    <string name="unit_to_desc">目標單位</string>
+    <string name="unit_second_to_desc">第二個輸出單位</string>
+    <string name="unit_swap_desc">交換單位</string>
+
+    <!-- 自訂單位 -->
+    <string name="custom_unit_add_item">＋ 新增自訂單位…</string>
+    <string name="custom_unit_title">新增自訂單位</string>
+    <string name="custom_unit_name">新單位名稱</string>
+    <string name="custom_unit_base">基準單位</string>
+    <string name="custom_unit_value">換算值</string>
+    <string name="custom_unit_value_helper">1 個新單位等於多少個基準單位</string>
+    <string name="custom_unit_add">新增</string>
+    <string name="custom_unit_name_required">請輸入單位名稱</string>
+    <string name="custom_unit_name_duplicate">此單位名稱已存在</string>
+    <string name="custom_unit_value_invalid">請輸入大於零的數字</string>
+    <string name="custom_unit_save_failed">無法儲存自訂單位</string>
+
+    <!-- 匯率換算 -->
+    <string name="menu_second_conversion">第二組換算</string>
+    <string name="menu_auto_update_rates">自動更新匯率</string>
+    <string name="currency_from_desc">來源貨幣</string>
+    <string name="currency_to_desc">目標貨幣</string>
+    <string name="currency_second_to_desc">第二個輸出貨幣</string>
+    <string name="currency_loading">正在載入匯率…</string>
+    <string name="currency_updated">更新時間：%1$s</string>
+    <string name="currency_offline">離線匯率</string>
+    <string name="tool_currency_no_data">沒有匯率資料</string>
+
+    <!-- 房貸 -->
+    <string name="tool_mortgage_field_principal">貸款金額</string>
+    <string name="tool_mortgage_field_rate">年利率 %</string>
+    <string name="tool_mortgage_field_years">年期</string>
+    <string name="tool_mortgage_method">方式</string>
+    <string name="tool_mortgage_equal">等額本息</string>
+    <string name="tool_mortgage_principal">等額本金</string>
+    <string name="tool_mortgage_monthly">每月供款</string>
+    <string name="tool_mortgage_first_month">首期</string>
+    <string name="tool_mortgage_decrease">每月遞減</string>
+    <string name="tool_mortgage_interest">利息總額</string>
+    <string name="tool_mortgage_total">總額</string>
+
+    <!-- 所得稅 -->
+    <string name="tool_tax_field_salary">月薪</string>
+    <string name="tool_tax_field_insurance">保險供款</string>
+    <string name="tool_tax_field_special">專項扣除</string>
+    <string name="tool_tax_annual_tax">年度稅額</string>
+    <string name="tool_tax_annual_after_tax">年度稅後</string>
+    <string name="tool_tax_last_month">末期稅額</string>
+
+    <!-- BMI -->
+    <string name="tool_bmi_field_height">身高 cm</string>
+    <string name="tool_bmi_field_weight">體重 kg</string>
+    <string name="tool_bmi_value" translatable="false">BMI</string>
+    <string name="tool_bmi_underweight">過輕</string>
+    <string name="tool_bmi_normal">正常</string>
+    <string name="tool_bmi_overweight">過重</string>
+    <string name="tool_bmi_obese">肥胖</string>
+
+    <!-- 日期 -->
+    <string name="tool_date_days">%1$d 天</string>
+    <string name="tool_date_years">年</string>
+    <string name="tool_date_months">月</string>
+    <string name="tool_date_days_short">日</string>
+    <string name="tool_date_swapped">已反序</string>
+    <string name="tool_date_arrow" translatable="false">→</string>
+    <string name="tool_date_weeks">星期</string>
+    <string name="tool_date_hours">小時</string>
+
+    <!-- 括號按鈕的內容描述 -->
+    <string name="desc_paren">括弧</string>
+
+    <!-- 程式設計計算機 -->
+    <string name="programmer_hex" translatable="false">HEX</string>
+    <string name="programmer_dec" translatable="false">DEC</string>
+    <string name="programmer_oct" translatable="false">OCT</string>
+    <string name="programmer_bin" translatable="false">BIN</string>
+    <string name="programmer_signed_64">有符號 64 位元 · 二補數</string>
+    <string name="programmer_key_a" translatable="false">A</string>
+    <string name="programmer_key_b" translatable="false">B</string>
+    <string name="programmer_key_c" translatable="false">C</string>
+    <string name="programmer_key_d" translatable="false">D</string>
+    <string name="programmer_key_e" translatable="false">E</string>
+    <string name="programmer_key_f" translatable="false">F</string>
+    <string name="programmer_and" translatable="false">AND</string>
+    <string name="programmer_or" translatable="false">OR</string>
+    <string name="programmer_xor" translatable="false">XOR</string>
+    <string name="programmer_not" translatable="false">NOT</string>
+    <string name="programmer_shift_left" translatable="false">&lt;&lt;</string>
+    <string name="programmer_shift_right" translatable="false">>></string>
+    <string name="programmer_divide_by_zero">除數不可為零</string>
+
+    <!-- 貨幣名稱 -->
+    <string name="currency_name_eur">歐元</string>
+    <string name="currency_name_usd">美元</string>
+    <string name="currency_name_cny">人民幣</string>
+    <string name="currency_name_jpy">日圓</string>
+    <string name="currency_name_gbp">英鎊</string>
+    <string name="currency_name_hkd">港元</string>
+    <string name="currency_name_krw">韓元</string>
+    <string name="currency_name_chf">瑞士法郎</string>
+    <string name="currency_name_sgd">新加坡元</string>
+    <string name="currency_name_aud">澳元</string>
+    <string name="currency_name_cad">加元</string>
+    <string name="currency_name_inr">印度盧比</string>
 </resources>

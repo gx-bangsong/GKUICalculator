@@ -32,6 +32,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Currency conversion using ECB reference rates (EUR base) with on-disk caching and offline
@@ -448,8 +449,25 @@ public class CurrencyConverterMode implements ToolMode {
     private List<String> currencyMenuLabels() {
         final List<String> labels = new ArrayList<>();
         for (CurrencyDef currency : mCurrencies) {
-            labels.add(currency.shortLabel() + " · " + currency.getName());
+            labels.add(currency.shortLabel() + " · " + localizedName(currency));
         }
         return labels;
+    }
+
+    /**
+     * Returns the localized currency name when the resources provide an entry whose key is
+     * "currency_name_" followed by the lower-case ISO code, and otherwise the name that is
+     * shipped with the configuration.
+     */
+    @NonNull
+    private String localizedName(@NonNull CurrencyDef currency) {
+        final Context context = mHost == null ? null : mHost.getContext();
+        if (context == null) {
+            return currency.getName();
+        }
+        final String key = "currency_name_" + currency.getId().toLowerCase(Locale.US);
+        final int resId = context.getResources()
+                .getIdentifier(key, "string", context.getPackageName());
+        return resId == 0 ? currency.getName() : context.getString(resId);
     }
 }

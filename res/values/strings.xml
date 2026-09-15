@@ -483,4 +483,23 @@
     <string name="programmer_shift_left">&lt;&lt;</string>
     <string name="programmer_shift_right">>></string>
     <string name="programmer_divide_by_zero">Cannot divide by zero</string>
+
+    <!-- ============ Currency display names ============ -->
+    <!--
+      Localized names for the currencies listed in assets/tools/exchange_rate_config.json.
+      The lookup key is "currency_name_" + lower-case ISO code; when a code has no entry the
+      name shipped with the configuration is used instead.
+      -->
+    <string name="currency_name_eur">Euro</string>
+    <string name="currency_name_usd">US Dollar</string>
+    <string name="currency_name_cny">Chinese Yuan</string>
+    <string name="currency_name_jpy">Japanese Yen</string>
+    <string name="currency_name_gbp">British Pound</string>
+    <string name="currency_name_hkd">Hong Kong Dollar</string>
+    <string name="currency_name_krw">South Korean Won</string>
+    <string name="currency_name_chf">Swiss Franc</string>
+    <string name="currency_name_sgd">Singapore Dollar</string>
+    <string name="currency_name_aud">Australian Dollar</string>
+    <string name="currency_name_cad">Canadian Dollar</string>
+    <string name="currency_name_inr">Indian Rupee</string>
 </resources>
