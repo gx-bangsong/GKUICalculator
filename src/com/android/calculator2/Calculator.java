@@ -1469,6 +1469,16 @@ public class Calculator extends AppCompatActivity
     }
 
     @Override
+    public void setToolFormulaTextSizeRangeSp(float maxSp, float minSp) {
+        mFormulaText.setMaximumTextSizeOverride(
+                TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, maxSp,
+                        getResources().getDisplayMetrics()));
+        mFormulaText.setMinimumTextSizeOverride(
+                TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, minSp,
+                        getResources().getDisplayMetrics()));
+    }
+
+    @Override
     public void setToolResultTextSizeSp(float sp) {
         Log.d("ToolDebug", "setToolResultTextSizeSp: " + sp + " (was " + mResultText.getTextSize() + "px)");
         mResultText.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
@@ -1497,6 +1507,9 @@ public class Calculator extends AppCompatActivity
         // Cap the formula auto-size: labeled tool outputs (e.g. "年度税额 11,880") must not
         // grow to the tablet/foldable calculator max (128dip). Result line uses a compact
         // size so secondary numbers stay on one line.
+        // Tools get the default tool range back unless they ask for a wider one (only the
+        // kinship tool does, because its chain can grow much longer than a labeled result).
+        mFormulaText.clearMinimumTextSizeOverride();
         mFormulaText.setMaximumTextSizeOverride(
                 getResources().getDimension(R.dimen.tool_formula_max_textsize));
         mResultText.setTextSize(TypedValue.COMPLEX_UNIT_PX,
@@ -1521,6 +1534,7 @@ public class Calculator extends AppCompatActivity
         }
         mResultText.setTextSize(TypedValue.COMPLEX_UNIT_PX, mResultTextSizeOriginalPx);
         mFormulaText.clearMaximumTextSizeOverride();
+        mFormulaText.clearMinimumTextSizeOverride();
         // Restore the original formula/result paddings.
         mFormulaText.setPadding(mFormulaText.getPaddingStart(), mFormulaPadTop,
                 mFormulaText.getPaddingEnd(), mFormulaPadBottom);

@@ -41,6 +41,13 @@ public interface ToolHost {
     void setToolResultTextSizeSp(float sp);
 
     /**
+     * Give the formula line an auto-size range of its own, so a long input shrinks to fit instead
+     * of being cut off. Only needed by tools that can produce long single-line text; the default
+     * tool range is restored whenever another tool is activated.
+     */
+    void setToolFormulaTextSizeRangeSp(float maxSp, float minSp);
+
+    /**
      * Best-effort numeric value currently shown on the display (result preferred, falling back
      * to the formula). Used to carry a value into a newly activated tool.
      *

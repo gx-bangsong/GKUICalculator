@@ -7,6 +7,10 @@ package com.android.calculator2.tools.modes;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -62,8 +66,19 @@ public final class RelationshipMode implements ToolMode {
 
     private static final Map<Integer, Key> PAD_KEYS = padMapping();
 
+    /** Chains longer than this switch to the compact single-character rendering. */
+    private static final int COMPACT_FROM_STEPS = 6;
+
+    /** Auto-size range for the formula line, so a long chain shrinks instead of being cut off. */
+    private static final float FORMULA_MAX_SP = 30f;
+    private static final float FORMULA_MIN_SP = 14f;
+
     private final List<Step> mChain = new ArrayList<>();
     private boolean mReverse;
+    @Nullable
+    private View mControlRoot;
+    @Nullable
+    private TextView mHintView;
     @NonNull
     private Dialect mDialect = Dialect.NORTH;
     @Nullable
@@ -144,13 +159,36 @@ public final class RelationshipMode implements ToolMode {
         mDialect = readDialect(host.getContext());
         host.setRelationshipPadMode(true, false);
         host.setToolResultTextSizeSp(32f);
+        mountControls(host);
         redisplay();
     }
 
     @Override
     public void onDeactivate(@NonNull ToolHost host) {
         host.setRelationshipPadMode(false, false);
+        final ViewGroup slot = host.getToolControlSlot();
+        if (slot != null) {
+            slot.removeAllViews();
+            slot.setVisibility(View.GONE);
+        }
+        mControlRoot = null;
+        mHintView = null;
         mHost = null;
+    }
+
+    private void mountControls(@NonNull ToolHost host) {
+        final ViewGroup slot = host.getToolControlSlot();
+        if (slot == null) {
+            return;
+        }
+        mControlRoot = LayoutInflater.from(host.getContext())
+                .inflate(R.layout.tool_relationship_control, slot, false);
+        mHintView = mControlRoot.findViewById(R.id.relationship_hint);
+        slot.removeAllViews();
+        slot.addView(mControlRoot);
+        slot.setVisibility(View.VISIBLE);
+        // The chain can grow long, so give the formula line room to shrink rather than clip.
+        host.setToolFormulaTextSizeRangeSp(FORMULA_MAX_SP, FORMULA_MIN_SP);
     }
 
     @Override
@@ -238,32 +276,43 @@ public final class RelationshipMode implements ToolMode {
         if (mChain.isEmpty()) {
             host.setToolFormula("");
             host.setToolResult(context.getString(R.string.relationship_empty));
+            if (mHintView != null) {
+                mHintView.setText("");
+            }
             return;
         }
         final Answer answer = RelationshipCalculator.resolve(mChain, mDialect, mReverse);
-        final String chain = RelationshipCalculator.chainText(mChain);
-        final String formula = mReverse
+        final String chain = mChain.size() >= COMPACT_FROM_STEPS
+                ? RelationshipCalculator.compactText(mChain)
+                : RelationshipCalculator.chainText(mChain);
+        host.setToolFormula(mReverse
                 ? context.getString(R.string.relationship_reverse_formula, chain)
-                : chain;
-        host.setToolFormula(withHint(context, formula, answer));
+                : chain);
+        showHint(context, answer);
         host.setToolResult(join(answer.terms));
     }
 
-    @NonNull
-    private static String withHint(@NonNull Context context, @NonNull String formula,
-            @NonNull Answer answer) {
-        // The hint text names both terms, so it only fits a two-way split. A chain that is
-        // ambiguous in two ways at once (say a cousin whose sex and age are both unknown) simply
-        // lists every term without extra explanation.
+    /**
+     * The explanation lives on its own line: appending it to the chain pushed long chains off the
+     * formula line entirely.
+     */
+    private void showHint(@NonNull Context context, @NonNull Answer answer) {
+        final TextView hintView = mHintView;
+        if (hintView == null) {
+            return;
+        }
+        // The hint names both terms, so it only fits a two-way split. A chain that is ambiguous
+        // in two ways at once (a cousin whose sex and age are both unknown) just lists the terms.
         if (answer.hint == Hint.NONE || answer.terms.size() != 2) {
-            return formula;
+            hintView.setText("");
+            return;
         }
         final String hint = answer.hint == Hint.AGE
                 ? context.getString(R.string.relationship_hint_age,
                         answer.terms.get(0), answer.terms.get(1))
                 : context.getString(R.string.relationship_hint_sex,
                         answer.terms.get(0), answer.terms.get(1));
-        return formula + "（" + hint + "）";
+        hintView.setText(hint);
     }
 
     /** Every applicable term, side by side: "堂兄 / 堂弟". */

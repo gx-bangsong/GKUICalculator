@@ -197,6 +197,27 @@ public class RelationshipTest {
     }
 
     @Test
+    public void longChainsRenderCompactly() {
+        assertEquals("爸爸的哥哥的儿子",
+                RelationshipCalculator.chainText(
+                        chain(Step.FATHER, Step.ELDER_BROTHER, Step.SON)));
+        assertEquals("父的兄的子",
+                RelationshipCalculator.compactText(
+                        chain(Step.FATHER, Step.ELDER_BROTHER, Step.SON)));
+        assertEquals("父", RelationshipCalculator.shortWord(Step.FATHER));
+        assertEquals("母", RelationshipCalculator.shortWord(Step.MOTHER));
+        assertEquals("兄", RelationshipCalculator.shortWord(Step.ELDER_BROTHER));
+        assertEquals("弟", RelationshipCalculator.shortWord(Step.YOUNGER_BROTHER));
+        assertEquals("姐", RelationshipCalculator.shortWord(Step.ELDER_SISTER));
+        assertEquals("妹", RelationshipCalculator.shortWord(Step.YOUNGER_SISTER));
+        assertEquals("夫", RelationshipCalculator.shortWord(Step.HUSBAND));
+        assertEquals("妻", RelationshipCalculator.shortWord(Step.WIFE));
+        assertEquals("子", RelationshipCalculator.shortWord(Step.SON));
+        assertEquals("女", RelationshipCalculator.shortWord(Step.DAUGHTER));
+        assertEquals("", RelationshipCalculator.compactText(Collections.<Step>emptyList()));
+    }
+
+    @Test
     public void emptyChainHasNoTermsAndUnknownChainsStillReadWell() {
         assertTrue(RelationshipCalculator.resolve(Collections.<Step>emptyList(),
                 RelationshipCalculator.Dialect.NORTH, false).terms.isEmpty());

@@ -204,6 +204,51 @@ public final class RelationshipCalculator {
         return sb.toString();
     }
 
+    /**
+     * Compact rendering of a chain: the single character for each step, joined with 的
+     * ("父的兄的子"). Used instead of {@link #chainText} once a chain is long enough that the
+     * full words no longer fit the formula line.
+     */
+    @NonNull
+    public static String compactText(@NonNull List<Step> chain) {
+        final StringBuilder sb = new StringBuilder();
+        for (Step step : chain) {
+            if (sb.length() > 0) {
+                sb.append("的");
+            }
+            sb.append(shortWord(step));
+        }
+        return sb.toString();
+    }
+
+    /** Single character for one step (父, 兄, 子, …), matching the pad key that enters it. */
+    @NonNull
+    public static String shortWord(@NonNull Step step) {
+        switch (step) {
+            case FATHER:
+                return "父";
+            case MOTHER:
+                return "母";
+            case ELDER_BROTHER:
+                return "兄";
+            case YOUNGER_BROTHER:
+                return "弟";
+            case ELDER_SISTER:
+                return "姐";
+            case YOUNGER_SISTER:
+                return "妹";
+            case HUSBAND:
+                return "夫";
+            case WIFE:
+                return "妻";
+            case SON:
+                return "子";
+            case DAUGHTER:
+            default:
+                return "女";
+        }
+    }
+
     /** The word used for one step inside a chain (爸爸, 哥哥, …). */
     @NonNull
     public static String word(@NonNull Step step) {
