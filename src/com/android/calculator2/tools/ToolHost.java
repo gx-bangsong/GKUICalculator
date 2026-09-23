@@ -84,6 +84,13 @@ public interface ToolHost {
     /** Relabel/restore the scientific pad for Programmer mode and enable valid radix digits. */
     void setProgrammerPadMode(boolean enabled, int radix);
 
+    /**
+     * Relabel/restore the numeric pad for the kinship tool: every key becomes a relationship noun
+     * and the decimal-point key becomes the 互查 toggle. {@code reverse} drives the toggle's
+     * checked state and is ignored while {@code enabled} is false.
+     */
+    void setRelationshipPadMode(boolean enabled, boolean reverse);
+
     /** Re-evaluate mode-specific items in the activity overflow menu. */
     void refreshOptionsMenu();
 }

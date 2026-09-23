@@ -502,4 +502,36 @@
     <string name="currency_name_aud">Australian Dollar</string>
     <string name="currency_name_cad">Canadian Dollar</string>
     <string name="currency_name_inr">Indian Rupee</string>
+
+    <!-- ============ Chinese kinship calculator ============ -->
+
+    <!-- Tool mode: Chinese kinship (亲戚称呼) calculator. [CHAR_LIMIT=20] -->
+    <string name="tool_relationship">Relatives</string>
+    <!--
+      Pad key that flips the question around ("what do they call me?" instead of "what do I call
+      them?"). The label is the Chinese term on purpose: it is the name of the feature, and the
+      nouns it works on are Chinese as well.
+      -->
+    <string name="relationship_reverse">互查</string>
+    <!-- Content description for the 互查 pad key. [CHAR_LIMIT=NONE] -->
+    <string name="desc_relationship_reverse">Look up how that relative addresses you</string>
+    <!-- Reverse-look-up formula line. %1$s is the relationship chain. [CHAR_LIMIT=NONE] -->
+    <string name="relationship_reverse_formula">%1$s calls me</string>
+    <!--
+      Shown next to two terms that depend on whether the relative is older or younger than the
+      user. %1$s is the term used for an older relative, %2$s for a younger one. [CHAR_LIMIT=NONE]
+      -->
+    <string name="relationship_hint_age">older than you: %1$s · younger than you: %2$s</string>
+    <!--
+      Shown next to two terms that depend on the sex of the user. %1$s is the term used when the
+      user is male, %2$s when the user is female. [CHAR_LIMIT=NONE]
+      -->
+    <string name="relationship_hint_sex">male: %1$s · female: %2$s</string>
+    <!-- Shown on the result line before any relationship key has been pressed. [CHAR_LIMIT=40] -->
+    <string name="relationship_empty">Press a relative key</string>
+
+    <!-- Overflow menu: North China vocabulary (爷爷、奶奶、外公、外婆). [CHAR_LIMIT=40] -->
+    <string name="menu_relationship_north">North China version</string>
+    <!-- Overflow menu: South China vocabulary (阿公、阿嬷、姥爷、姥姥). [CHAR_LIMIT=40] -->
+    <string name="menu_relationship_south">South China version</string>
 </resources>

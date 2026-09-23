@@ -219,4 +219,15 @@
     <string name="currency_name_aud">澳元</string>
     <string name="currency_name_cad">加元</string>
     <string name="currency_name_inr">印度卢比</string>
+
+    <!-- 亲戚称呼计算 -->
+    <string name="tool_relationship">亲戚称呼</string>
+    <string name="relationship_reverse">互查</string>
+    <string name="desc_relationship_reverse">互查：对方怎么称呼你</string>
+    <string name="relationship_reverse_formula">%1$s叫我</string>
+    <string name="relationship_hint_age">比你大叫%1$s，比你小叫%2$s</string>
+    <string name="relationship_hint_sex">男生：%1$s · 女生：%2$s</string>
+    <string name="relationship_empty">按亲属键开始</string>
+    <string name="menu_relationship_north">北方版</string>
+    <string name="menu_relationship_south">南方版</string>
 </resources>

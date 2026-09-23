@@ -30,4 +30,15 @@
         android:checkable="true"
         android:visible="false" />
 
+    <!-- Regional vocabulary for the kinship tool; only shown while that tool is active. -->
+    <item android:id="@+id/menu_relationship_north"
+        android:title="@string/menu_relationship_north"
+        android:checkable="true"
+        android:visible="false" />
+
+    <item android:id="@+id/menu_relationship_south"
+        android:title="@string/menu_relationship_south"
+        android:checkable="true"
+        android:visible="false" />
+
 </menu>

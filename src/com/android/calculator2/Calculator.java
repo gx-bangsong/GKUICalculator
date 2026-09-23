@@ -72,8 +72,10 @@ import com.android.calculator2.tools.modes.CurrencyConverterMode;
 import com.android.calculator2.tools.modes.DateMode;
 import com.android.calculator2.tools.modes.MortgageMode;
 import com.android.calculator2.tools.modes.ProgrammerMode;
+import com.android.calculator2.tools.modes.RelationshipMode;
 import com.android.calculator2.tools.modes.TaxMode;
 import com.android.calculator2.tools.modes.UnitConverterMode;
+import com.android.calculator2.tools.model.RelationshipCalculator;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -84,6 +86,7 @@ import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.math.BigDecimal;
 import java.text.DecimalFormatSymbols;
+import java.util.Map;
 
 public class Calculator extends AppCompatActivity
         implements OnTextSizeChangeListener, AlertDialogFragment.OnClickListener,
@@ -436,6 +439,7 @@ public class Calculator extends AppCompatActivity
         mToolManager.register(new BmiMode());
         mToolManager.register(new DateMode());
         mToolManager.register(new ProgrammerMode());
+        mToolManager.register(new RelationshipMode());
         mToolManager.init();
         // DEBUG: record the overlay's initial visibility to diagnose "expanded at launch".
         final View overlay = findViewById(R.id.tool_panel_overlay);
@@ -1190,6 +1194,22 @@ public class Calculator extends AppCompatActivity
                     && activeTool.isSecondaryOutputEnabled());
         }
 
+        // The kinship tool speaks either North or South Chinese; pick exactly one.
+        final RelationshipMode kinship = activeTool instanceof RelationshipMode
+                ? (RelationshipMode) activeTool : null;
+        final MenuItem north = menu.findItem(R.id.menu_relationship_north);
+        if (north != null) {
+            north.setVisible(kinship != null);
+            north.setChecked(kinship != null
+                    && kinship.getDialect() == RelationshipCalculator.Dialect.NORTH);
+        }
+        final MenuItem south = menu.findItem(R.id.menu_relationship_south);
+        if (south != null) {
+            south.setVisible(kinship != null);
+            south.setChecked(kinship != null
+                    && kinship.getDialect() == RelationshipCalculator.Dialect.SOUTH);
+        }
+
         return true;
     }
 
@@ -1221,6 +1241,17 @@ public class Calculator extends AppCompatActivity
             ExchangeRateRepository.setAutoUpdateEnabled(this, enabled);
             item.setChecked(enabled);
             return true;
+        } else if (itemId == R.id.menu_relationship_north
+                || itemId == R.id.menu_relationship_south) {
+            final ToolMode activeTool = mToolManager == null ? null : mToolManager.getActive();
+            if (activeTool instanceof RelationshipMode) {
+                ((RelationshipMode) activeTool).setDialect(
+                        itemId == R.id.menu_relationship_north
+                                ? RelationshipCalculator.Dialect.NORTH
+                                : RelationshipCalculator.Dialect.SOUTH);
+                item.setChecked(true);
+                return true;
+            }
         }
         return super.onOptionsItemSelected(item);
     }
@@ -1589,6 +1620,66 @@ public class Calculator extends AppCompatActivity
         key.setText(textRes);
         key.setContentDescription(getString(descriptionRes));
         key.setEnabled(true);
+    }
+
+    @Override
+    public void setRelationshipPadMode(boolean enabled, boolean reverse) {
+        if (enabled) {
+            // Every numeric/operator key becomes a relationship noun; the labels come from the
+            // same map the mode uses to interpret the presses, so they can never disagree.
+            for (Map.Entry<Integer, RelationshipCalculator.Key> entry
+                    : RelationshipMode.padMapping().entrySet()) {
+                final TextView key = findViewById(entry.getKey());
+                final String label = entry.getValue().label;
+                key.setText(label);
+                key.setContentDescription(label);
+                key.setEnabled(true);
+            }
+            final HapticButton swap = findViewById(R.id.dec_point);
+            swap.setText(R.string.relationship_reverse);
+            swap.setContentDescription(getString(R.string.desc_relationship_reverse));
+            swap.setEnabled(true);
+            // Highlight the toggle; the formula line ("爸爸的哥哥叫我") is the primary signal.
+            swap.setCheckable(true);
+            swap.setChecked(reverse);
+            swap.setSelected(reverse);
+            mModeView.setText(R.string.tool_relationship);
+            mModeView.setContentDescription(getString(R.string.tool_relationship));
+        } else {
+            restoreNumericPadLabels();
+            onModeChanged(mEvaluator.getDegreeMode(Evaluator.MAIN_INDEX));
+        }
+    }
+
+    private void restoreNumericPadLabels() {
+        setPadLabel(R.id.paren, R.string.paren, R.string.desc_paren);
+        setPadLabel(R.id.op_pct, R.string.op_pct, R.string.desc_op_pct);
+        setPadLabel(R.id.op_div, R.string.op_div, R.string.desc_op_div);
+        setPadLabel(R.id.op_mul, R.string.op_mul, R.string.desc_op_mul);
+        setPadLabel(R.id.op_sub, R.string.op_sub, R.string.desc_op_sub);
+        setPadLabel(R.id.op_add, R.string.op_add, R.string.desc_op_add);
+        final int[] digitIds = {
+                R.id.digit_0, R.id.digit_1, R.id.digit_2, R.id.digit_3, R.id.digit_4,
+                R.id.digit_5, R.id.digit_6, R.id.digit_7, R.id.digit_8, R.id.digit_9
+        };
+        final int[] digitLabels = {
+                R.string.digit_0, R.string.digit_1, R.string.digit_2, R.string.digit_3,
+                R.string.digit_4, R.string.digit_5, R.string.digit_6, R.string.digit_7,
+                R.string.digit_8, R.string.digit_9
+        };
+        for (int i = 0; i < digitIds.length; i++) {
+            final TextView key = findViewById(digitIds[i]);
+            key.setText(digitLabels[i]);
+            key.setContentDescription(getString(digitLabels[i]));
+            key.setEnabled(true);
+        }
+        final HapticButton swap = findViewById(R.id.dec_point);
+        swap.setText(getDecimalSeparator());
+        swap.setContentDescription(getString(R.string.desc_dec_point));
+        swap.setEnabled(true);
+        swap.setCheckable(false);
+        swap.setChecked(false);
+        swap.setSelected(false);
     }
 
     private void updateScientificToggleVisibility() {

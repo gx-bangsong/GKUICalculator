@@ -37,6 +37,9 @@ public final class ToolId {
     /** Signed 64-bit programmer calculator. */
     public static final String PROGRAMMER = "programmer";
 
+    /** Chinese kinship (亲戚称呼) calculator. */
+    public static final String RELATIONSHIP = "relationship";
+
     private ToolId() {
     }
 }
