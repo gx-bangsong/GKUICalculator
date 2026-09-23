@@ -233,6 +233,9 @@ public class Calculator extends AppCompatActivity
     private Evaluator mEvaluator;
 
     private TextView mModeView;
+    /** Horizontal padding of the decimal-point key, saved while the kinship tool widens it. */
+    private int mSwapPaddingStart = -1;
+    private int mSwapPaddingEnd = -1;
     private CalculatorFormula mFormulaText;
     private HapticButton mDeleteButton;
     private CalculatorResult mResultText;
@@ -1630,15 +1633,22 @@ public class Calculator extends AppCompatActivity
             for (Map.Entry<Integer, RelationshipCalculator.Key> entry
                     : RelationshipMode.padMapping().entrySet()) {
                 final TextView key = findViewById(entry.getKey());
-                final String label = entry.getValue().label;
-                key.setText(label);
-                key.setContentDescription(label);
+                final RelationshipCalculator.Key relative = entry.getValue();
+                key.setText(relative.label);
+                key.setContentDescription(relative.description);
                 key.setEnabled(true);
             }
             final HapticButton swap = findViewById(R.id.dec_point);
             swap.setText(R.string.relationship_reverse);
             swap.setContentDescription(getString(R.string.desc_relationship_reverse));
             swap.setEnabled(true);
+            // 互查 is the only two-character label left; drop the button's horizontal padding
+            // so it is not clipped the way the old two-character labels were.
+            if (mSwapPaddingStart < 0) {
+                mSwapPaddingStart = swap.getPaddingStart();
+                mSwapPaddingEnd = swap.getPaddingEnd();
+            }
+            swap.setPaddingRelative(0, swap.getPaddingTop(), 0, swap.getPaddingBottom());
             // Highlight the toggle; the formula line ("爸爸的哥哥叫我") is the primary signal.
             swap.setCheckable(true);
             swap.setChecked(reverse);
@@ -1680,6 +1690,12 @@ public class Calculator extends AppCompatActivity
         swap.setCheckable(false);
         swap.setChecked(false);
         swap.setSelected(false);
+        if (mSwapPaddingStart >= 0) {
+            swap.setPaddingRelative(mSwapPaddingStart, swap.getPaddingTop(),
+                    mSwapPaddingEnd, swap.getPaddingBottom());
+            mSwapPaddingStart = -1;
+            mSwapPaddingEnd = -1;
+        }
     }
 
     private void updateScientificToggleVisibility() {

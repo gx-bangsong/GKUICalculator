@@ -177,10 +177,23 @@ public class RelationshipTest {
     public void shortcutsExpandToTheirAtomicSteps() {
         assertEquals(Arrays.asList(Step.FATHER, Step.FATHER),
                 RelationshipCalculator.Key.PATERNAL_GRANDFATHER.steps());
-        assertEquals("爷爷", RelationshipCalculator.Key.PATERNAL_GRANDFATHER.label);
-        assertEquals("伯父", term(Step.FATHER, Step.ELDER_BROTHER));
-        // 妈妈的哥哥 — the 舅舅 shortcut — resolves to the same term as 妈妈的弟弟.
-        assertEquals(RelationshipCalculator.Key.MATERNAL_UNCLE.steps().get(0), Step.MOTHER);
+        assertEquals("爷", RelationshipCalculator.Key.PATERNAL_GRANDFATHER.label);
+        assertEquals("爷爷", RelationshipCalculator.Key.PATERNAL_GRANDFATHER.description);
+        // 妈妈的哥哥 — the 舅 shortcut — resolves to the same term as 妈妈的弟弟.
+        assertEquals(Arrays.asList(Step.MOTHER, Step.ELDER_BROTHER),
+                RelationshipCalculator.Key.MATERNAL_UNCLE.steps());
+        assertEquals("舅舅", term(Step.MOTHER, Step.ELDER_BROTHER));
+        // 爸爸的妹妹 — the 姑 shortcut — and 爸爸的弟弟 — the 叔 shortcut.
+        assertEquals("姑姑", term(Step.FATHER, Step.YOUNGER_SISTER));
+        assertEquals("叔叔", term(Step.FATHER, Step.YOUNGER_BROTHER));
+    }
+
+    @Test
+    public void everyPadKeyHasASingleCharacterLabel() {
+        for (RelationshipCalculator.Key key : RelationshipCalculator.Key.values()) {
+            assertEquals(key.name(), 1, key.label.length());
+            assertTrue(key.name(), key.description.length() >= key.label.length());
+        }
     }
 
     @Test

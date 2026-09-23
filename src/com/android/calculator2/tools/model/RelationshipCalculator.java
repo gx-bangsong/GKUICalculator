@@ -76,34 +76,42 @@ public final class RelationshipCalculator {
      * The pad keys: the ten atomic steps plus six shortcuts for the relatives that are looked up
      * most often. A shortcut simply expands to the atomic chain it stands for, so the resolver
      * only ever deals with atomic steps.
+     * <p>
+     * Labels are a single character: a two-character CJK label does not fit a pad button next to
+     * the Material button paddings. The full word is kept as the key's content description.
      */
     public enum Key {
-        FATHER("爸爸", Step.FATHER),
-        MOTHER("妈妈", Step.MOTHER),
-        ELDER_BROTHER("哥哥", Step.ELDER_BROTHER),
-        YOUNGER_BROTHER("弟弟", Step.YOUNGER_BROTHER),
-        ELDER_SISTER("姐姐", Step.ELDER_SISTER),
-        YOUNGER_SISTER("妹妹", Step.YOUNGER_SISTER),
-        HUSBAND("丈夫", Step.HUSBAND),
-        WIFE("妻子", Step.WIFE),
-        SON("儿子", Step.SON),
-        DAUGHTER("女儿", Step.DAUGHTER),
-        PATERNAL_GRANDFATHER("爷爷", Step.FATHER, Step.FATHER),
-        PATERNAL_GRANDMOTHER("奶奶", Step.FATHER, Step.MOTHER),
-        MATERNAL_GRANDFATHER("外公", Step.MOTHER, Step.FATHER),
-        MATERNAL_GRANDMOTHER("外婆", Step.MOTHER, Step.MOTHER),
-        MATERNAL_UNCLE("舅舅", Step.MOTHER, Step.ELDER_BROTHER),
-        MATERNAL_AUNT("姨妈", Step.MOTHER, Step.ELDER_SISTER);
+        FATHER("父", "爸爸", Step.FATHER),
+        MOTHER("母", "妈妈", Step.MOTHER),
+        ELDER_BROTHER("兄", "哥哥", Step.ELDER_BROTHER),
+        YOUNGER_BROTHER("弟", "弟弟", Step.YOUNGER_BROTHER),
+        ELDER_SISTER("姐", "姐姐", Step.ELDER_SISTER),
+        YOUNGER_SISTER("妹", "妹妹", Step.YOUNGER_SISTER),
+        HUSBAND("夫", "丈夫", Step.HUSBAND),
+        WIFE("妻", "妻子", Step.WIFE),
+        SON("子", "儿子", Step.SON),
+        DAUGHTER("女", "女儿", Step.DAUGHTER),
+        PATERNAL_GRANDFATHER("爷", "爷爷", Step.FATHER, Step.FATHER),
+        PATERNAL_GRANDMOTHER("奶", "奶奶", Step.FATHER, Step.MOTHER),
+        MATERNAL_UNCLE("舅", "舅舅", Step.MOTHER, Step.ELDER_BROTHER),
+        MATERNAL_AUNT("姨", "姨妈", Step.MOTHER, Step.ELDER_SISTER),
+        PATERNAL_AUNT("姑", "姑姑", Step.FATHER, Step.YOUNGER_SISTER),
+        PATERNAL_UNCLE("叔", "叔叔", Step.FATHER, Step.YOUNGER_BROTHER);
 
-        /** Label shown on the pad. Also used as the key's content description. */
+        /** Single character shown on the pad. */
         @NonNull
         public final String label;
+
+        /** Full word, used as the key's content description. */
+        @NonNull
+        public final String description;
 
         @NonNull
         private final Step[] mSteps;
 
-        Key(@NonNull String label, @NonNull Step... steps) {
+        Key(@NonNull String label, @NonNull String description, @NonNull Step... steps) {
             this.label = label;
+            this.description = description;
             mSteps = steps;
         }
 

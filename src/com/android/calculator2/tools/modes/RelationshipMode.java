@@ -31,14 +31,15 @@ import java.util.Map;
  * Chinese kinship tool (亲戚称呼): the pad turns into a wall of relationship nouns, the formula
  * line shows the chain that was entered, and the result line shows how to address that relative.
  * <p>
- * Pad layout while this tool is active ({@link #padMapping} owns the assignment):
+ * Pad layout while this tool is active ({@link #padMapping} owns the assignment). Every key is a
+ * single character so the label fits the button; its content description is the full word:
  *
  * <pre>
- *   AC    舅舅  姨妈  爷爷
- *   爸爸  妈妈  哥哥  奶奶
- *   弟弟  姐姐  妹妹  外公
- *   儿子  女儿  丈夫  外婆
- *   妻子  互查  del   =
+ *   AC   舅  姨  爷
+ *   父   母  兄  奶
+ *   弟   姐  妹  姑
+ *   子   女  夫  叔
+ *   妻  互查 del  =
  * </pre>
  * <p>
  * "互查" (the decimal-point key) flips the question around: instead of "what do I call them?" it
@@ -74,22 +75,22 @@ public final class RelationshipMode implements ToolMode {
     @NonNull
     public static Map<Integer, Key> padMapping() {
         final Map<Integer, Key> map = new LinkedHashMap<>();
-        map.put(R.id.paren, Key.MATERNAL_UNCLE);            // 舅舅
-        map.put(R.id.op_pct, Key.MATERNAL_AUNT);            // 姨妈
-        map.put(R.id.op_div, Key.PATERNAL_GRANDFATHER);     // 爷爷
-        map.put(R.id.op_mul, Key.PATERNAL_GRANDMOTHER);     // 奶奶
-        map.put(R.id.op_sub, Key.MATERNAL_GRANDFATHER);     // 外公
-        map.put(R.id.op_add, Key.MATERNAL_GRANDMOTHER);     // 外婆
-        map.put(R.id.digit_7, Key.FATHER);                  // 爸爸
-        map.put(R.id.digit_8, Key.MOTHER);                  // 妈妈
-        map.put(R.id.digit_9, Key.ELDER_BROTHER);           // 哥哥
-        map.put(R.id.digit_4, Key.YOUNGER_BROTHER);         // 弟弟
-        map.put(R.id.digit_5, Key.ELDER_SISTER);            // 姐姐
-        map.put(R.id.digit_6, Key.YOUNGER_SISTER);          // 妹妹
-        map.put(R.id.digit_1, Key.SON);                     // 儿子
-        map.put(R.id.digit_2, Key.DAUGHTER);                // 女儿
-        map.put(R.id.digit_3, Key.HUSBAND);                 // 丈夫
-        map.put(R.id.digit_0, Key.WIFE);                    // 妻子
+        map.put(R.id.paren, Key.MATERNAL_UNCLE);            // 舅 — 舅舅
+        map.put(R.id.op_pct, Key.MATERNAL_AUNT);            // 姨 — 姨妈
+        map.put(R.id.op_div, Key.PATERNAL_GRANDFATHER);     // 爷 — 爷爷
+        map.put(R.id.op_mul, Key.PATERNAL_GRANDMOTHER);     // 奶 — 奶奶
+        map.put(R.id.op_sub, Key.PATERNAL_AUNT);            // 姑 — 姑姑
+        map.put(R.id.op_add, Key.PATERNAL_UNCLE);           // 叔 — 叔叔
+        map.put(R.id.digit_7, Key.FATHER);                  // 父 — 爸爸
+        map.put(R.id.digit_8, Key.MOTHER);                  // 母 — 妈妈
+        map.put(R.id.digit_9, Key.ELDER_BROTHER);           // 兄 — 哥哥
+        map.put(R.id.digit_4, Key.YOUNGER_BROTHER);         // 弟 — 弟弟
+        map.put(R.id.digit_5, Key.ELDER_SISTER);            // 姐 — 姐姐
+        map.put(R.id.digit_6, Key.YOUNGER_SISTER);          // 妹 — 妹妹
+        map.put(R.id.digit_1, Key.SON);                     // 子 — 儿子
+        map.put(R.id.digit_2, Key.DAUGHTER);                // 女 — 女儿
+        map.put(R.id.digit_3, Key.HUSBAND);                 // 夫 — 丈夫
+        map.put(R.id.digit_0, Key.WIFE);                    // 妻 — 妻子
         return map;
     }
 
