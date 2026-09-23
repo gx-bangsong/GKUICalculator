@@ -39,12 +39,13 @@ import java.util.Map;
  *   父   母  兄  奶
  *   弟   姐  妹  姑
  *   子   女  夫  叔
- *   妻  互查 del  =
+ *   妻  ⇄   del  =
  * </pre>
  * <p>
- * "互查" (the decimal-point key) flips the question around: instead of "what do I call them?" it
- * answers "what do they call me?". Both questions may have more than one answer (older/younger
- * brother, or the unknown sex of the user); in that case every term is shown at once.
+ * "互查" (the decimal-point key, drawn with the unit converter's swap icon) flips the question
+ * around: instead of "what do I call them?" it answers "what do they call me?". Both questions may
+ * have more than one answer (older/younger brother, or the unknown sex of the user); in that case
+ * every term is shown at once.
  */
 public final class RelationshipMode implements ToolMode {
 

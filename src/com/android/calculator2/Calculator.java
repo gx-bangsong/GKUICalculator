@@ -61,6 +61,8 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
+import com.google.android.material.button.MaterialButton;
+
 import com.android.calculator2.CalculatorFormula.OnTextSizeChangeListener;
 import com.android.calculator2.tools.ToolHost;
 import com.android.calculator2.tools.ToolManager;
@@ -233,9 +235,6 @@ public class Calculator extends AppCompatActivity
     private Evaluator mEvaluator;
 
     private TextView mModeView;
-    /** Horizontal padding of the decimal-point key, saved while the kinship tool widens it. */
-    private int mSwapPaddingStart = -1;
-    private int mSwapPaddingEnd = -1;
     private CalculatorFormula mFormulaText;
     private HapticButton mDeleteButton;
     private CalculatorResult mResultText;
@@ -1638,18 +1637,19 @@ public class Calculator extends AppCompatActivity
                 key.setContentDescription(relative.description);
                 key.setEnabled(true);
             }
+            // 互查 reuses the unit converter's swap icon: two characters never fit a pad key,
+            // and the icon reads as "swap the direction of the question" in any language.
             final HapticButton swap = findViewById(R.id.dec_point);
-            swap.setText(R.string.relationship_reverse);
+            swap.setText("");
+            swap.setIconResource(R.drawable.ic_unit_swap);
+            swap.setIconTint(null);
+            swap.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
+            swap.setIconSize(getResources().getDimensionPixelSize(R.dimen.button_iconsize));
+            swap.setIconPadding(0);
             swap.setContentDescription(getString(R.string.desc_relationship_reverse));
             swap.setEnabled(true);
-            // 互查 is the only two-character label left; drop the button's horizontal padding
-            // so it is not clipped the way the old two-character labels were.
-            if (mSwapPaddingStart < 0) {
-                mSwapPaddingStart = swap.getPaddingStart();
-                mSwapPaddingEnd = swap.getPaddingEnd();
-            }
-            swap.setPaddingRelative(0, swap.getPaddingTop(), 0, swap.getPaddingBottom());
-            // Highlight the toggle; the formula line ("爸爸的哥哥叫我") is the primary signal.
+            // Flip the arrows while 互查 is on; the formula line spells the state out anyway.
+            swap.setRotation(reverse ? 180f : 0f);
             swap.setCheckable(true);
             swap.setChecked(reverse);
             swap.setSelected(reverse);
@@ -1684,18 +1684,15 @@ public class Calculator extends AppCompatActivity
             key.setEnabled(true);
         }
         final HapticButton swap = findViewById(R.id.dec_point);
+        swap.setRotation(0f);
+        swap.setIcon(null);
+        swap.setIconTint(null);
         swap.setText(getDecimalSeparator());
         swap.setContentDescription(getString(R.string.desc_dec_point));
         swap.setEnabled(true);
         swap.setCheckable(false);
         swap.setChecked(false);
         swap.setSelected(false);
-        if (mSwapPaddingStart >= 0) {
-            swap.setPaddingRelative(mSwapPaddingStart, swap.getPaddingTop(),
-                    mSwapPaddingEnd, swap.getPaddingBottom());
-            mSwapPaddingStart = -1;
-            mSwapPaddingEnd = -1;
-        }
     }
 
     private void updateScientificToggleVisibility() {

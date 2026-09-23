@@ -222,7 +222,6 @@
 
     <!-- 亲戚称呼计算 -->
     <string name="tool_relationship">亲戚称呼</string>
-    <string name="relationship_reverse">互查</string>
     <string name="desc_relationship_reverse">互查：对方怎么称呼你</string>
     <string name="relationship_reverse_formula">%1$s叫我</string>
     <string name="relationship_hint_age">比你大叫%1$s，比你小叫%2$s</string>
