@@ -221,10 +221,77 @@ public class RelationshipTest {
     public void emptyChainHasNoTermsAndUnknownChainsStillReadWell() {
         assertTrue(RelationshipCalculator.resolve(Collections.<Step>emptyList(),
                 RelationshipCalculator.Dialect.NORTH, false).terms.isEmpty());
-        // No rule covers 哥哥的哥哥的哥哥, so the longest known prefix is used.
+        // 哥哥的弟弟 could still be the user, so no rule names 哥哥的弟弟的儿子; the longest
+        // known prefix is used instead of guessing.
         final String deep = RelationshipCalculator.resolve(
-                chain(Step.ELDER_BROTHER, Step.ELDER_BROTHER, Step.ELDER_BROTHER),
+                chain(Step.ELDER_BROTHER, Step.YOUNGER_BROTHER, Step.SON),
                 RelationshipCalculator.Dialect.NORTH, false).terms.get(0);
         assertTrue(deep, deep.contains("的"));
     }
+
+    @Test
+    public void equivalentChainsAreSimplifiedBeforeResolving() {
+        // 爸爸的妻子 is 妈妈, so this is 妈妈的爸爸.
+        assertEquals("外公", term(Step.FATHER, Step.WIFE, Step.FATHER));
+        // 哥哥的爸爸 is 爸爸 again.
+        assertEquals("爸爸", term(Step.ELDER_BROTHER, Step.FATHER));
+        // A child's parent is the person we came from (or their spouse).
+        assertEquals("哥哥", term(Step.ELDER_BROTHER, Step.SON, Step.FATHER));
+        assertEquals("嫂子", term(Step.ELDER_BROTHER, Step.SON, Step.MOTHER));
+        assertEquals("哥哥", term(Step.ELDER_BROTHER, Step.DAUGHTER, Step.FATHER));
+        // My own child's parent: me, or my spouse when the sexes disagree.
+        assertEquals("我", term(Step.SON, Step.FATHER));
+        assertEquals("妻子", term(Step.SON, Step.MOTHER));
+        assertEquals("我", term(Step.DAUGHTER, Step.MOTHER));
+        assertEquals("丈夫", term(Step.DAUGHTER, Step.FATHER));
+        // 丈夫的妻子 is the user; 儿子的爸爸的哥哥 is simply 哥哥.
+        assertEquals("我", term(Step.HUSBAND, Step.WIFE));
+        assertEquals("哥哥", term(Step.SON, Step.FATHER, Step.ELDER_BROTHER));
+        assertEquals("孙子", term(Step.WIFE, Step.SON, Step.SON));
+        // An older sibling's older sibling is that sibling; a younger one is that sibling or me.
+        assertEquals("哥哥", term(Step.ELDER_BROTHER, Step.ELDER_BROTHER));
+        assertEquals("弟弟", term(Step.YOUNGER_SISTER, Step.YOUNGER_BROTHER));
+        assertEquals(Arrays.asList("弟弟", "我"), RelationshipCalculator.resolve(chain(Step.ELDER_BROTHER,
+                Step.YOUNGER_BROTHER), RelationshipCalculator.Dialect.NORTH, false).terms);
+    }
+
+    @Test
+    public void chainsThatLandOnTheParentsGenerationNameEveryCandidate() {
+        // 爷爷的儿子 is my father or one of his brothers; 外婆的女儿 is my mother or an aunt.
+        assertEquals(Arrays.asList("爸爸", "伯父", "叔叔"),
+                RelationshipCalculator.resolve(chain(Step.FATHER, Step.FATHER, Step.SON),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+        assertEquals(Arrays.asList("姑妈", "姑姑"),
+                RelationshipCalculator.resolve(chain(Step.FATHER, Step.FATHER, Step.DAUGHTER),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+        assertEquals(Arrays.asList("妈妈", "姨妈"),
+                RelationshipCalculator.resolve(chain(Step.MOTHER, Step.MOTHER, Step.DAUGHTER),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+        assertEquals(Collections.singletonList("舅舅"),
+                RelationshipCalculator.resolve(chain(Step.MOTHER, Step.FATHER, Step.SON),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+        // Same generation reached through an uncle or an aunt.
+        assertEquals(Arrays.asList("爸爸", "伯父", "叔叔"),
+                RelationshipCalculator.resolve(chain(Step.FATHER, Step.ELDER_BROTHER, Step.YOUNGER_BROTHER),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+        assertEquals(Collections.singletonList("舅舅"),
+                RelationshipCalculator.resolve(chain(Step.MOTHER, Step.ELDER_BROTHER, Step.ELDER_BROTHER),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+        assertEquals(Collections.singletonList("伯父"),
+                RelationshipCalculator.resolve(chain(Step.FATHER, Step.ELDER_BROTHER, Step.ELDER_BROTHER),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+    }
+
+    @Test
+    public void siblingsChildrenResolveThroughTheirParent() {
+        // 爸爸的儿子的儿子 is a brother's son; 妈妈的女儿的女儿 is a sister's daughter.
+        assertEquals("侄子", term(Step.FATHER, Step.SON, Step.SON));
+        assertEquals("外甥女", term(Step.FATHER, Step.DAUGHTER, Step.DAUGHTER));
+        assertEquals("侄女", term(Step.MOTHER, Step.SON, Step.DAUGHTER));
+        // 儿子的姐姐 is my daughter; 妻子的儿子 is my son.
+        assertEquals("女儿", term(Step.SON, Step.ELDER_SISTER));
+        assertEquals("儿子", term(Step.SON, Step.ELDER_BROTHER));
+        assertEquals("儿子", term(Step.WIFE, Step.SON));
+    }
+
 }

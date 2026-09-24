@@ -310,33 +310,128 @@ public final class RelationshipCalculator {
 
     @NonNull
     private static Answer resolveForward(@NonNull List<Step> chain, @NonNull Dialect dialect) {
-        final int size = chain.size();
+        final List<Step> steps = normalize(chain);
+        if (steps.isEmpty()) {
+            return one(SELF);
+        }
+        final int size = steps.size();
         if (size == 1) {
-            return one(word(chain.get(0)));
+            return one(word(steps.get(0)));
         }
         if (size == 2) {
-            final Answer pair = pair(chain.get(0), chain.get(1), dialect);
+            final Answer pair = pair(steps.get(0), steps.get(1), dialect);
             if (pair != null) {
                 return pair;
             }
         } else if (size == 3) {
-            final Answer triple = triple(chain.get(0), chain.get(1), chain.get(2), dialect);
+            final Answer triple = triple(steps.get(0), steps.get(1), steps.get(2), dialect);
             if (triple != null) {
                 return triple;
             }
         } else if (size == 4) {
-            final Answer quad = quad(chain, dialect);
+            final Answer quad = quad(steps, dialect);
             if (quad != null) {
                 return quad;
             }
         }
-        if (isAncestorChain(chain)) {
-            return one(ancestorTerm(chain, dialect));
+        if (isAncestorChain(steps)) {
+            return one(ancestorTerm(steps, dialect));
         }
-        if (isDescendantChain(chain)) {
-            return one(descendantTerm(chain));
+        if (isDescendantChain(steps)) {
+            return one(descendantTerm(steps));
         }
-        return composed(chain, dialect);
+        return composed(steps, dialect);
+    }
+
+    /**
+     * Rewrite a chain into the shortest chain that describes the same person, so the rules below
+     * do not have to restate the obvious: 爸爸的妻子 is 妈妈, 哥哥的爸爸 is 爸爸 again, and a
+     * child's parent is the person we came from. Every rewrite drops two steps, so this settles
+     * after at most {@code chain.size()} passes.
+     */
+    @NonNull
+    static List<Step> normalize(@NonNull List<Step> chain) {
+        List<Step> current = new ArrayList<>(chain);
+        for (int pass = 0; pass <= chain.size(); pass++) {
+            final List<Step> next = simplifyOnce(current);
+            if (next.equals(current)) {
+                return current;
+            }
+            current = next;
+        }
+        return current;
+    }
+
+    @NonNull
+    private static List<Step> simplifyOnce(@NonNull List<Step> chain) {
+        final List<Step> out = new ArrayList<>();
+        int i = 0;
+        while (i < chain.size()) {
+            if (i + 1 < chain.size()) {
+                final Step a = chain.get(i);
+                final Step b = chain.get(i + 1);
+                // 爸爸的妻子 is 妈妈, and 妈妈的丈夫 is 爸爸.
+                if (a == Step.FATHER && b == Step.WIFE) {
+                    out.add(Step.MOTHER);
+                    i += 2;
+                    continue;
+                }
+                if (a == Step.MOTHER && b == Step.HUSBAND) {
+                    out.add(Step.FATHER);
+                    i += 2;
+                    continue;
+                }
+                // 丈夫的妻子 and 妻子的丈夫 are the user again.
+                if ((a == Step.HUSBAND && b == Step.WIFE)
+                        || (a == Step.WIFE && b == Step.HUSBAND)) {
+                    i += 2;
+                    continue;
+                }
+                // A child's parent is the person we came from, or their spouse.
+                if (isChild(a) && isParent(b)) {
+                    if (out.isEmpty()) {
+                        // My child's parent: me when the sexes line up, otherwise my spouse.
+                        if (!((a == Step.SON && b == Step.FATHER)
+                                || (a == Step.DAUGHTER && b == Step.MOTHER))) {
+                            out.add(a == Step.SON ? Step.WIFE : Step.HUSBAND);
+                        }
+                    } else {
+                        final Sex previous = sexOf(out.get(out.size() - 1));
+                        if (previous != sexOf(b)) {
+                            out.add(previous == Sex.MALE ? Step.WIFE : Step.HUSBAND);
+                        }
+                    }
+                    i += 2;
+                    continue;
+                }
+                // A spouse's child is that person's child, and so is a child's sibling.
+                if (isSpouse(a) && isChild(b)) {
+                    out.add(b);
+                    i += 2;
+                    continue;
+                }
+                if (isChild(a) && isSibling(b)) {
+                    out.add(sexOf(b) == Sex.MALE ? Step.SON : Step.DAUGHTER);
+                    i += 2;
+                    continue;
+                }
+                // A sibling's parent is my parent again.
+                if (isSibling(a) && isParent(b)) {
+                    out.add(b);
+                    i += 2;
+                    continue;
+                }
+                // An older sibling's older sibling is just that sibling (哥哥的哥哥 = 哥哥).
+                if (isSibling(a) && isSibling(b) && isElder(a) == isElder(b)) {
+                    out.add(b);
+                    i += 2;
+                    continue;
+                }
+            }
+            out.add(chain.get(i));
+            i++;
+        }
+        return out;
     }
 
     /** Two-step chains: parents, parents' siblings, spouses, children, and in-laws. */
@@ -396,7 +491,9 @@ public final class RelationshipCalculator {
                     case DAUGHTER:
                         return one("侄女");
                     default:
-                        return null;
+                        // Normalization already collapsed the unambiguous cases; what is left
+                        // (哥哥的弟弟, 妹妹的哥哥, …) is either that sibling or the user.
+                        return isSibling(b) ? siblingOfSibling(a, b) : null;
                 }
             case ELDER_SISTER:
             case YOUNGER_SISTER:
@@ -408,7 +505,7 @@ public final class RelationshipCalculator {
                     case DAUGHTER:
                         return one("外甥女");
                     default:
-                        return null;
+                        return isSibling(b) ? siblingOfSibling(a, b) : null;
                 }
             case HUSBAND:
                 switch (b) {
@@ -513,7 +610,19 @@ public final class RelationshipCalculator {
                         ? grandmother(!paternal, dialect)
                         : grandfather(!paternal, dialect));
             }
+            if (isSibling(c)) {
+                // 伯父的弟弟 is my father or another uncle; 姨妈的姐姐 is my mother or another aunt.
+                return parentsGeneration(paternal, sexOf(c));
+            }
             return null;
+        }
+        if (isParent(a) && isParent(b) && isChild(c)) {
+            // 爷爷的儿子 is my father or one of his brothers; 外婆的女儿 is my mother or an aunt.
+            return parentsGeneration(a == Step.FATHER, sexOf(c));
+        }
+        if (isParent(a) && isChild(b) && isChild(c)) {
+            // 爸爸的儿子的儿子 is a brother's son; 妈妈的女儿的女儿 is a sister's daughter.
+            return one((b == Step.SON ? "侄" : "外甥") + (c == Step.SON ? "子" : "女"));
         }
         if (isParent(a) && isParent(b) && isSibling(c)) {
             // Grandparents' siblings.
@@ -554,10 +663,6 @@ public final class RelationshipCalculator {
         if (isChild(a) && isSpouse(b) && isChild(c)) {
             // 儿媳的儿子 → 孙子; 女婿的女儿 → 外孙女.
             return one((a == Step.SON ? "" : "外") + (c == Step.SON ? "孙子" : "孙女"));
-        }
-        if (isSibling(a) && isParent(b)) {
-            // 哥哥的爸爸 is 爸爸.
-            return one(b == Step.FATHER ? "爸爸" : "妈妈");
         }
         return null;
     }
@@ -688,6 +793,10 @@ public final class RelationshipCalculator {
         return isBrother(step) || isSister(step);
     }
 
+    private static boolean isElder(Step step) {
+        return step == Step.ELDER_BROTHER || step == Step.ELDER_SISTER;
+    }
+
     private static boolean isBrother(Step step) {
         return step == Step.ELDER_BROTHER || step == Step.YOUNGER_BROTHER;
     }
@@ -738,6 +847,35 @@ public final class RelationshipCalculator {
             default:
                 return Step.HUSBAND;
         }
+    }
+
+    /**
+     * A sibling's sibling: unambiguous when both are older or both are younger than the people
+     * between them (哥哥的哥哥 = 哥哥), and otherwise either that sibling or the user
+     * (哥哥的弟弟 = 弟弟 or me).
+     */
+    @NonNull
+    private static Answer siblingOfSibling(@NonNull Step a, @NonNull Step b) {
+        return isElder(a) == isElder(b)
+                ? one(word(b))
+                : new Answer(Arrays.asList(word(b), SELF), Hint.NONE);
+    }
+
+    /**
+     * Everybody in my parents' generation on one side: for a father's family that is my father
+     * and his brothers (爸爸、伯父、叔叔) or his sisters (姑妈、姑姑); for a mother's family it is
+     * just 舅舅, or my mother and her sisters (妈妈、姨妈). Used whenever a chain lands on that
+     * generation without saying which one — 爷爷的儿子, 伯父的弟弟, 外婆的女儿 …
+     */
+    @NonNull
+    private static Answer parentsGeneration(boolean paternal, @NonNull Sex sex) {
+        if (!paternal) {
+            return sex == Sex.MALE ? one("舅舅")
+                    : new Answer(Arrays.asList("妈妈", "姨妈"), Hint.NONE);
+        }
+        return sex == Sex.MALE
+                ? new Answer(Arrays.asList("爸爸", "伯父", "叔叔"), Hint.NONE)
+                : new Answer(Arrays.asList("姑妈", "姑姑"), Hint.NONE);
     }
 
     @NonNull
