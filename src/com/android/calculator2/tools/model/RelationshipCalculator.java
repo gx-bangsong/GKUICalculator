@@ -32,14 +32,26 @@ import java.util.List;
  *       the tool does not know (伯父 calls a man 侄子 and a woman 侄女).</li>
  * </ul>
  * Callers show every returned term at once; never pick one arbitrarily.
+ * <p>
+ * The regional split follows the reference implementation of this problem,
+ * <a href="https://github.com/mumuy/relationship">mumuy/relationship</a> (MIT): the north says
+ * 姥爷、姥姥、大爷、大娘、舅姥爷、姨姥姥、姑姥姥、大姥爷、小姥爷, while 外公、外婆、伯父、伯母 are
+ * the common forms used everywhere else — they are what the south says, so they are what
+ * "South China version" selects. Only the vocabulary is shared; the rules below are this app's
+ * own and the reference data is not bundled here.
  */
 public final class RelationshipCalculator {
 
-    /** Regional vocabulary. Only a handful of terms differ between the two regions. */
+    /**
+     * Regional vocabulary. Only a handful of terms differ, and they follow the same split the
+     * reference calculator (mumuy/relationship, MIT) uses for its 北方 locale: 北方 says
+     * 姥爷、姥姥、大爷, while the common forms 外公、外婆、伯父 are used everywhere else — they
+     * are what most of the south says, so that is what "South China version" selects here.
+     */
     public enum Dialect {
-        /** 北方话: 爷爷、奶奶、外公、外婆… */
+        /** 北方: 姥爷、姥姥、大爷、大娘、舅姥爷、姨姥姥、姑姥姥… */
         NORTH,
-        /** 南方话: 阿公、阿嬷、姥爷、姥姥… */
+        /** 通用（南方）: 外公、外婆、爷爷、奶奶、伯父… */
         SOUTH
     }
 
@@ -444,7 +456,7 @@ public final class RelationshipCalculator {
                     case MOTHER:
                         return one(grandmother(false, dialect));
                     case ELDER_BROTHER:
-                        return one("伯父");
+                        return one(dialect == Dialect.NORTH ? "大爷" : "伯父");
                     case YOUNGER_BROTHER:
                         return one("叔叔");
                     case ELDER_SISTER:
@@ -594,7 +606,12 @@ public final class RelationshipCalculator {
             final boolean brother = isBrother(b);
             if (isSpouse(c)) {
                 if (paternal) {
-                    return one(brother ? (b == Step.ELDER_BROTHER ? "伯母" : "婶婶") : "姑父");
+                    if (!brother) {
+                        return one("姑父");
+                    }
+                    return one(b == Step.ELDER_BROTHER
+                            ? (dialect == Dialect.NORTH ? "大娘" : "伯母")
+                            : "婶婶");
                 }
                 return one(brother ? "舅妈" : "姨父");
             }
@@ -625,34 +642,7 @@ public final class RelationshipCalculator {
             return one((b == Step.SON ? "侄" : "外甥") + (c == Step.SON ? "子" : "女"));
         }
         if (isParent(a) && isParent(b) && isSibling(c)) {
-            // Grandparents' siblings: 爷爷, 奶奶, 外公 and 外婆 each have their own set.
-            if (a == Step.FATHER && b == Step.FATHER) {
-                if (c == Step.ELDER_BROTHER) {
-                    return one("伯祖父");
-                }
-                if (c == Step.YOUNGER_BROTHER) {
-                    return one("叔祖父");
-                }
-                return one(dialect == Dialect.SOUTH ? "姑婆" : "姑奶奶");
-            }
-            if (a == Step.MOTHER && b == Step.FATHER) {
-                if (c == Step.ELDER_BROTHER) {
-                    return one("外伯祖父");
-                }
-                if (c == Step.YOUNGER_BROTHER) {
-                    return one("外叔祖父");
-                }
-                return one("外姑婆");
-            }
-            if (a == Step.FATHER) {
-                // 奶奶's siblings.
-                return one(isBrother(c)
-                        ? (dialect == Dialect.SOUTH ? "舅公" : "舅爷")
-                        : (dialect == Dialect.SOUTH ? "姨婆" : "姨奶奶"));
-            }
-            // 外婆's siblings. These keep the formal 外 wording in both regions, because the
-            // colloquial forms (姨姥姥, 姨外婆, 舅姥爷, 舅外公) differ far more than 外公/外婆.
-            return one(isBrother(c) ? "舅外祖父" : "姨外祖母");
+            return one(grandparentSibling(a, b, c, dialect));
         }
         if (isSibling(a) && isChild(b) && isChild(c)) {
             // 哥哥的儿子 → 侄子, so 哥哥的儿子的儿子 → 侄孙.
@@ -677,6 +667,10 @@ public final class RelationshipCalculator {
         final Step b = chain.get(1);
         final Step c = chain.get(2);
         final Step d = chain.get(3);
+        if (isParent(a) && isParent(b) && isSibling(c) && isSpouse(d)) {
+            // The husband or wife of a grandparent's sibling: 大姥姥, 舅姥姥, 姨姥爷, …
+            return one(grandparentSiblingSpouse(a, b, c, d, dialect));
+        }
         if (isParent(a) && isParent(b) && isSibling(c) && isChild(d)) {
             // A grandparent's sibling's child is a cousin of my parent.
             return parentsCousin(a == Step.FATHER, b, c, sexOf(d));
@@ -772,20 +766,24 @@ public final class RelationshipCalculator {
         return index < prefixes.length ? prefixes[index] : prefixes[prefixes.length - 1];
     }
 
+    /**
+     * 爷爷 and 奶奶 are the same in both regions; only the mother's parents are named
+     * differently: 姥爷、姥姥 in the north, 外公、外婆 elsewhere.
+     */
     @NonNull
     private static String grandfather(boolean maternal, @NonNull Dialect dialect) {
-        if (maternal) {
-            return dialect == Dialect.SOUTH ? "姥爷" : "外公";
+        if (!maternal) {
+            return "爷爷";
         }
-        return dialect == Dialect.SOUTH ? "阿公" : "爷爷";
+        return dialect == Dialect.NORTH ? "姥爷" : "外公";
     }
 
     @NonNull
     private static String grandmother(boolean maternal, @NonNull Dialect dialect) {
-        if (maternal) {
-            return dialect == Dialect.SOUTH ? "姥姥" : "外婆";
+        if (!maternal) {
+            return "奶奶";
         }
-        return dialect == Dialect.SOUTH ? "阿嬷" : "奶奶";
+        return dialect == Dialect.NORTH ? "姥姥" : "外婆";
     }
 
     // ---- Steps -----------------------------------------------------------------------------
@@ -921,6 +919,81 @@ public final class RelationshipCalculator {
     }
 
     /**
+     * The siblings of one grandparent: 爷爷's, 奶奶's, 外公's and 外婆's each have their own set,
+     * and the northern vocabulary replaces the maternal ones (舅姥爷, 姨姥姥, 姑姥姥, 大姥爷,
+     * 小姥爷), following the 北方 locale of the reference calculator.
+     */
+    @NonNull
+    private static String grandparentSibling(@NonNull Step a, @NonNull Step b, @NonNull Step c,
+            @NonNull Dialect dialect) {
+        final boolean brother = isBrother(c);
+        if (a == Step.FATHER && b == Step.FATHER) {                 // 爷爷's siblings
+            if (c == Step.ELDER_BROTHER) {
+                return "伯祖父";
+            }
+            if (c == Step.YOUNGER_BROTHER) {
+                return "叔祖父";
+            }
+            return "姑奶奶";
+        }
+        if (a == Step.FATHER) {                                     // 奶奶's siblings
+            return brother ? "舅爷" : "姨奶奶";
+        }
+        if (b == Step.FATHER) {                                     // 外公's siblings
+            if (dialect == Dialect.NORTH) {
+                if (c == Step.ELDER_BROTHER) {
+                    return "大姥爷";
+                }
+                if (c == Step.YOUNGER_BROTHER) {
+                    return "小姥爷";
+                }
+                return "姑姥姥";
+            }
+            if (c == Step.ELDER_BROTHER) {
+                return "外伯祖父";
+            }
+            if (c == Step.YOUNGER_BROTHER) {
+                return "外叔祖父";
+            }
+            return "外姑婆";
+        }
+        if (dialect == Dialect.NORTH) {                             // 外婆's siblings
+            return brother ? "舅姥爷" : "姨姥姥";
+        }
+        return brother ? "舅外祖父" : "姨外祖母";
+    }
+
+    /** The husband or wife of a {@link #grandparentSibling}'s relative. */
+    @NonNull
+    private static String grandparentSiblingSpouse(@NonNull Step a, @NonNull Step b,
+            @NonNull Step c, @NonNull Step spouse, @NonNull Dialect dialect) {
+        final boolean brother = isBrother(c);
+        final boolean husband = spouse == Step.HUSBAND;
+        if (a == Step.FATHER && b == Step.FATHER) {                 // 爷爷's siblings' spouses
+            if (brother) {
+                return c == Step.ELDER_BROTHER ? "伯祖母" : "叔祖母";
+            }
+            return "姑爷爷";
+        }
+        if (a == Step.FATHER) {                                     // 奶奶's siblings' spouses
+            return brother ? "舅奶奶" : "姨爷爷";
+        }
+        if (b == Step.FATHER) {                                     // 外公's siblings' spouses
+            if (husband) {
+                return dialect == Dialect.NORTH ? "姑姥爷" : "外姑父";
+            }
+            if (c == Step.ELDER_BROTHER) {
+                return dialect == Dialect.NORTH ? "大姥姥" : "外伯祖母";
+            }
+            return dialect == Dialect.NORTH ? "小姥姥" : "外叔祖母";
+        }
+        if (husband) {                                              // 外婆's siblings' spouses
+            return dialect == Dialect.NORTH ? "姨姥爷" : "姨外祖父";
+        }
+        return dialect == Dialect.NORTH ? "舅姥姥" : "舅外祖母";
+    }
+
+    /**
      * Everybody in a grandparent's generation reached without saying which one, e.g.
      * 外婆的姐姐的哥哥的妹妹. That is the grandparent's siblings of that sex plus — when the sexes
      * match — the grandparent: 姨外祖母 or 外婆.
@@ -936,28 +1009,33 @@ public final class RelationshipCalculator {
                 terms.add("叔祖父");
                 terms.add(grandfather(false, dialect));
             } else {
-                terms.add(dialect == Dialect.SOUTH ? "姑婆" : "姑奶奶");
+                terms.add("姑奶奶");
             }
         } else if (paternal) {                                              // 奶奶's generation
             if (male) {
-                terms.add(dialect == Dialect.SOUTH ? "舅公" : "舅爷");
+                terms.add("舅爷");
             } else {
-                terms.add(dialect == Dialect.SOUTH ? "姨婆" : "姨奶奶");
+                terms.add("姨奶奶");
                 terms.add(grandmother(false, dialect));
             }
         } else if (grandparent == Step.FATHER) {                            // 外公's generation
             if (male) {
-                terms.add("外伯祖父");
-                terms.add("外叔祖父");
+                terms.add(grandparentSibling(Step.MOTHER, Step.FATHER, Step.ELDER_BROTHER,
+                        dialect));
+                terms.add(grandparentSibling(Step.MOTHER, Step.FATHER, Step.YOUNGER_BROTHER,
+                        dialect));
                 terms.add(grandfather(true, dialect));
             } else {
-                terms.add("外姑婆");
+                terms.add(grandparentSibling(Step.MOTHER, Step.FATHER, Step.ELDER_SISTER,
+                        dialect));
             }
         } else {                                                            // 外婆's generation
             if (male) {
-                terms.add("舅外祖父");
+                terms.add(grandparentSibling(Step.MOTHER, Step.MOTHER, Step.ELDER_BROTHER,
+                        dialect));
             } else {
-                terms.add("姨外祖母");
+                terms.add(grandparentSibling(Step.MOTHER, Step.MOTHER, Step.ELDER_SISTER,
+                        dialect));
                 terms.add(grandmother(true, dialect));
             }
         }

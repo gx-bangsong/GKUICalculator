@@ -80,7 +80,7 @@ public final class RelationshipMode implements ToolMode {
     @Nullable
     private TextView mHintView;
     @NonNull
-    private Dialect mDialect = Dialect.NORTH;
+    private Dialect mDialect = Dialect.SOUTH;
     @Nullable
     private ToolHost mHost;
 
@@ -332,10 +332,11 @@ public final class RelationshipMode implements ToolMode {
     private static Dialect readDialect(@NonNull Context context) {
         final SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME,
                 Context.MODE_PRIVATE);
-        final String stored = prefs.getString(PREF_DIALECT, Dialect.NORTH.name());
-        if (Dialect.SOUTH.name().equals(stored)) {
-            return Dialect.SOUTH;
+        // Default to the common wording (外公、外婆、伯父 …); the northern one is an opt-in.
+        final String stored = prefs.getString(PREF_DIALECT, Dialect.SOUTH.name());
+        if (Dialect.NORTH.name().equals(stored)) {
+            return Dialect.NORTH;
         }
-        return Dialect.NORTH;
+        return Dialect.SOUTH;
     }
 }

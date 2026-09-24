@@ -24,8 +24,13 @@ public class RelationshipTest {
         return Arrays.asList(steps);
     }
 
+    /**
+     * Resolve in the common (southern) wording, which is the one the tool selects by default.
+     * Tests that exercise 北方 call {@code RelationshipCalculator.resolve} with that dialect.
+     */
     private static String term(Step... steps) {
-        return RelationshipCalculator.resolve(chain(steps), RelationshipCalculator.Dialect.NORTH, false).terms.get(0);
+        return RelationshipCalculator.resolve(chain(steps), RelationshipCalculator.Dialect.SOUTH,
+                false).terms.get(0);
     }
 
     @Test
@@ -55,19 +60,80 @@ public class RelationshipTest {
 
     @Test
     public void grandparentsFollowTheSelectedDialect() {
+        // 爷爷 and 奶奶 are the same everywhere; only the mother's parents are named by region:
+        // 姥爷 / 姥姥 in the north, 外公 / 外婆 in the common (southern) wording.
         assertEquals("爷爷", term(Step.FATHER, Step.FATHER));
         assertEquals("奶奶", term(Step.FATHER, Step.MOTHER));
         assertEquals("外公", term(Step.MOTHER, Step.FATHER));
         assertEquals("外婆", term(Step.MOTHER, Step.MOTHER));
 
-        assertEquals("阿公", RelationshipCalculator.resolve(chain(Step.FATHER, Step.FATHER),
-                RelationshipCalculator.Dialect.SOUTH, false).terms.get(0));
-        assertEquals("阿嬷", RelationshipCalculator.resolve(chain(Step.FATHER, Step.MOTHER),
-                RelationshipCalculator.Dialect.SOUTH, false).terms.get(0));
-        assertEquals("姥爷", RelationshipCalculator.resolve(chain(Step.MOTHER, Step.FATHER),
-                RelationshipCalculator.Dialect.SOUTH, false).terms.get(0));
-        assertEquals("姥姥", RelationshipCalculator.resolve(chain(Step.MOTHER, Step.MOTHER),
-                RelationshipCalculator.Dialect.SOUTH, false).terms.get(0));
+        assertEquals("爷爷", RelationshipCalculator.resolve(
+                chain(Step.FATHER, Step.FATHER),
+                RelationshipCalculator.Dialect.NORTH, false).terms.get(0));
+        assertEquals("奶奶", RelationshipCalculator.resolve(
+                chain(Step.FATHER, Step.MOTHER),
+                RelationshipCalculator.Dialect.NORTH, false).terms.get(0));
+        assertEquals("姥爷", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.FATHER),
+                RelationshipCalculator.Dialect.NORTH, false).terms.get(0));
+        assertEquals("姥姥", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.MOTHER),
+                RelationshipCalculator.Dialect.NORTH, false).terms.get(0));
+    }
+
+    @Test
+    public void northernVocabularyFollowsTheReferenceLocale() {
+        // The northern overrides of mumuy/relationship: 大爷/大娘, 大姥爷/小姥爷, 大姥姥/小姥姥,
+        // 姑姥姥/姑姥爷, 舅姥爷/舅姥姥 and 姨姥姥/姨姥爷.
+        final RelationshipCalculator.Dialect north = RelationshipCalculator.Dialect.NORTH;
+        assertEquals("大爷", RelationshipCalculator.resolve(
+                chain(Step.FATHER, Step.ELDER_BROTHER), north, false).terms.get(0));
+        assertEquals("大娘", RelationshipCalculator.resolve(
+                chain(Step.FATHER, Step.ELDER_BROTHER, Step.WIFE), north, false).terms.get(0));
+        assertEquals("大姥爷", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.FATHER, Step.ELDER_BROTHER), north, false).terms.get(0));
+        assertEquals("小姥爷", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.FATHER, Step.YOUNGER_BROTHER), north, false).terms.get(0));
+        assertEquals("大姥姥", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.FATHER, Step.ELDER_BROTHER, Step.WIFE), north, false)
+                .terms.get(0));
+        assertEquals("小姥姥", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.FATHER, Step.YOUNGER_BROTHER, Step.WIFE), north, false)
+                .terms.get(0));
+        assertEquals("姑姥姥", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.FATHER, Step.ELDER_SISTER), north, false).terms.get(0));
+        assertEquals("姑姥爷", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.FATHER, Step.ELDER_SISTER, Step.HUSBAND), north, false)
+                .terms.get(0));
+        assertEquals("舅姥爷", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.MOTHER, Step.ELDER_BROTHER), north, false).terms.get(0));
+        assertEquals("舅姥姥", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.MOTHER, Step.ELDER_BROTHER, Step.WIFE), north, false)
+                .terms.get(0));
+        assertEquals("姨姥姥", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.MOTHER, Step.ELDER_SISTER), north, false).terms.get(0));
+        assertEquals("姨姥爷", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.MOTHER, Step.ELDER_SISTER, Step.HUSBAND), north, false)
+                .terms.get(0));
+
+        // The common wording keeps 伯父/伯母 and the 外 names.
+        final RelationshipCalculator.Dialect south = RelationshipCalculator.Dialect.SOUTH;
+        assertEquals("伯父", RelationshipCalculator.resolve(
+                chain(Step.FATHER, Step.ELDER_BROTHER), south, false).terms.get(0));
+        assertEquals("伯母", RelationshipCalculator.resolve(
+                chain(Step.FATHER, Step.ELDER_BROTHER, Step.WIFE), south, false).terms.get(0));
+        assertEquals("外伯祖父", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.FATHER, Step.ELDER_BROTHER), south, false).terms.get(0));
+        assertEquals("外叔祖母", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.FATHER, Step.YOUNGER_BROTHER, Step.WIFE), south, false)
+                .terms.get(0));
+        assertEquals("外姑婆", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.FATHER, Step.YOUNGER_SISTER), south, false).terms.get(0));
+        assertEquals("舅外祖父", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.MOTHER, Step.YOUNGER_BROTHER), south, false).terms.get(0));
+        assertEquals("舅外祖母", RelationshipCalculator.resolve(
+                chain(Step.MOTHER, Step.MOTHER, Step.ELDER_BROTHER, Step.WIFE), south, false)
+                .terms.get(0));
     }
 
     @Test
@@ -310,16 +376,17 @@ public class RelationshipTest {
     @Test
     public void grandparentSiblingsSiblingsIncludeTheGrandparent() {
         // 外婆的姐姐的哥哥的妹妹 is 外婆's sister or 外婆 herself.
+        final RelationshipCalculator.Dialect common = RelationshipCalculator.Dialect.SOUTH;
         assertEquals(Arrays.asList("姨外祖母", "外婆"),
                 RelationshipCalculator.resolve(
                         chain(Step.MOTHER, Step.MOTHER, Step.ELDER_SISTER,
                                 Step.ELDER_BROTHER, Step.YOUNGER_SISTER),
-                        RelationshipCalculator.Dialect.NORTH, false).terms);
+                        common, false).terms);
         assertEquals(Arrays.asList("姨外祖母", "外婆"),
                 RelationshipCalculator.resolve(
                         chain(Step.MOTHER, Step.MOTHER, Step.ELDER_SISTER,
                                 Step.YOUNGER_SISTER),
-                        RelationshipCalculator.Dialect.NORTH, false).terms);
+                        common, false).terms);
         assertEquals(Arrays.asList("姨奶奶", "奶奶"),
                 RelationshipCalculator.resolve(
                         chain(Step.FATHER, Step.MOTHER, Step.ELDER_SISTER,
