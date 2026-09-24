@@ -283,6 +283,70 @@ public class RelationshipTest {
     }
 
     @Test
+    public void grandparentSiblingsChildrenAreCousinsOfAParent() {
+        // 奶奶的姐姐的女儿 is my father's 姨表 sister, so she is an aunt to me.
+        assertEquals("姨表姑母", term(Step.FATHER, Step.MOTHER, Step.ELDER_SISTER,
+                Step.DAUGHTER));
+        assertEquals("姨表姑母", term(Step.FATHER, Step.MOTHER, Step.YOUNGER_SISTER,
+                Step.DAUGHTER));
+        assertEquals("姑表姑母", term(Step.FATHER, Step.FATHER, Step.YOUNGER_SISTER,
+                Step.DAUGHTER));
+        // 爷爷's brother's children are my father's 堂 siblings: older or younger than him.
+        assertEquals(Arrays.asList("堂伯父", "堂叔父"),
+                RelationshipCalculator.resolve(
+                        chain(Step.FATHER, Step.FATHER, Step.ELDER_BROTHER, Step.SON),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+        assertEquals(Arrays.asList("舅表伯父", "舅表叔父"),
+                RelationshipCalculator.resolve(
+                        chain(Step.FATHER, Step.MOTHER, Step.YOUNGER_BROTHER, Step.SON),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+        // On my mother's side the same relation gives an uncle or an aunt of mine.
+        assertEquals("堂舅父", term(Step.MOTHER, Step.FATHER, Step.ELDER_BROTHER, Step.SON));
+        assertEquals("表姨母", term(Step.MOTHER, Step.MOTHER, Step.ELDER_SISTER,
+                Step.DAUGHTER));
+        assertEquals("表舅父", term(Step.MOTHER, Step.MOTHER, Step.ELDER_BROTHER, Step.SON));
+    }
+
+    @Test
+    public void grandparentSiblingsSiblingsIncludeTheGrandparent() {
+        // 外婆的姐姐的哥哥的妹妹 is 外婆's sister or 外婆 herself.
+        assertEquals(Arrays.asList("姨外祖母", "外婆"),
+                RelationshipCalculator.resolve(
+                        chain(Step.MOTHER, Step.MOTHER, Step.ELDER_SISTER,
+                                Step.ELDER_BROTHER, Step.YOUNGER_SISTER),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+        assertEquals(Arrays.asList("姨外祖母", "外婆"),
+                RelationshipCalculator.resolve(
+                        chain(Step.MOTHER, Step.MOTHER, Step.ELDER_SISTER,
+                                Step.YOUNGER_SISTER),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+        assertEquals(Arrays.asList("姨奶奶", "奶奶"),
+                RelationshipCalculator.resolve(
+                        chain(Step.FATHER, Step.MOTHER, Step.ELDER_SISTER,
+                                Step.YOUNGER_SISTER),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+        assertEquals(Arrays.asList("伯祖父", "叔祖父", "爷爷"),
+                RelationshipCalculator.resolve(
+                        chain(Step.FATHER, Step.FATHER, Step.ELDER_BROTHER,
+                                Step.YOUNGER_BROTHER),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+        assertEquals(Arrays.asList("外伯祖父", "外叔祖父", "外公"),
+                RelationshipCalculator.resolve(
+                        chain(Step.MOTHER, Step.FATHER, Step.ELDER_BROTHER,
+                                Step.YOUNGER_BROTHER),
+                        RelationshipCalculator.Dialect.NORTH, false).terms);
+    }
+
+    @Test
+    public void maternalGrandmotherSiblingsUseTheOuterNames() {
+        assertEquals("姨外祖母", term(Step.MOTHER, Step.MOTHER, Step.ELDER_SISTER));
+        assertEquals("舅外祖父", term(Step.MOTHER, Step.MOTHER, Step.YOUNGER_BROTHER));
+        // 奶奶's siblings keep their own names; only 外婆's side is 外.
+        assertEquals("姨奶奶", term(Step.FATHER, Step.MOTHER, Step.ELDER_SISTER));
+        assertEquals("舅爷", term(Step.FATHER, Step.MOTHER, Step.ELDER_BROTHER));
+    }
+
+    @Test
     public void siblingsChildrenResolveThroughTheirParent() {
         // 爸爸的儿子的儿子 is a brother's son; 妈妈的女儿的女儿 is a sister's daughter.
         assertEquals("侄子", term(Step.FATHER, Step.SON, Step.SON));

@@ -625,7 +625,7 @@ public final class RelationshipCalculator {
             return one((b == Step.SON ? "侄" : "外甥") + (c == Step.SON ? "子" : "女"));
         }
         if (isParent(a) && isParent(b) && isSibling(c)) {
-            // Grandparents' siblings.
+            // Grandparents' siblings: 爷爷, 奶奶, 外公 and 外婆 each have their own set.
             if (a == Step.FATHER && b == Step.FATHER) {
                 if (c == Step.ELDER_BROTHER) {
                     return one("伯祖父");
@@ -644,11 +644,15 @@ public final class RelationshipCalculator {
                 }
                 return one("外姑婆");
             }
-            // Grandmothers' siblings (奶奶 / 外婆).
-            if (isBrother(c)) {
-                return one(dialect == Dialect.SOUTH ? "舅公" : "舅爷");
+            if (a == Step.FATHER) {
+                // 奶奶's siblings.
+                return one(isBrother(c)
+                        ? (dialect == Dialect.SOUTH ? "舅公" : "舅爷")
+                        : (dialect == Dialect.SOUTH ? "姨婆" : "姨奶奶"));
             }
-            return one(dialect == Dialect.SOUTH ? "姨婆" : "姨奶奶");
+            // 外婆's siblings. These keep the formal 外 wording in both regions, because the
+            // colloquial forms (姨姥姥, 姨外婆, 舅姥爷, 舅外公) differ far more than 外公/外婆.
+            return one(isBrother(c) ? "舅外祖父" : "姨外祖母");
         }
         if (isSibling(a) && isChild(b) && isChild(c)) {
             // 哥哥的儿子 → 侄子, so 哥哥的儿子的儿子 → 侄孙.
@@ -667,12 +671,21 @@ public final class RelationshipCalculator {
         return null;
     }
 
-    /** Four-step chains: the children of cousins (堂侄 / 表侄). */
+    /** Four-step chains: cousins of a parent, and the grandparents' generation again. */
     private static Answer quad(@NonNull List<Step> chain, Dialect dialect) {
         final Step a = chain.get(0);
         final Step b = chain.get(1);
         final Step c = chain.get(2);
         final Step d = chain.get(3);
+        if (isParent(a) && isParent(b) && isSibling(c) && isChild(d)) {
+            // A grandparent's sibling's child is a cousin of my parent.
+            return parentsCousin(a == Step.FATHER, b, c, sexOf(d));
+        }
+        if (isParent(a) && isParent(b) && isSibling(c) && isSibling(d)) {
+            // A grandparent's sibling's sibling is the grandparent again, or another sibling of
+            // theirs: 外婆的姐姐的哥哥的妹妹 is 姨外祖母 or 外婆.
+            return grandparentsGeneration(a == Step.FATHER, b, sexOf(d), dialect);
+        }
         if (isParent(a) && isSibling(b) && isChild(c) && isChild(d)) {
             final String prefix = a == Step.FATHER && isBrother(b) ? "堂" : "表";
             return one(prefix + (d == Step.SON ? "侄" : "侄女"));
@@ -876,6 +889,79 @@ public final class RelationshipCalculator {
         return sex == Sex.MALE
                 ? new Answer(Arrays.asList("爸爸", "伯父", "叔叔"), Hint.NONE)
                 : new Answer(Arrays.asList("姑妈", "姑姑"), Hint.NONE);
+    }
+
+    /**
+     * A grandparent's sibling's child, i.e. a cousin of my parent: 爷爷的哥哥的儿子 is 堂伯父 or
+     * 堂叔父, and 奶奶的姐姐的女儿 is 姨表姑母. The prefix says how they are cousins — through a
+     * 堂 sibling, or through a 姑, 舅 or 姨 of my parent.
+     */
+    @NonNull
+    private static Answer parentsCousin(boolean paternal, @NonNull Step grandparent,
+            @NonNull Step sibling, @NonNull Sex sex) {
+        final String prefix;
+        if (grandparent == Step.FATHER && isBrother(sibling)) {
+            // A grandfather's brother's children are my father's 堂 siblings.
+            prefix = "堂";
+        } else if (!paternal) {
+            // A mother's cousins: only a maternal grandfather's brother's children are 堂, the
+            // rest are plain 表 because 表舅父 / 表姨母 already names the side.
+            prefix = "表";
+        } else if (isBrother(sibling)) {
+            prefix = grandparent == Step.FATHER ? "堂" : "舅表";
+        } else {
+            prefix = grandparent == Step.FATHER ? "姑表" : "姨表";
+        }
+        if (!paternal) {
+            return one(prefix + (sex == Sex.MALE ? "舅父" : "姨母"));
+        }
+        return sex == Sex.MALE
+                ? new Answer(Arrays.asList(prefix + "伯父", prefix + "叔父"), Hint.NONE)
+                : one(prefix + "姑母");
+    }
+
+    /**
+     * Everybody in a grandparent's generation reached without saying which one, e.g.
+     * 外婆的姐姐的哥哥的妹妹. That is the grandparent's siblings of that sex plus — when the sexes
+     * match — the grandparent: 姨外祖母 or 外婆.
+     */
+    @NonNull
+    private static Answer grandparentsGeneration(boolean paternal, @NonNull Step grandparent,
+            @NonNull Sex sex, @NonNull Dialect dialect) {
+        final boolean male = sex == Sex.MALE;
+        final List<String> terms = new ArrayList<>();
+        if (paternal && grandparent == Step.FATHER) {                       // 爷爷's generation
+            if (male) {
+                terms.add("伯祖父");
+                terms.add("叔祖父");
+                terms.add(grandfather(false, dialect));
+            } else {
+                terms.add(dialect == Dialect.SOUTH ? "姑婆" : "姑奶奶");
+            }
+        } else if (paternal) {                                              // 奶奶's generation
+            if (male) {
+                terms.add(dialect == Dialect.SOUTH ? "舅公" : "舅爷");
+            } else {
+                terms.add(dialect == Dialect.SOUTH ? "姨婆" : "姨奶奶");
+                terms.add(grandmother(false, dialect));
+            }
+        } else if (grandparent == Step.FATHER) {                            // 外公's generation
+            if (male) {
+                terms.add("外伯祖父");
+                terms.add("外叔祖父");
+                terms.add(grandfather(true, dialect));
+            } else {
+                terms.add("外姑婆");
+            }
+        } else {                                                            // 外婆's generation
+            if (male) {
+                terms.add("舅外祖父");
+            } else {
+                terms.add("姨外祖母");
+                terms.add(grandmother(true, dialect));
+            }
+        }
+        return new Answer(terms, Hint.NONE);
     }
 
     @NonNull
