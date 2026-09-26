@@ -19,13 +19,14 @@ import com.android.calculator2.R;
 import com.android.calculator2.tools.ToolHost;
 import com.android.calculator2.tools.ToolId;
 import com.android.calculator2.tools.ToolMode;
+import com.android.calculator2.tools.kinship.RelationshipData;
 import com.android.calculator2.tools.model.RelationshipCalculator;
 import com.android.calculator2.tools.model.RelationshipCalculator.Answer;
 import com.android.calculator2.tools.model.RelationshipCalculator.Dialect;
-import com.android.calculator2.tools.model.RelationshipCalculator.Hint;
 import com.android.calculator2.tools.model.RelationshipCalculator.Key;
 import com.android.calculator2.tools.model.RelationshipCalculator.Step;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,21 +36,21 @@ import java.util.Map;
  * Chinese kinship tool (亲戚称呼): the pad turns into a wall of relationship nouns, the formula
  * line shows the chain that was entered, and the result line shows how to address that relative.
  * <p>
- * Pad layout while this tool is active ({@link #padMapping} owns the assignment). Every key is a
- * single character so the label fits the button; its content description is the full word:
+ * Pad layout while this tool is active ({@link #padMapping} owns the assignment):
  *
  * <pre>
  *   AC   舅  姨  爷
  *   父   母  兄  奶
  *   弟   姐  妹  姑
  *   子   女  夫  叔
- *   妻  ⇄   del  =
+ *   妻   ⇄   del  =
  * </pre>
  * <p>
+ * A chain can resolve to several terms — 爸爸的儿子的儿子 is 侄子 or 儿子 — and every one of them is
+ * shown at once. Some chains name nobody (爸爸的丈夫); those say so instead of guessing.
+ * <p>
  * "互查" (the decimal-point key, drawn with the unit converter's swap icon) flips the question
- * around: instead of "what do I call them?" it answers "what do they call me?". Both questions may
- * have more than one answer (older/younger brother, or the unknown sex of the user); in that case
- * every term is shown at once.
+ * around: instead of "what do I call them?" it answers "what do they call me?".
  */
 public final class RelationshipMode implements ToolMode {
 
@@ -59,6 +60,9 @@ public final class RelationshipMode implements ToolMode {
     /** Guard so a long chain cannot push the display into an unreadable state. */
     private static final int MAX_STEPS = 10;
 
+    /** Chains longer than this switch to the compact single-character rendering. */
+    private static final int COMPACT_FROM_STEPS = 6;
+
     private static final int[] DIGIT_IDS = {
             R.id.digit_0, R.id.digit_1, R.id.digit_2, R.id.digit_3, R.id.digit_4,
             R.id.digit_5, R.id.digit_6, R.id.digit_7, R.id.digit_8, R.id.digit_9
@@ -66,23 +70,19 @@ public final class RelationshipMode implements ToolMode {
 
     private static final Map<Integer, Key> PAD_KEYS = padMapping();
 
-    /** Chains longer than this switch to the compact single-character rendering. */
-    private static final int COMPACT_FROM_STEPS = 6;
-
-    /** Auto-size range for the formula line, so a long chain shrinks instead of being cut off. */
-    private static final float FORMULA_MAX_SP = 30f;
-    private static final float FORMULA_MIN_SP = 14f;
+    @Nullable
+    private static RelationshipData sData;
 
     private final List<Step> mChain = new ArrayList<>();
     private boolean mReverse;
-    @Nullable
-    private View mControlRoot;
-    @Nullable
-    private TextView mHintView;
     @NonNull
     private Dialect mDialect = Dialect.SOUTH;
     @Nullable
     private ToolHost mHost;
+    @Nullable
+    private View mControlRoot;
+    @Nullable
+    private TextView mHintView;
 
     /**
      * Pad key id to relationship key. The activity uses the same map (in this order) to relabel
@@ -132,13 +132,13 @@ public final class RelationshipMode implements ToolMode {
         return true;
     }
 
-    /** Regional vocabulary used for 爷爷/阿公, 外公/姥爷, … Currently selected in the menu. */
+    /** Regional vocabulary used for 外公/姥爷, 外婆/姥姥 … Currently selected in the menu. */
     @NonNull
     public Dialect getDialect() {
         return mDialect;
     }
 
-    /** Switch between the North and South China vocabulary and refresh the display. */
+    /** Switch between the common and the northern vocabulary and refresh the display. */
     public void setDialect(@NonNull Dialect dialect) {
         if (mDialect == dialect) {
             return;
@@ -157,6 +157,7 @@ public final class RelationshipMode implements ToolMode {
         mChain.clear();
         mReverse = false;
         mDialect = readDialect(host.getContext());
+        loadData(host.getContext());
         host.setRelationshipPadMode(true, false);
         host.setToolResultTextSizeSp(32f);
         mountControls(host);
@@ -174,21 +175,6 @@ public final class RelationshipMode implements ToolMode {
         mControlRoot = null;
         mHintView = null;
         mHost = null;
-    }
-
-    private void mountControls(@NonNull ToolHost host) {
-        final ViewGroup slot = host.getToolControlSlot();
-        if (slot == null) {
-            return;
-        }
-        mControlRoot = LayoutInflater.from(host.getContext())
-                .inflate(R.layout.tool_relationship_control, slot, false);
-        mHintView = mControlRoot.findViewById(R.id.relationship_hint);
-        slot.removeAllViews();
-        slot.addView(mControlRoot);
-        slot.setVisibility(View.VISIBLE);
-        // The chain can grow long, so give the formula line room to shrink rather than clip.
-        host.setToolFormulaTextSizeRangeSp(FORMULA_MAX_SP, FORMULA_MIN_SP);
     }
 
     @Override
@@ -276,46 +262,58 @@ public final class RelationshipMode implements ToolMode {
         if (mChain.isEmpty()) {
             host.setToolFormula("");
             host.setToolResult(context.getString(R.string.relationship_empty));
-            if (mHintView != null) {
-                mHintView.setText("");
-            }
+            setHint("");
             return;
         }
-        final Answer answer = RelationshipCalculator.resolve(mChain, mDialect, mReverse);
+        final Answer answer =
+                RelationshipCalculator.resolve(sData, mChain, mDialect, mReverse);
         final String chain = mChain.size() >= COMPACT_FROM_STEPS
                 ? RelationshipCalculator.compactText(mChain)
                 : RelationshipCalculator.chainText(mChain);
         host.setToolFormula(mReverse
                 ? context.getString(R.string.relationship_reverse_formula, chain)
                 : chain);
-        showHint(context, answer);
+        if (answer.terms.isEmpty()) {
+            host.setToolResult(context.getString(R.string.relationship_unknown));
+            setHint(context.getString(R.string.relationship_unknown_note));
+            return;
+        }
         host.setToolResult(join(answer.terms));
+        setHint(answer.isAmbiguous()
+                ? context.getString(R.string.relationship_multiple_note) : "");
     }
 
-    /**
-     * The explanation lives on its own line: appending it to the chain pushed long chains off the
-     * formula line entirely.
-     */
-    private void showHint(@NonNull Context context, @NonNull Answer answer) {
-        final TextView hintView = mHintView;
-        if (hintView == null) {
-            return;
+    private void setHint(@NonNull String text) {
+        if (mHintView != null) {
+            mHintView.setText(text);
         }
-        // The hint names both terms, so it only fits a two-way split. A chain that is ambiguous
-        // in two ways at once (a cousin whose sex and age are both unknown) just lists the terms.
-        if (answer.hint == Hint.NONE || answer.terms.size() != 2) {
-            hintView.setText("");
-            return;
-        }
-        final String hint = answer.hint == Hint.AGE
-                ? context.getString(R.string.relationship_hint_age,
-                        answer.terms.get(0), answer.terms.get(1))
-                : context.getString(R.string.relationship_hint_sex,
-                        answer.terms.get(0), answer.terms.get(1));
-        hintView.setText(hint);
     }
 
-    /** Every applicable term, side by side: "堂兄 / 堂弟". */
+    private void mountControls(@NonNull ToolHost host) {
+        final ViewGroup slot = host.getToolControlSlot();
+        if (slot == null) {
+            return;
+        }
+        mControlRoot = LayoutInflater.from(host.getContext())
+                .inflate(R.layout.tool_relationship_control, slot, false);
+        mHintView = mControlRoot.findViewById(R.id.relationship_hint);
+        slot.removeAllViews();
+        slot.addView(mControlRoot);
+        slot.setVisibility(View.VISIBLE);
+    }
+
+    private static void loadData(@NonNull Context context) {
+        if (sData != null) {
+            return;
+        }
+        try {
+            sData = RelationshipData.load(context.getApplicationContext());
+        } catch (IOException e) {
+            sData = null;
+        }
+    }
+
+    /** Every applicable term, side by side: "堂哥 / 堂弟". */
     @NonNull
     private static String join(@NonNull List<String> terms) {
         final StringBuilder sb = new StringBuilder();

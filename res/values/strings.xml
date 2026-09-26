@@ -514,18 +514,14 @@
     <string name="desc_relationship_reverse">Look up how that relative addresses you</string>
     <!-- Reverse-look-up formula line. %1$s is the relationship chain. [CHAR_LIMIT=NONE] -->
     <string name="relationship_reverse_formula">%1$s calls me</string>
-    <!--
-      Shown next to two terms that depend on whether the relative is older or younger than the
-      user. %1$s is the term used for an older relative, %2$s for a younger one. [CHAR_LIMIT=NONE]
-      -->
-    <string name="relationship_hint_age">older than you: %1$s · younger than you: %2$s</string>
-    <!--
-      Shown next to two terms that depend on the sex of the user. %1$s is the term used when the
-      user is male, %2$s when the user is female. [CHAR_LIMIT=NONE]
-      -->
-    <string name="relationship_hint_sex">male: %1$s · female: %2$s</string>
     <!-- Shown on the result line before any relationship key has been pressed. [CHAR_LIMIT=40] -->
     <string name="relationship_empty">Press a relative key</string>
+    <!-- Result line when the chain names nobody, e.g. 爸爸的丈夫. [CHAR_LIMIT=40] -->
+    <string name="relationship_unknown">No such relative</string>
+    <!-- Secondary line shown when the chain names nobody. [CHAR_LIMIT=NONE] -->
+    <string name="relationship_unknown_note">That chain does not describe anyone</string>
+    <!-- Secondary line shown when several terms apply, e.g. 侄子 / 儿子. [CHAR_LIMIT=NONE] -->
+    <string name="relationship_multiple_note">Any of these can be right</string>
 
     <!-- Overflow menu: North China vocabulary (爷爷、奶奶、外公、外婆). [CHAR_LIMIT=40] -->
     <string name="menu_relationship_north">North China version</string>
