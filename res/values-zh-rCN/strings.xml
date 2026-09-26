@@ -103,12 +103,39 @@
     <string name="tool_units_volume">体积</string>
     <string name="tool_units_weight">重量</string>
     <string name="tool_units_temperature">温度</string>
+    <string name="tool_units_time">时间</string>
+    <string name="tool_units_energy">能量</string>
+    <string name="tool_units_power">功率</string>
+    <string name="tool_units_data">数据</string>
+    <string name="tool_units_pressure">压力</string>
+    <string name="tool_units_angle">角度</string>
+    <string name="tool_units_speed">速度</string>
     <string name="tool_unit_no_data">暂无单位数据</string>
     <string name="tool_unit_category_label">类别</string>
+    <string name="unit_from_desc">源单位</string>
+    <string name="unit_to_desc">目标单位</string>
+    <string name="unit_second_to_desc">第二个输出单位</string>
     <string name="unit_swap_desc">交换单位</string>
 
+    <!-- 自定义单位 -->
+    <string name="custom_unit_add_item">＋ 添加自定义单位…</string>
+    <string name="custom_unit_title">添加自定义单位</string>
+    <string name="custom_unit_name">新单位名称</string>
+    <string name="custom_unit_base">基准单位</string>
+    <string name="custom_unit_value">换算值</string>
+    <string name="custom_unit_value_helper">1 个新单位等于多少个基准单位</string>
+    <string name="custom_unit_add">添加</string>
+    <string name="custom_unit_name_required">请输入单位名称</string>
+    <string name="custom_unit_name_duplicate">该单位名称已存在</string>
+    <string name="custom_unit_value_invalid">请输入大于零的数字</string>
+    <string name="custom_unit_save_failed">无法保存自定义单位</string>
+
     <!-- 汇率换算 -->
+    <string name="menu_second_conversion">第二组换算</string>
     <string name="menu_auto_update_rates">自动更新汇率</string>
+    <string name="currency_from_desc">源货币</string>
+    <string name="currency_to_desc">目标货币</string>
+    <string name="currency_second_to_desc">第二个输出货币</string>
     <string name="currency_loading">正在获取汇率…</string>
     <string name="currency_updated">更新于：%1$s</string>
     <string name="currency_offline">离线汇率</string>
@@ -154,4 +181,53 @@
 
     <string name="tool_date_weeks">周</string>
     <string name="tool_date_hours">时</string>
+
+    <!-- 括号按钮的内容描述 -->
+    <string name="desc_paren">括号</string>
+
+    <!-- 程序员计算器 -->
+    <string name="tool_programmer">程序员</string>
+    <string name="programmer_hex" translatable="false">HEX</string>
+    <string name="programmer_dec" translatable="false">DEC</string>
+    <string name="programmer_oct" translatable="false">OCT</string>
+    <string name="programmer_bin" translatable="false">BIN</string>
+    <string name="programmer_signed_64">有符号 64 位 · 二进制补码</string>
+    <string name="programmer_key_a" translatable="false">A</string>
+    <string name="programmer_key_b" translatable="false">B</string>
+    <string name="programmer_key_c" translatable="false">C</string>
+    <string name="programmer_key_d" translatable="false">D</string>
+    <string name="programmer_key_e" translatable="false">E</string>
+    <string name="programmer_key_f" translatable="false">F</string>
+    <string name="programmer_and" translatable="false">AND</string>
+    <string name="programmer_or" translatable="false">OR</string>
+    <string name="programmer_xor" translatable="false">XOR</string>
+    <string name="programmer_not" translatable="false">NOT</string>
+    <string name="programmer_shift_left" translatable="false">&lt;&lt;</string>
+    <string name="programmer_shift_right" translatable="false">>></string>
+    <string name="programmer_divide_by_zero">除数不能为零</string>
+
+    <!-- 货币名称 -->
+    <string name="currency_name_eur">欧元</string>
+    <string name="currency_name_usd">美元</string>
+    <string name="currency_name_cny">人民币</string>
+    <string name="currency_name_jpy">日元</string>
+    <string name="currency_name_gbp">英镑</string>
+    <string name="currency_name_hkd">港元</string>
+    <string name="currency_name_krw">韩元</string>
+    <string name="currency_name_chf">瑞士法郎</string>
+    <string name="currency_name_sgd">新加坡元</string>
+    <string name="currency_name_aud">澳元</string>
+    <string name="currency_name_cad">加元</string>
+    <string name="currency_name_inr">印度卢比</string>
+
+    <!-- 亲戚称呼计算 -->
+    <string name="tool_relationship">亲戚称呼</string>
+    <string name="desc_relationship_reverse">互查：对方怎么称呼你</string>
+    <string name="relationship_reverse_formula">%1$s叫我</string>
+    <string name="relationship_empty">按亲属键开始</string>
+    <string name="relationship_unknown">没有这个亲戚</string>
+    <string name="relationship_unknown_note">这个关系链不存在</string>
+    <string name="relationship_multiple_note">以上称呼都有可能</string>
+    <string name="menu_relationship_north">北方版</string>
+    <string name="menu_relationship_south">南方版</string>
 </resources>

@@ -47,6 +47,29 @@ public interface ToolMode {
         return false;
     }
 
+    /** Whether this tool can show a second independently selectable conversion output. */
+    default boolean supportsSecondaryOutput() {
+        return false;
+    }
+
+    /** Current state of the optional second conversion output. */
+    default boolean isSecondaryOutputEnabled() {
+        return false;
+    }
+
+    /** Show or hide the optional second conversion output. */
+    default void setSecondaryOutputEnabled(boolean enabled) {
+    }
+
+    /**
+     * Gives specialized tools first chance to consume any calculator-pad key. Most tools return
+     * false and use the numeric callbacks below; Programmer mode also handles operators and the
+     * repurposed scientific-pad keys.
+     */
+    default boolean onPadKey(int viewId) {
+        return false;
+    }
+
     /**
      * Called when the user selects this tool. The display has already been prepared by the host
      * (see {@link ToolHost#prepareForToolDisplay}). {@code carryValue} is the number that was on

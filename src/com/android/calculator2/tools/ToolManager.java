@@ -204,6 +204,8 @@ public class ToolManager {
         }
 
         final boolean toCalc = ToolId.CALCULATOR.equals(id);
+        // Publish the next mode before the host refreshes mode-dependent chrome/menu state.
+        mActive = next;
 
         // Grow the display (hide the scientific pad) BEFORE the tool mounts its controls and
         // writes its result, so they are laid out in the larger display and don't overflow.
@@ -213,7 +215,6 @@ public class ToolManager {
             mHost.prepareForToolDisplay();
         }
 
-        mActive = next;
         next.onActivate(mHost, carry);
 
         if (toCalc) {
@@ -222,6 +223,7 @@ public class ToolManager {
             recordUse(id);
         }
 
+        mHost.refreshOptionsMenu();
         collapsePanel();
         refresh();
     }
@@ -239,6 +241,9 @@ public class ToolManager {
             return false;
         }
         final ToolMode mode = mActive;
+        if (mode.onPadKey(viewId)) {
+            return true;
+        }
         if (viewId == R.id.clr) {
             mode.onClear();
             return true;

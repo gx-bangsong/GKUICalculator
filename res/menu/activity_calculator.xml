@@ -18,9 +18,27 @@
     <item android:id="@+id/menu_licenses"
         android:title="@string/menu_licenses" />
 
+    <!-- Mode-only setting: show another unit/currency conversion output. -->
+    <item android:id="@+id/menu_second_conversion"
+        android:title="@string/menu_second_conversion"
+        android:checkable="true"
+        android:visible="false" />
+
     <!-- Settings: toggle automatic currency-rate updates. [CHAR_LIMIT=40] -->
     <item android:id="@+id/menu_auto_update_rates"
         android:title="@string/menu_auto_update_rates"
-        android:checkable="true" />
+        android:checkable="true"
+        android:visible="false" />
+
+    <!-- Regional vocabulary for the kinship tool; only shown while that tool is active. -->
+    <item android:id="@+id/menu_relationship_north"
+        android:title="@string/menu_relationship_north"
+        android:checkable="true"
+        android:visible="false" />
+
+    <item android:id="@+id/menu_relationship_south"
+        android:title="@string/menu_relationship_south"
+        android:checkable="true"
+        android:visible="false" />
 
 </menu>

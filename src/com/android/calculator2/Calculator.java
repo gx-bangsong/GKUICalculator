@@ -61,17 +61,23 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
+import com.google.android.material.button.MaterialButton;
+
 import com.android.calculator2.CalculatorFormula.OnTextSizeChangeListener;
 import com.android.calculator2.tools.ToolHost;
 import com.android.calculator2.tools.ToolManager;
+import com.android.calculator2.tools.ToolMode;
 import com.android.calculator2.tools.data.ExchangeRateRepository;
 import com.android.calculator2.tools.modes.BmiMode;
 import com.android.calculator2.tools.modes.CalculatorMode;
 import com.android.calculator2.tools.modes.CurrencyConverterMode;
 import com.android.calculator2.tools.modes.DateMode;
 import com.android.calculator2.tools.modes.MortgageMode;
+import com.android.calculator2.tools.modes.ProgrammerMode;
+import com.android.calculator2.tools.modes.RelationshipMode;
 import com.android.calculator2.tools.modes.TaxMode;
 import com.android.calculator2.tools.modes.UnitConverterMode;
+import com.android.calculator2.tools.model.RelationshipCalculator;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -82,6 +88,7 @@ import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.math.BigDecimal;
 import java.text.DecimalFormatSymbols;
+import java.util.Map;
 
 public class Calculator extends AppCompatActivity
         implements OnTextSizeChangeListener, AlertDialogFragment.OnClickListener,
@@ -433,6 +440,8 @@ public class Calculator extends AppCompatActivity
         mToolManager.register(new TaxMode());
         mToolManager.register(new BmiMode());
         mToolManager.register(new DateMode());
+        mToolManager.register(new ProgrammerMode());
+        mToolManager.register(new RelationshipMode());
         mToolManager.init();
         // DEBUG: record the overlay's initial visibility to diagnose "expanded at launch".
         final View overlay = findViewById(R.id.tool_panel_overlay);
@@ -1166,10 +1175,41 @@ public class Calculator extends AppCompatActivity
         visible &= mainResult != null && mainResult.exactlyDisplayable();
         menu.findItem(R.id.menu_fraction).setVisible(visible);
 
-        // Reflect the currency auto-update setting on its checkable menu item.
+        final ToolMode activeTool = mToolManager == null ? null : mToolManager.getActive();
+        final boolean currencyActive = activeTool != null
+                && com.android.calculator2.tools.ToolId.CURRENCY.equals(activeTool.getId());
+
+        // Currency network settings only make sense while the currency converter is visible.
         final MenuItem autoUpdate = menu.findItem(R.id.menu_auto_update_rates);
         if (autoUpdate != null) {
+            autoUpdate.setVisible(currencyActive);
             autoUpdate.setChecked(ExchangeRateRepository.isAutoUpdateEnabled(this));
+        }
+
+        // Units and Currency can optionally show one additional conversion output row.
+        final MenuItem secondConversion = menu.findItem(R.id.menu_second_conversion);
+        if (secondConversion != null) {
+            final boolean supported = activeTool != null
+                    && activeTool.supportsSecondaryOutput();
+            secondConversion.setVisible(supported);
+            secondConversion.setChecked(supported
+                    && activeTool.isSecondaryOutputEnabled());
+        }
+
+        // The kinship tool speaks either North or South Chinese; pick exactly one.
+        final RelationshipMode kinship = activeTool instanceof RelationshipMode
+                ? (RelationshipMode) activeTool : null;
+        final MenuItem north = menu.findItem(R.id.menu_relationship_north);
+        if (north != null) {
+            north.setVisible(kinship != null);
+            north.setChecked(kinship != null
+                    && kinship.getDialect() == RelationshipCalculator.Dialect.NORTH);
+        }
+        final MenuItem south = menu.findItem(R.id.menu_relationship_south);
+        if (south != null) {
+            south.setVisible(kinship != null);
+            south.setChecked(kinship != null
+                    && kinship.getDialect() == RelationshipCalculator.Dialect.SOUTH);
         }
 
         return true;
@@ -1190,11 +1230,30 @@ public class Calculator extends AppCompatActivity
         } else if (itemId == R.id.menu_licenses) {
             startActivity(new Intent(this, Licenses.class));
             return true;
+        } else if (itemId == R.id.menu_second_conversion) {
+            final ToolMode activeTool = mToolManager == null ? null : mToolManager.getActive();
+            if (activeTool != null && activeTool.supportsSecondaryOutput()) {
+                final boolean enabled = !activeTool.isSecondaryOutputEnabled();
+                activeTool.setSecondaryOutputEnabled(enabled);
+                item.setChecked(enabled);
+                return true;
+            }
         } else if (itemId == R.id.menu_auto_update_rates) {
             final boolean enabled = !ExchangeRateRepository.isAutoUpdateEnabled(this);
             ExchangeRateRepository.setAutoUpdateEnabled(this, enabled);
             item.setChecked(enabled);
             return true;
+        } else if (itemId == R.id.menu_relationship_north
+                || itemId == R.id.menu_relationship_south) {
+            final ToolMode activeTool = mToolManager == null ? null : mToolManager.getActive();
+            if (activeTool instanceof RelationshipMode) {
+                ((RelationshipMode) activeTool).setDialect(
+                        itemId == R.id.menu_relationship_north
+                                ? RelationshipCalculator.Dialect.NORTH
+                                : RelationshipCalculator.Dialect.SOUTH);
+                item.setChecked(true);
+                return true;
+            }
         }
         return super.onOptionsItemSelected(item);
     }
@@ -1410,6 +1469,16 @@ public class Calculator extends AppCompatActivity
     }
 
     @Override
+    public void setToolFormulaTextSizeRangeSp(float maxSp, float minSp) {
+        mFormulaText.setMaximumTextSizeOverride(
+                TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, maxSp,
+                        getResources().getDisplayMetrics()));
+        mFormulaText.setMinimumTextSizeOverride(
+                TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, minSp,
+                        getResources().getDisplayMetrics()));
+    }
+
+    @Override
     public void setToolResultTextSizeSp(float sp) {
         Log.d("ToolDebug", "setToolResultTextSizeSp: " + sp + " (was " + mResultText.getTextSize() + "px)");
         mResultText.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
@@ -1438,6 +1507,9 @@ public class Calculator extends AppCompatActivity
         // Cap the formula auto-size: labeled tool outputs (e.g. "年度税额 11,880") must not
         // grow to the tablet/foldable calculator max (128dip). Result line uses a compact
         // size so secondary numbers stay on one line.
+        // Tools get the default tool range back unless they ask for a wider one (only the
+        // kinship tool does, because its chain can grow much longer than a labeled result).
+        mFormulaText.clearMinimumTextSizeOverride();
         mFormulaText.setMaximumTextSizeOverride(
                 getResources().getDimension(R.dimen.tool_formula_max_textsize));
         mResultText.setTextSize(TypedValue.COMPLEX_UNIT_PX,
@@ -1462,6 +1534,7 @@ public class Calculator extends AppCompatActivity
         }
         mResultText.setTextSize(TypedValue.COMPLEX_UNIT_PX, mResultTextSizeOriginalPx);
         mFormulaText.clearMaximumTextSizeOverride();
+        mFormulaText.clearMinimumTextSizeOverride();
         // Restore the original formula/result paddings.
         mFormulaText.setPadding(mFormulaText.getPaddingStart(), mFormulaPadTop,
                 mFormulaText.getPaddingEnd(), mFormulaPadBottom);
@@ -1487,6 +1560,153 @@ public class Calculator extends AppCompatActivity
         // the display automatically when it is gone. In calculator mode the user's toggle wins.
         applyAdvancedPadVisibility(expanded ? false : mScientificVisible);
         updateScientificToggleVisibility();
+    }
+
+    @Override
+    public void refreshOptionsMenu() {
+        invalidateOptionsMenu();
+    }
+
+    @Override
+    public void setProgrammerPadMode(boolean enabled, int radix) {
+        // Programmer keys A-F and bitwise operators live in this pad, so force it visible while
+        // the mode is active and restore the user's scientific-pad preference afterward.
+        applyAdvancedPadVisibility(enabled || mScientificVisible);
+        final int[] programmerIds = {
+                R.id.op_sqrt, R.id.const_pi, R.id.op_pow, R.id.op_fact,
+                R.id.toggle_mode, R.id.fun_sin, R.id.fun_cos, R.id.fun_tan,
+                R.id.toggle_inv, R.id.const_e, R.id.fun_ln, R.id.fun_log
+        };
+        final int[] programmerLabels = {
+                R.string.programmer_key_a, R.string.programmer_key_b,
+                R.string.programmer_key_c, R.string.programmer_key_d,
+                R.string.programmer_key_e, R.string.programmer_key_f,
+                R.string.programmer_and, R.string.programmer_or,
+                R.string.programmer_xor, R.string.programmer_not,
+                R.string.programmer_shift_left, R.string.programmer_shift_right
+        };
+
+        if (enabled) {
+            for (View inverse : mInverseButtons) {
+                inverse.setVisibility(View.GONE);
+            }
+            for (int i = 0; i < programmerIds.length; i++) {
+                final TextView key = findViewById(programmerIds[i]);
+                key.setVisibility(View.VISIBLE);
+                key.setText(programmerLabels[i]);
+                key.setContentDescription(getString(programmerLabels[i]));
+                // A-F are valid only in hexadecimal; bitwise keys are always available.
+                key.setEnabled(i >= 6 || radix == 16);
+            }
+            mModeView.setText(R.string.tool_programmer);
+            mModeView.setContentDescription(getString(R.string.tool_programmer));
+        } else {
+            restoreScientificPadLabels();
+            onModeChanged(mEvaluator.getDegreeMode(Evaluator.MAIN_INDEX));
+            onInverseToggled(mInverseToggle.isSelected());
+        }
+
+        final int[] digitIds = {
+                R.id.digit_0, R.id.digit_1, R.id.digit_2, R.id.digit_3, R.id.digit_4,
+                R.id.digit_5, R.id.digit_6, R.id.digit_7, R.id.digit_8, R.id.digit_9
+        };
+        for (int digit = 0; digit < digitIds.length; digit++) {
+            findViewById(digitIds[digit]).setEnabled(!enabled || digit < radix);
+        }
+        findViewById(R.id.dec_point).setEnabled(!enabled);
+    }
+
+    private void restoreScientificPadLabels() {
+        findViewById(R.id.toggle_mode).setEnabled(true);
+        setPadLabel(R.id.op_sqrt, R.string.op_sqrt, R.string.desc_op_sqrt);
+        setPadLabel(R.id.const_pi, R.string.const_pi, R.string.desc_const_pi);
+        setPadLabel(R.id.op_pow, R.string.op_pow, R.string.desc_op_pow);
+        setPadLabel(R.id.op_fact, R.string.op_fact, R.string.desc_op_fact);
+        setPadLabel(R.id.fun_sin, R.string.fun_sin, R.string.desc_fun_sin);
+        setPadLabel(R.id.fun_cos, R.string.fun_cos, R.string.desc_fun_cos);
+        setPadLabel(R.id.fun_tan, R.string.fun_tan, R.string.desc_fun_tan);
+        setPadLabel(R.id.toggle_inv, R.string.inv, R.string.desc_inv_off);
+        setPadLabel(R.id.const_e, R.string.const_e, R.string.desc_const_e);
+        setPadLabel(R.id.fun_ln, R.string.fun_ln, R.string.desc_fun_ln);
+        setPadLabel(R.id.fun_log, R.string.fun_log, R.string.desc_fun_log);
+    }
+
+    private void setPadLabel(int viewId, int textRes, int descriptionRes) {
+        final TextView key = findViewById(viewId);
+        key.setText(textRes);
+        key.setContentDescription(getString(descriptionRes));
+        key.setEnabled(true);
+    }
+
+    @Override
+    public void setRelationshipPadMode(boolean enabled, boolean reverse) {
+        if (enabled) {
+            // Every numeric/operator key becomes a relationship noun; the labels come from the
+            // same map the mode uses to interpret the presses, so they can never disagree.
+            for (Map.Entry<Integer, RelationshipCalculator.Key> entry
+                    : RelationshipMode.padMapping().entrySet()) {
+                final TextView key = findViewById(entry.getKey());
+                final RelationshipCalculator.Key relative = entry.getValue();
+                key.setText(relative.label);
+                key.setContentDescription(relative.description);
+                key.setEnabled(true);
+            }
+            // 互查 reuses the unit converter's swap icon: two characters never fit a pad key,
+            // and the icon reads as "swap the direction of the question" in any language.
+            final HapticButton swap = findViewById(R.id.dec_point);
+            swap.setText("");
+            swap.setIconResource(R.drawable.ic_unit_swap);
+            swap.setIconTint(null);
+            swap.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
+            swap.setIconSize(getResources().getDimensionPixelSize(R.dimen.button_iconsize));
+            swap.setIconPadding(0);
+            swap.setContentDescription(getString(R.string.desc_relationship_reverse));
+            swap.setEnabled(true);
+            // Flip the arrows while 互查 is on; the formula line spells the state out anyway.
+            swap.setRotation(reverse ? 180f : 0f);
+            swap.setCheckable(true);
+            swap.setChecked(reverse);
+            swap.setSelected(reverse);
+            mModeView.setText(R.string.tool_relationship);
+            mModeView.setContentDescription(getString(R.string.tool_relationship));
+        } else {
+            restoreNumericPadLabels();
+            onModeChanged(mEvaluator.getDegreeMode(Evaluator.MAIN_INDEX));
+        }
+    }
+
+    private void restoreNumericPadLabels() {
+        setPadLabel(R.id.paren, R.string.paren, R.string.desc_paren);
+        setPadLabel(R.id.op_pct, R.string.op_pct, R.string.desc_op_pct);
+        setPadLabel(R.id.op_div, R.string.op_div, R.string.desc_op_div);
+        setPadLabel(R.id.op_mul, R.string.op_mul, R.string.desc_op_mul);
+        setPadLabel(R.id.op_sub, R.string.op_sub, R.string.desc_op_sub);
+        setPadLabel(R.id.op_add, R.string.op_add, R.string.desc_op_add);
+        final int[] digitIds = {
+                R.id.digit_0, R.id.digit_1, R.id.digit_2, R.id.digit_3, R.id.digit_4,
+                R.id.digit_5, R.id.digit_6, R.id.digit_7, R.id.digit_8, R.id.digit_9
+        };
+        final int[] digitLabels = {
+                R.string.digit_0, R.string.digit_1, R.string.digit_2, R.string.digit_3,
+                R.string.digit_4, R.string.digit_5, R.string.digit_6, R.string.digit_7,
+                R.string.digit_8, R.string.digit_9
+        };
+        for (int i = 0; i < digitIds.length; i++) {
+            final TextView key = findViewById(digitIds[i]);
+            key.setText(digitLabels[i]);
+            key.setContentDescription(getString(digitLabels[i]));
+            key.setEnabled(true);
+        }
+        final HapticButton swap = findViewById(R.id.dec_point);
+        swap.setRotation(0f);
+        swap.setIcon(null);
+        swap.setIconTint(null);
+        swap.setText(getDecimalSeparator());
+        swap.setContentDescription(getString(R.string.desc_dec_point));
+        swap.setEnabled(true);
+        swap.setCheckable(false);
+        swap.setChecked(false);
+        swap.setSelected(false);
     }
 
     private void updateScientificToggleVisibility() {
