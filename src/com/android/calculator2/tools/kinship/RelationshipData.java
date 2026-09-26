@@ -29,9 +29,10 @@ import java.util.List;
 import java.util.Map;
 
 /** Parsed form of {@code assets/tools/relationship.json}. */
-final class RelationshipData {
+public final class RelationshipData {
 
-    static final String ASSET_PATH = "tools/relationship.json";
+    /** Path of the bundled relation tables. */
+    public static final String ASSET_PATH = "tools/relationship.json";
 
     /** A chain-rewriting rule: {@code exp} is replaced by {@code str}, globally when {@code g}. */
     static final class Rule {
@@ -64,14 +65,14 @@ final class RelationshipData {
     final List<Rule> rules = new ArrayList<>();
 
     @NonNull
-    static RelationshipData load(@NonNull Context context) throws IOException {
+    public static RelationshipData load(@NonNull Context context) throws IOException {
         try (InputStream is = context.getAssets().open(ASSET_PATH)) {
             return parse(read(is));
         }
     }
 
     @NonNull
-    static RelationshipData parse(@NonNull String json) throws IOException {
+    public static RelationshipData parse(@NonNull String json) throws IOException {
         try {
             final JSONObject root = new JSONObject(json);
             final RelationshipData data = new RelationshipData();
