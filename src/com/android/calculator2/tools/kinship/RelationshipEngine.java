@@ -49,7 +49,8 @@ public final class RelationshipEngine {
     private static final Pattern AGE_OR_RANK = Pattern.compile("&[ol\\d]+");
     private static final Pattern MALE_SEX_STEP = Pattern.compile(",[fhs]|,[olx]b");
     private static final Pattern FEMALE_SEX_STEP = Pattern.compile(",[mwd]|,[olx]s");
-    private static final Pattern ANCESTOR_OR_DESCENDANT = Pattern.compile("[fm]");
+    private static final Pattern CONTAINS_PARENT_STEP = Pattern.compile("[fm]");
+    private static final Pattern CONTAINS_SPOUSE_STEP = Pattern.compile("[hw],");
     private static final Pattern COLLECTIVE_HEAD =
             Pattern.compile("^[olx][bs]$|^[olx][bs],[^mf]");
     private static final Pattern SPOUSE_NORMALIZE =
@@ -57,7 +58,6 @@ public final class RelationshipEngine {
     private static final Pattern SPOUSE_NORMALIZE_AGE =
             Pattern.compile("(,[sd])&[ol](,[wh])?$");
     private static final Pattern CHILD_WITH_SPOUSE = Pattern.compile("(,[sd])(,[wh])?$");
-    private static final Pattern SPOUSE_TAIL = Pattern.compile(",[wh]$");
 
     private static final Map<String, List<String>> SEX_EXPANSION = new HashMap<>();
     static {
@@ -266,15 +266,14 @@ public final class RelationshipEngine {
             known.addAll(names);
         }
         for (String key : new ArrayList<>(table.keySet())) {
-            final boolean blood = ANCESTOR_OR_DESCENDANT.matcher(key).find()
-                    || (!key.startsWith("h") && !key.startsWith("w") && COLLECTIVE_HEAD
-                            .matcher(key).find());
+            final boolean blood = key.startsWith("f") || key.startsWith("m")
+                    || COLLECTIVE_HEAD.matcher(key).find();
             if (!blood) {
                 continue;
             }
             for (Map.Entry<String, List<String>> mate : MATE.entrySet()) {
                 final String newKey = mate.getKey() + "," + key;
-                if (ANCESTOR_OR_DESCENDANT.matcher(key).find()) {
+                if (CONTAINS_PARENT_STEP.matcher(key).find()) {
                     String normalized = SPOUSE_NORMALIZE.matcher(newKey)
                             .replaceAll(",x$1$2");
                     normalized = SPOUSE_NORMALIZE_AGE.matcher(normalized).replaceAll("$1$2");
@@ -455,7 +454,7 @@ public final class RelationshipEngine {
             final List<String> options = SEX_EXPANSION.get(tokens[tokens.length - 1 - i]);
             final int index = steps.length - 1 - i;
             final String sexStep = index >= 0 && index < steps.length ? steps[index] : "";
-            final int pick = "0".equals(sexStep) ? 1 : "1".equals(sexStep) ? 1 : 0;
+            final int pick = "1".equals(sexStep) ? 1 : 0;
             out.append(options == null ? "" : options.get(pick));
         }
         return generationOf(out.toString()) == 0 ? out.append(age).toString() : out.toString();
@@ -490,7 +489,8 @@ public final class RelationshipEngine {
                 if (name == null) {
                     name = mTerms.get(key.replaceAll("[ol](?=[s|b])", "x"));
                 }
-                if (name != null && generationOf(key) < 4 && !SPOUSE_TAIL.matcher(key).find()) {
+                if (name != null && generationOf(key) < 4
+                        && !CONTAINS_SPOUSE_STEP.matcher(key).find()) {
                     items.add(name.startsWith("大") || name.startsWith("小")
                             ? rankName(number) + name.substring(1)
                             : rankName(number) + name);
@@ -501,16 +501,17 @@ public final class RelationshipEngine {
             items = lookup(RANK_MARKER.matcher(key).replaceAll(""));
         }
         if (items.isEmpty()) {
-            final String noAge = AGE_MARKER.matcher(key).replaceAll("");
-            items = lookup(noAge);
+            String narrowed = AGE_MARKER.matcher(key).replaceAll("");
+            items = lookup(narrowed);
             if (items.isEmpty()) {
-                items = lookup(SIBLING_AGE.matcher(noAge).replaceAll("x$1"));
-                if (items.isEmpty()) {
-                    final List<String> narrowed = new ArrayList<>();
-                    narrowed.addAll(lookup(noAge.replace("x", "o")));
-                    narrowed.addAll(lookup(noAge.replace("x", "l")));
-                    items = narrowed;
-                }
+                narrowed = SIBLING_AGE.matcher(narrowed).replaceAll("x$1");
+                items = lookup(narrowed);
+            }
+            if (items.isEmpty()) {
+                final List<String> both = new ArrayList<>();
+                both.addAll(lookup(narrowed.replace("x", "o")));
+                both.addAll(lookup(narrowed.replace("x", "l")));
+                items = both;
             }
         }
         return items;
