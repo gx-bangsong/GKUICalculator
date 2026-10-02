@@ -48,6 +48,10 @@
          calculator's huge auto-sized formula. -->
     <dimen name="tool_formula_max_textsize">32sp</dimen>
     <dimen name="tool_result_textsize">14sp</dimen>
+    <!-- Chinese-uppercase-numerals (中文大写数字) output: CJK needs a slightly larger size, and
+         it may shrink to the minimum so a long amount is still shown in full. -->
+    <dimen name="tool_uppercase_result_textsize">16sp</dimen>
+    <dimen name="tool_uppercase_result_min_textsize">10sp</dimen>
 
     <!-- Tool overlay panel -->
     <dimen name="tool_panel_corner_radius">20dp</dimen>

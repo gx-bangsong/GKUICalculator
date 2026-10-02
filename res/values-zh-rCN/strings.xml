@@ -92,6 +92,8 @@
     <string name="tool_more">更多</string>
     <string name="tool_more_close">收起</string>
     <string name="tool_scientific_show">科学</string>
+    <string name="desc_uppercase_numbers_off">显示中文大写数字</string>
+    <string name="desc_uppercase_numbers_on">关闭中文大写数字</string>
     <string name="tool_scientific_hide">收起</string>
     <string name="tool_panel_title">全部工具</string>
     <string name="tool_panel_empty">暂无更多工具</string>

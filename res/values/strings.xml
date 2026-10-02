@@ -322,6 +322,14 @@
     <string name="tool_scientific_show">Sci</string>
     <!-- Scientific-pad toggle: shown when the scientific pad is visible (tap to hide). [CHAR_LIMIT=12] -->
     <string name="tool_scientific_hide">Hide</string>
+
+    <!-- Label of the Chinese-uppercase-numerals toggle in the display's top-left corner. It is
+         a single Chinese numeral glyph, so it is the same in every locale. [CHAR_LIMIT=NONE] -->
+    <string name="tool_uppercase_toggle" translatable="false">壹</string>
+    <!-- Content description of the uppercase-numerals toggle while it is off. [CHAR_LIMIT=NONE] -->
+    <string name="desc_uppercase_numbers_off">Show Chinese uppercase numerals</string>
+    <!-- Content description of the uppercase-numerals toggle while it is on. [CHAR_LIMIT=NONE] -->
+    <string name="desc_uppercase_numbers_on">Hide Chinese uppercase numerals</string>
     <!-- Title of the expanded tool overlay panel. [CHAR_LIMIT=40] -->
     <string name="tool_panel_title">All tools</string>
     <!-- Empty state shown in the overlay panel when no tools are available. [CHAR_LIMIT=40] -->

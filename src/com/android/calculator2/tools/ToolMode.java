@@ -62,6 +62,22 @@ public interface ToolMode {
     }
 
     /**
+     * Whether this tool shows amounts that can also be read as Chinese uppercase numerals
+     * (中文大写数字). When it can, the host replaces the DEG/RAD indicator in the top-left
+     * corner with an 大写 toggle. Default false.
+     */
+    default boolean supportsUppercaseNumbers() {
+        return false;
+    }
+
+    /**
+     * Show this tool's amounts as Chinese uppercase numerals instead of digits. The tool
+     * re-renders itself; a long result is the host's problem to display in full.
+     */
+    default void setUppercaseNumbers(boolean enabled) {
+    }
+
+    /**
      * Gives specialized tools first chance to consume any calculator-pad key. Most tools return
      * false and use the numeric callbacks below; Programmer mode also handles operators and the
      * repurposed scientific-pad keys.

@@ -47,6 +47,11 @@ public class MortgageMode extends FieldToolMode {
     }
 
     @Override
+    public boolean supportsUppercaseNumbers() {
+        return true;
+    }
+
+    @Override
     protected int fieldCount() {
         return 3;
     }
@@ -119,12 +124,12 @@ public class MortgageMode extends FieldToolMode {
             final Context ctx = host.getContext();
             if (mEqualPayment) {
                 formula = ctx.getString(R.string.tool_mortgage_monthly) + " " + money(r.monthlyPayment);
-                result = ctx.getString(R.string.tool_mortgage_interest) + " " + money(r.totalInterest)
-                        + " · " + ctx.getString(R.string.tool_mortgage_total) + " " + money(r.totalPayment);
+                result = ctx.getString(R.string.tool_mortgage_interest) + " " + moneyUpper(r.totalInterest)
+                        + " · " + ctx.getString(R.string.tool_mortgage_total) + " " + moneyUpper(r.totalPayment);
             } else {
                 formula = ctx.getString(R.string.tool_mortgage_first_month) + " " + money(r.monthlyPayment);
-                result = ctx.getString(R.string.tool_mortgage_decrease) + " " + money(r.monthlyDecrease)
-                        + " · " + ctx.getString(R.string.tool_mortgage_interest) + " " + money(r.totalInterest);
+                result = ctx.getString(R.string.tool_mortgage_decrease) + " " + moneyUpper(r.monthlyDecrease)
+                        + " · " + ctx.getString(R.string.tool_mortgage_interest) + " " + moneyUpper(r.totalInterest);
             }
         }
         host.setToolFormula(formula);

@@ -24,6 +24,7 @@ import com.android.calculator2.R;
 import com.android.calculator2.tools.ToolHost;
 import com.android.calculator2.tools.ToolInputFields;
 import com.android.calculator2.tools.ToolMode;
+import com.android.calculator2.tools.model.ChineseNumerals;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -55,6 +56,9 @@ public abstract class FieldToolMode implements ToolMode {
     private int mActiveColor;
     private int mInactiveColor;
 
+    /** Render monetary results as Chinese uppercase numerals (中文大写数字). */
+    private boolean mUppercaseNumbers;
+
     protected abstract int fieldCount();
 
     @NonNull
@@ -69,6 +73,15 @@ public abstract class FieldToolMode implements ToolMode {
     @Override
     public boolean wantsExpandedDisplay() {
         return true;
+    }
+
+    @Override
+    public void setUppercaseNumbers(boolean enabled) {
+        if (mUppercaseNumbers == enabled) {
+            return;
+        }
+        mUppercaseNumbers = enabled;
+        recomputeAndDisplay();
     }
 
     /** Called after the control view is created, for extra controls (e.g. a method toggle). */
@@ -227,6 +240,19 @@ public abstract class FieldToolMode implements ToolMode {
         }
         return new DecimalFormat("#,##0.##")
                 .format(value.setScale(2, RoundingMode.HALF_UP));
+    }
+
+    /**
+     * Same as {@link #money} while 中文大写数字 is off, and the 人民币大写 form of the amount
+     * while it is on. Used for the numbers that are worth reading out on a cheque; the digits
+     * stay on the other display line so the plain value is never lost.
+     */
+    @NonNull
+    protected String moneyUpper(@Nullable BigDecimal value) {
+        if (!mUppercaseNumbers) {
+            return money(value);
+        }
+        return ChineseNumerals.toUppercaseAmount(value);
     }
 
     private static int resolveThemeColor(@NonNull Context context, int attr, int fallback) {

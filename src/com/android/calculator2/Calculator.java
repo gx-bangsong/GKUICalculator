@@ -27,8 +27,10 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.Layout;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
+import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
@@ -46,6 +48,7 @@ import android.view.View.OnLongClickListener;
 import android.view.ViewTreeObserver;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.HorizontalScrollView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -65,6 +68,7 @@ import com.google.android.material.button.MaterialButton;
 
 import com.android.calculator2.CalculatorFormula.OnTextSizeChangeListener;
 import com.android.calculator2.tools.ToolHost;
+import com.android.calculator2.tools.ToolId;
 import com.android.calculator2.tools.ToolManager;
 import com.android.calculator2.tools.ToolMode;
 import com.android.calculator2.tools.data.ExchangeRateRepository;
@@ -248,6 +252,11 @@ public class Calculator extends AppCompatActivity
     // the layout grows the display automatically when the scientific pad is hidden).
     private static final String PREFS_NAME = "calc_tools";
     private static final String PREF_SCIENTIFIC = "scientific_pad_visible";
+
+    /** Most lines a Chinese-uppercase result may wrap onto before it starts shrinking. */
+    private static final int UPPERCASE_MAX_LINES = 4;
+    /** Fallback tool result size (sp) if no tool has asked for one. */
+    private static final float DEFAULT_TOOL_RESULT_SP = 14f;
     private TextView mScientificToggle;
     private boolean mScientificVisible;
     private float mResultTextSizeOriginalPx;
@@ -257,6 +266,18 @@ public class Calculator extends AppCompatActivity
 
     private TextView mInverseToggle;
     private TextView mModeToggle;
+
+    // Chinese-uppercase-numerals (中文大写数字) toggle. It takes the place of the DEG/RAD
+    // indicator in the tools that show amounts, where the angle mode means nothing.
+    private TextView mUppercaseToggle;
+    private boolean mUppercaseNumbers;
+    /** Whether the 大写 toggle is the one that hid the DEG/RAD indicator. */
+    private boolean mModeViewHidden;
+    /** Result text size (sp) the active tool asked for; the 大写 output shrinks from there. */
+    private float mToolResultSp;
+    /** Last text handed to {@link #setToolResult}, used by the fitter below. */
+    private CharSequence mLastToolResult;
+    private final Runnable mFitUppercaseResult = this::fitUppercaseResult;
 
     private View[] mInvertibleButtons;
     private View[] mInverseButtons;
@@ -373,6 +394,7 @@ public class Calculator extends AppCompatActivity
 
         mInverseToggle = findViewById(R.id.toggle_inv);
         mModeToggle = findViewById(R.id.toggle_mode);
+        setupUppercaseToggle();
 
         mIsOneLine = mResultText.getVisibility() == View.INVISIBLE;
 
@@ -1465,7 +1487,13 @@ public class Calculator extends AppCompatActivity
         if (mIsOneLine) {
             mResultText.setVisibility(View.VISIBLE);
         }
+        mLastToolResult = text;
+        applyUppercaseResultLayout(mUppercaseNumbers);
         mResultText.setText(text);
+        if (mUppercaseNumbers) {
+            mResultText.removeCallbacks(mFitUppercaseResult);
+            mResultText.post(mFitUppercaseResult);
+        }
     }
 
     @Override
@@ -1481,6 +1509,7 @@ public class Calculator extends AppCompatActivity
     @Override
     public void setToolResultTextSizeSp(float sp) {
         Log.d("ToolDebug", "setToolResultTextSizeSp: " + sp + " (was " + mResultText.getTextSize() + "px)");
+        mToolResultSp = sp;
         mResultText.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
     }
 
@@ -1512,8 +1541,9 @@ public class Calculator extends AppCompatActivity
         mFormulaText.clearMinimumTextSizeOverride();
         mFormulaText.setMaximumTextSizeOverride(
                 getResources().getDimension(R.dimen.tool_formula_max_textsize));
-        mResultText.setTextSize(TypedValue.COMPLEX_UNIT_PX,
-                getResources().getDimension(R.dimen.tool_result_textsize));
+        final float toolResultPx = getResources().getDimension(R.dimen.tool_result_textsize);
+        mResultText.setTextSize(TypedValue.COMPLEX_UNIT_PX, toolResultPx);
+        mToolResultSp = pixelsToSp(toolResultPx);
         // Compact the formula/result paddings (the default has 32dp bottom for the calculator's
         // big result — that wastes space and causes field rows to push results out of view).
         final int fs = mFormulaText.getPaddingStart();
@@ -1533,6 +1563,10 @@ public class Calculator extends AppCompatActivity
             mToolControlSlot.setVisibility(View.GONE);
         }
         mResultText.setTextSize(TypedValue.COMPLEX_UNIT_PX, mResultTextSizeOriginalPx);
+        mToolResultSp = 0f;
+        mLastToolResult = null;
+        applyUppercaseResultLayout(false);
+        updateUppercaseToggle();
         mFormulaText.clearMaximumTextSizeOverride();
         mFormulaText.clearMinimumTextSizeOverride();
         // Restore the original formula/result paddings.
@@ -1565,6 +1599,12 @@ public class Calculator extends AppCompatActivity
     @Override
     public void refreshOptionsMenu() {
         invalidateOptionsMenu();
+        // The active tool has (re)mounted: refresh the corner indicator and, when 大写 is on,
+        // hand the setting to the tool that just became active.
+        updateUppercaseToggle();
+        if (mUppercaseNumbers) {
+            applyUppercaseNumbers();
+        }
     }
 
     @Override
@@ -1724,6 +1764,148 @@ public class Calculator extends AppCompatActivity
         } else {
             mScientificToggle.setVisibility(View.GONE);
         }
+    }
+
+    // ==== Chinese uppercase numerals (中文大写数字) ====
+
+    private void setupUppercaseToggle() {
+        mUppercaseToggle = findViewById(R.id.uppercase_toggle);
+        mUppercaseToggle.setOnClickListener(view -> {
+            mUppercaseNumbers = !mUppercaseNumbers;
+            applyUppercaseNumbers();
+        });
+        updateUppercaseToggle();
+    }
+
+    /** Push the current 大写 setting to the active tool and refresh the corner indicator. */
+    private void applyUppercaseNumbers() {
+        final ToolMode active = mToolManager == null ? null : mToolManager.getActive();
+        if (active != null && active.supportsUppercaseNumbers()) {
+            active.setUppercaseNumbers(mUppercaseNumbers);
+        }
+        if (!mUppercaseNumbers) {
+            // Back to digits: single line again, at the size the tool asked for (the 大写
+            // output may have shrunk it to fit a long amount).
+            applyUppercaseResultLayout(false);
+            mResultText.setTextSize(TypedValue.COMPLEX_UNIT_SP,
+                    mToolResultSp > 0f ? mToolResultSp : DEFAULT_TOOL_RESULT_SP);
+        }
+        updateUppercaseToggle();
+    }
+
+    /**
+     * Show the 大写 toggle in the top-left corner while a tool that reports
+     * {@link ToolMode#supportsUppercaseNumbers()} is active, and restore the DEG/RAD indicator
+     * otherwise (the indicator is meaningless next to a loan or a tax figure).
+     */
+    private void updateUppercaseToggle() {
+        if (mUppercaseToggle == null) {
+            return;
+        }
+        final ToolMode active = mToolManager == null ? null : mToolManager.getActive();
+        final boolean supported = active != null && active.supportsUppercaseNumbers();
+        mUppercaseToggle.setVisibility(supported ? View.VISIBLE : View.GONE);
+        mUppercaseToggle.setSelected(mUppercaseNumbers);
+        mUppercaseToggle.setTextColor(resolveThemeColor(mUppercaseNumbers
+                        ? android.R.attr.colorPrimary : android.R.attr.textColorSecondary,
+                mUppercaseToggle.getCurrentTextColor()));
+        mUppercaseToggle.setContentDescription(getString(mUppercaseNumbers
+                ? R.string.desc_uppercase_numbers_on : R.string.desc_uppercase_numbers_off));
+        if (supported) {
+            mModeView.setVisibility(View.GONE);
+            mModeViewHidden = true;
+        } else if (mModeViewHidden) {
+            mModeViewHidden = false;
+            mModeView.setVisibility(View.VISIBLE);
+            // Programmer / kinship write their own label into this slot, so only the
+            // calculator's DEG/RAD indicator is restored here.
+            if (active == null || ToolId.CALCULATOR.equals(active.getId())) {
+                onModeChanged(mEvaluator.getDegreeMode(Evaluator.MAIN_INDEX));
+            }
+        }
+    }
+
+    private int resolveThemeColor(int attr, int fallback) {
+        final TypedValue value = new TypedValue();
+        if (getTheme().resolveAttribute(attr, value, true)) {
+            return value.data;
+        }
+        return fallback;
+    }
+
+    /**
+     * A 大写 amount is several times longer than its digits, so the result line wraps onto as
+     * many lines as it needs (up to {@link #UPPERCASE_MAX_LINES}) instead of being cut off;
+     * the height follows the content rather than sharing the display with the formula line.
+     */
+    private void applyUppercaseResultLayout(boolean enabled) {
+        final ViewGroup.LayoutParams params = mResultText.getLayoutParams();
+        if (enabled) {
+            mResultText.setSingleLine(false);
+            mResultText.setMaxLines(UPPERCASE_MAX_LINES);
+            mResultText.setHorizontallyScrolling(false);
+            mResultText.setEllipsize(null);
+            mResultText.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
+            mResultText.setGravity(Gravity.BOTTOM | Gravity.START);
+            if (params instanceof LinearLayout.LayoutParams) {
+                // Portrait: let the result take the height it needs instead of sharing the
+                // display with the (short) formula line.
+                final LinearLayout.LayoutParams linear = (LinearLayout.LayoutParams) params;
+                linear.height = LinearLayout.LayoutParams.WRAP_CONTENT;
+                linear.weight = 0f;
+            }
+        } else {
+            mResultText.setSingleLine(true);
+            mResultText.setMaxLines(1);
+            mResultText.setHorizontallyScrolling(true);
+            mResultText.setEllipsize(null);
+            mResultText.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_END);
+            mResultText.setGravity(Gravity.BOTTOM | Gravity.END);
+            if (params instanceof LinearLayout.LayoutParams) {
+                final LinearLayout.LayoutParams linear = (LinearLayout.LayoutParams) params;
+                linear.height = 0;
+                linear.weight = 1f;
+            }
+        }
+        mResultText.setLayoutParams(params);
+    }
+
+    /** Shrink the 大写 result (down to its minimum size) until it fits without truncation. */
+    private void fitUppercaseResult() {
+        if (!mUppercaseNumbers || mLastToolResult == null) {
+            return;
+        }
+        mResultText.removeCallbacks(mFitUppercaseResult);
+        final int available = mResultText.getWidth()
+                - mResultText.getPaddingLeft() - mResultText.getPaddingRight();
+        if (available <= 0) {
+            // Not laid out yet (first render of the tool): try again after the next pass.
+            mResultText.post(mFitUppercaseResult);
+            return;
+        }
+        final float maxSp = pixelsToSp(
+                getResources().getDimension(R.dimen.tool_uppercase_result_textsize));
+        final float minSp = pixelsToSp(
+                getResources().getDimension(R.dimen.tool_uppercase_result_min_textsize));
+        // Always start from the largest size so a shorter amount grows back after a long one.
+        float sp = maxSp;
+        final TextPaint paint = mResultText.getPaint();
+        while (sp > minSp) {
+            paint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp,
+                    getResources().getDisplayMetrics()));
+            // Chinese breaks between any two characters, so the line count follows from width.
+            final int lines = (int) Math.max(1, Math.ceil(
+                    Layout.getDesiredWidth(mLastToolResult, paint) / available));
+            if (lines <= UPPERCASE_MAX_LINES) {
+                break;
+            }
+            sp -= 1f;
+        }
+        mResultText.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+    }
+
+    private float pixelsToSp(float px) {
+        return px / getResources().getDisplayMetrics().scaledDensity;
     }
 
     private void setupScientificToggle() {

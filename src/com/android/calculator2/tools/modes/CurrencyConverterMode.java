@@ -24,6 +24,7 @@ import com.android.calculator2.tools.ToolMode;
 import com.android.calculator2.tools.data.CachedRates;
 import com.android.calculator2.tools.data.CurrencyDef;
 import com.android.calculator2.tools.data.ExchangeRateRepository;
+import com.android.calculator2.tools.model.ChineseNumerals;
 import com.android.calculator2.tools.model.CurrencyConversion;
 
 import java.math.BigDecimal;
@@ -49,6 +50,10 @@ public class CurrencyConverterMode implements ToolMode {
     private static final String DEFAULT_INPUT = "1";
     private static final String PREFS_NAME = "calc_tools";
     private static final String PREF_SECONDARY = "currency_secondary_output";
+    /** Auto-size range (sp) of the formula line while it shows a 大写 amount. */
+    private static final float UPPERCASE_FORMULA_MAX_SP = 20f;
+    private static final float UPPERCASE_FORMULA_MIN_SP = 10f;
+
     private static final int SELECTOR_FROM = 0;
     private static final int SELECTOR_TO = 1;
     private static final int SELECTOR_TO_SECONDARY = 2;
@@ -64,6 +69,7 @@ public class CurrencyConverterMode implements ToolMode {
     private int mToIndex;
     private int mToSecondaryIndex;
     private boolean mSecondaryEnabled;
+    private boolean mUppercaseNumbers;
 
     private final StringBuilder mInput = new StringBuilder();
 
@@ -134,6 +140,20 @@ public class CurrencyConverterMode implements ToolMode {
                     .edit().putBoolean(PREF_SECONDARY, enabled).apply();
         }
         updateSecondaryVisibility();
+        redisplay();
+    }
+
+    @Override
+    public boolean supportsUppercaseNumbers() {
+        return true;
+    }
+
+    @Override
+    public void setUppercaseNumbers(boolean enabled) {
+        if (mUppercaseNumbers == enabled) {
+            return;
+        }
+        mUppercaseNumbers = enabled;
         redisplay();
     }
 
@@ -392,9 +412,19 @@ public class CurrencyConverterMode implements ToolMode {
         if (mSecondaryResultView != null) {
             mSecondaryResultView.setText(secondaryResultText);
         }
-        // Keep the big display lines empty — the conversion with tappable units is in the slot.
-        host.setToolFormula("");
-        host.setToolResult("");
+        if (mUppercaseNumbers) {
+            // The 大写 reading of a conversion is much longer than its digits, so it goes on
+            // the display (which wraps and shrinks to fit) rather than in the compact
+            // selector row. The formula line gets a lower floor so the converted-from amount
+            // shrinks to fit too.
+            host.setToolFormulaTextSizeRangeSp(UPPERCASE_FORMULA_MAX_SP, UPPERCASE_FORMULA_MIN_SP);
+            host.setToolFormula(ChineseNumerals.toUppercase(displayInput()));
+            host.setToolResult(ChineseNumerals.toUppercase(resultText));
+        } else {
+            // Keep the big display lines empty — the conversion with tappable units is in the slot.
+            host.setToolFormula("");
+            host.setToolResult("");
+        }
     }
 
     @Nullable

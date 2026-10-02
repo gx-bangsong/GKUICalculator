@@ -46,6 +46,11 @@ public class TaxMode extends FieldToolMode {
     }
 
     @Override
+    public boolean supportsUppercaseNumbers() {
+        return true;
+    }
+
+    @Override
     protected int fieldCount() {
         return 3;
     }
@@ -96,8 +101,9 @@ public class TaxMode extends FieldToolMode {
                     mTable, MC);
             final Context ctx = host.getContext();
             formula = ctx.getString(R.string.tool_tax_annual_tax) + " " + money(r.annualTax);
-            result = ctx.getString(R.string.tool_tax_annual_after_tax) + " " + money(r.annualAfterTax)
-                    + " · " + ctx.getString(R.string.tool_tax_last_month) + " " + money(r.lastMonthWithholding);
+            result = ctx.getString(R.string.tool_tax_annual_after_tax) + " " + moneyUpper(r.annualAfterTax)
+                    + " · " + ctx.getString(R.string.tool_tax_last_month) + " "
+                    + moneyUpper(r.lastMonthWithholding);
         }
         host.setToolFormula(formula);
         host.setToolResult(result);
