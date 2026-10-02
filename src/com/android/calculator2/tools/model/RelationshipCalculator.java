@@ -7,6 +7,7 @@ package com.android.calculator2.tools.model;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.calculator2.tools.kinship.RelationshipData;
 import com.android.calculator2.tools.kinship.RelationshipEngine;
@@ -38,6 +39,9 @@ public final class RelationshipCalculator {
      * reference uses for its 北方 locale: the north says 姥爷、姥姥、大爷、大娘、舅姥爷、姨姥姥, while
      * 外公、外婆、伯父、伯母 are the common forms used everywhere else — they are what the south says,
      * so they are what "South China version" selects.
+     * <p>
+     * "South" deliberately means the common 普通话 wording and not Cantonese (粤语): the whole
+     * south is not Cantonese-speaking, and 老窦、阿嫲、大佬、细佬 would be wrong for most of it.
      */
     public enum Dialect {
         /** 北方: 姥爷、姥姥、大爷、大娘、大姥爷、小姥爷、姑姥姥、舅姥爷、姨姥姥… */
@@ -135,6 +139,11 @@ public final class RelationshipCalculator {
 
     private static final Answer EMPTY = new Answer(Collections.<String>emptyList());
 
+    /** Second candidate of the reference's own table for 堂哥; speech says 堂哥, not 堂老哥. */
+    private static final String[][] SPOKEN_FORMS = {
+            {"堂老兄", "堂哥"},
+    };
+
     private RelationshipCalculator() {
     }
 
@@ -157,7 +166,36 @@ public final class RelationshipCalculator {
         if (engine == null) {
             return EMPTY;
         }
-        return new Answer(engine.resolve(tokens(chain), reverse));
+        final List<String> resolved = engine.resolve(tokens(chain), reverse);
+        final List<String> spoken = new ArrayList<>(resolved.size());
+        for (String term : resolved) {
+            spoken.add(colloquial(term));
+        }
+        return new Answer(spoken);
+    }
+
+    /**
+     * The relation tables are written down, so a few of their answers keep the literary 兄
+     * (从堂兄, 舅表兄, 兄弟眷叔表兄 …) where speech uses 哥 — 堂哥 / 堂弟 is what people actually
+     * say. Prefer the spoken form in the 堂 / 表 family.
+     * <p>
+     * Collective terms keep their 兄 on purpose: 堂兄弟, 表兄弟姐妹, 堂兄嫂 and friends name a group,
+     * and 哥 would be wrong in them. Terms outside the 堂 / 表 family (男眷叔兄, 女姻舅兄 …) are
+     * left alone too, since they have no colloquial form of their own.
+     */
+    @NonNull
+    @VisibleForTesting
+    static String colloquial(@NonNull String term) {
+        for (String[] form : SPOKEN_FORMS) {
+            if (term.equals(form[0])) {
+                return form[1];
+            }
+        }
+        final boolean cousin = term.contains("堂") || term.contains("表");
+        if (cousin && term.endsWith("兄")) {
+            return term.substring(0, term.length() - 1) + "哥";
+        }
+        return term;
     }
 
     /** "爸爸的哥哥" for {@code [FATHER, ELDER_BROTHER]}; empty for an empty chain. */

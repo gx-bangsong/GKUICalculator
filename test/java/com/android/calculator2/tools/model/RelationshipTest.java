@@ -101,6 +101,29 @@ public class RelationshipTest {
                 call(Step.FATHER, Step.MOTHER, Step.ELDER_SISTER, Step.DAUGHTER));
         assertEquals(list("堂侄"),
                 call(Step.FATHER, Step.ELDER_BROTHER, Step.SON, Step.SON));
+        // 爷爷的哥哥的儿子的儿子 — the reference writes 从堂兄; speech says 从堂哥.
+        assertEquals(list("从堂哥", "从堂弟"),
+                call(Step.FATHER, Step.FATHER, Step.ELDER_BROTHER, Step.SON, Step.SON));
+    }
+
+    @Test
+    public void cousinsUseTheSpokenForm() {
+        assertEquals("堂哥", RelationshipCalculator.colloquial("堂兄"));
+        assertEquals("从堂哥", RelationshipCalculator.colloquial("从堂兄"));
+        assertEquals("表哥", RelationshipCalculator.colloquial("表兄"));
+        assertEquals("舅表哥", RelationshipCalculator.colloquial("舅表兄"));
+        assertEquals("姑表哥", RelationshipCalculator.colloquial("姑表兄"));
+        assertEquals("堂哥", RelationshipCalculator.colloquial("堂老兄"));
+        // Collectives name a group, so they keep 兄.
+        assertEquals("堂兄弟", RelationshipCalculator.colloquial("堂兄弟"));
+        assertEquals("表兄弟姐妹", RelationshipCalculator.colloquial("表兄弟姐妹"));
+        assertEquals("堂兄嫂", RelationshipCalculator.colloquial("堂兄嫂"));
+        // Terms outside the 堂 / 表 family have no colloquial form of their own.
+        assertEquals("男眷叔兄", RelationshipCalculator.colloquial("男眷叔兄"));
+        assertEquals("女姻舅兄", RelationshipCalculator.colloquial("女姻舅兄"));
+        // Everything else is untouched.
+        assertEquals("堂弟", RelationshipCalculator.colloquial("堂弟"));
+        assertEquals("伯父", RelationshipCalculator.colloquial("伯父"));
     }
 
     @Test
