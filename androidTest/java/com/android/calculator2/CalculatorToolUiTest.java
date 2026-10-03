@@ -79,4 +79,17 @@ public class CalculatorToolUiTest {
         onView(withId(R.id.result)).check(matches(withText(containsString(
                 context.getString(R.string.tool_mortgage_interest)))));
     }
+
+    /** 中文大写 applies to the primary mortgage result (月供/首月), not only its totals. */
+    @Test
+    public void uppercaseNumbersIncludePrimaryMortgagePayment() {
+        onView(withId(R.id.tool_more_button)).perform(click());
+        onView(allOf(withId(R.id.tool_panel_item_text),
+                withText(R.string.tool_mortgage), isDisplayed())).perform(click());
+        onView(withId(R.id.uppercase_toggle)).perform(click());
+
+        // 人民币大写 always gives the calculated monthly amount a 元/角/分 suffix. The old
+        // behavior left this formula line as digits while only the secondary line used 大写.
+        onView(withId(R.id.formula)).check(matches(withText(containsString("元"))));
+    }
 }

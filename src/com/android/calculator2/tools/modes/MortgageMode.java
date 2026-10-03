@@ -123,13 +123,19 @@ public class MortgageMode extends FieldToolMode {
                     : MortgageCalculator.equalPrincipal(principal, safeRate, years, MC);
             final Context ctx = host.getContext();
             if (mEqualPayment) {
-                formula = ctx.getString(R.string.tool_mortgage_monthly) + " " + money(r.monthlyPayment);
-                result = ctx.getString(R.string.tool_mortgage_interest) + " " + moneyUpper(r.totalInterest)
-                        + " · " + ctx.getString(R.string.tool_mortgage_total) + " " + moneyUpper(r.totalPayment);
+                formula = ctx.getString(R.string.tool_mortgage_monthly) + " "
+                        + moneyUpper(r.monthlyPayment);
+                result = ctx.getString(R.string.tool_mortgage_interest) + " "
+                        + moneyUpper(r.totalInterest)
+                        + " · " + ctx.getString(R.string.tool_mortgage_total) + " "
+                        + moneyUpper(r.totalPayment);
             } else {
-                formula = ctx.getString(R.string.tool_mortgage_first_month) + " " + money(r.monthlyPayment);
-                result = ctx.getString(R.string.tool_mortgage_decrease) + " " + moneyUpper(r.monthlyDecrease)
-                        + " · " + ctx.getString(R.string.tool_mortgage_interest) + " " + moneyUpper(r.totalInterest);
+                formula = ctx.getString(R.string.tool_mortgage_first_month) + " "
+                        + moneyUpper(r.monthlyPayment);
+                result = ctx.getString(R.string.tool_mortgage_decrease) + " "
+                        + moneyUpper(r.monthlyDecrease)
+                        + " · " + ctx.getString(R.string.tool_mortgage_interest) + " "
+                        + moneyUpper(r.totalInterest);
             }
         }
         host.setToolFormula(formula);

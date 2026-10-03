@@ -100,8 +100,10 @@ public class TaxMode extends FieldToolMode {
                     special == null ? BigDecimal.ZERO : special,
                     mTable, MC);
             final Context ctx = host.getContext();
-            formula = ctx.getString(R.string.tool_tax_annual_tax) + " " + money(r.annualTax);
-            result = ctx.getString(R.string.tool_tax_annual_after_tax) + " " + moneyUpper(r.annualAfterTax)
+            formula = ctx.getString(R.string.tool_tax_annual_tax) + " "
+                    + moneyUpper(r.annualTax);
+            result = ctx.getString(R.string.tool_tax_annual_after_tax) + " "
+                    + moneyUpper(r.annualAfterTax)
                     + " · " + ctx.getString(R.string.tool_tax_last_month) + " "
                     + moneyUpper(r.lastMonthWithholding);
         }
