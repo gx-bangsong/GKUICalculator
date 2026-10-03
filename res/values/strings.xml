@@ -323,9 +323,10 @@
     <!-- Scientific-pad toggle: shown when the scientific pad is visible (tap to hide). [CHAR_LIMIT=12] -->
     <string name="tool_scientific_hide">Hide</string>
 
-    <!-- Label of the Chinese-uppercase-numerals toggle in the display's top-left corner. It is
-         a single Chinese numeral glyph, so it is the same in every locale. [CHAR_LIMIT=NONE] -->
-    <string name="tool_uppercase_toggle" translatable="false">壹</string>
+    <!-- Labels of the Chinese-uppercase-numerals toggle in the display's top-left corner.
+         Ordinary 1 means off; financial 壹 means on. They are the same in every locale. -->
+    <string name="tool_uppercase_toggle" translatable="false">1</string>
+    <string name="tool_uppercase_toggle_on" translatable="false">壹</string>
     <!-- Content description of the uppercase-numerals toggle while it is off. [CHAR_LIMIT=NONE] -->
     <string name="desc_uppercase_numbers_off">Show Chinese uppercase numerals</string>
     <!-- Content description of the uppercase-numerals toggle while it is on. [CHAR_LIMIT=NONE] -->

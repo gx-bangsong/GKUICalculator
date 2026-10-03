@@ -36,7 +36,7 @@
         android:paddingTop="6dp"
         android:paddingBottom="6dp"
         android:text="@string/tool_uppercase_toggle"
-        android:textColor="?android:attr/textColorSecondary"
+        android:textColor="@color/display_formula_text_color"
         android:textSize="19sp"
         android:visibility="gone" />
 

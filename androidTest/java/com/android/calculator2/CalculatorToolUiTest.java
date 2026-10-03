@@ -86,7 +86,12 @@ public class CalculatorToolUiTest {
         onView(withId(R.id.tool_more_button)).perform(click());
         onView(allOf(withId(R.id.tool_panel_item_text),
                 withText(R.string.tool_mortgage), isDisplayed())).perform(click());
-        onView(withId(R.id.uppercase_toggle)).perform(click());
+        // The off state must remain obvious and tappable; after tapping, the glyph itself previews
+        // the Arabic-to-financial conversion.
+        onView(withId(R.id.uppercase_toggle))
+                .check(matches(withText(R.string.tool_uppercase_toggle)))
+                .perform(click())
+                .check(matches(withText(R.string.tool_uppercase_toggle_on)));
 
         // 人民币大写 always gives the calculated monthly amount a 元/角/分 suffix. The old
         // behavior left this formula line as digits while only the secondary line used 大写.

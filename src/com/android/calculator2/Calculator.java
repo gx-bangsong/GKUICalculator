@@ -66,6 +66,7 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.color.MaterialColors;
 
 import com.android.calculator2.CalculatorFormula.OnTextSizeChangeListener;
 import com.android.calculator2.tools.ToolHost;
@@ -1834,9 +1835,17 @@ public class Calculator extends AppCompatActivity
         final boolean supported = active != null && active.supportsUppercaseNumbers();
         mUppercaseToggle.setVisibility(supported ? View.VISIBLE : View.GONE);
         mUppercaseToggle.setSelected(mUppercaseNumbers);
-        mUppercaseToggle.setTextColor(resolveThemeColor(mUppercaseNumbers
-                        ? android.R.attr.colorPrimary : android.R.attr.textColorSecondary,
-                mUppercaseToggle.getCurrentTextColor()));
+        // Preview the conversion itself: familiar Arabic 1 while off, financial 壹 while on.
+        mUppercaseToggle.setText(mUppercaseNumbers
+                ? R.string.tool_uppercase_toggle_on : R.string.tool_uppercase_toggle);
+        // Use an explicit high-contrast inactive color. Resolving textColorSecondary as a raw
+        // TypedValue can produce a resource id rather than a color, making the off icon vanish.
+        final int inactiveColor = ContextCompat.getColor(
+                this, R.color.display_formula_text_color);
+        mUppercaseToggle.setTextColor(mUppercaseNumbers
+                ? MaterialColors.getColor(
+                        mUppercaseToggle, android.R.attr.colorPrimary, inactiveColor)
+                : inactiveColor);
         mUppercaseToggle.setContentDescription(getString(mUppercaseNumbers
                 ? R.string.desc_uppercase_numbers_on : R.string.desc_uppercase_numbers_off));
         if (supported) {
@@ -1851,14 +1860,6 @@ public class Calculator extends AppCompatActivity
                 onModeChanged(mEvaluator.getDegreeMode(Evaluator.MAIN_INDEX));
             }
         }
-    }
-
-    private int resolveThemeColor(int attr, int fallback) {
-        final TypedValue value = new TypedValue();
-        if (getTheme().resolveAttribute(attr, value, true)) {
-            return value.data;
-        }
-        return fallback;
     }
 
     /**
