@@ -41,6 +41,13 @@ public interface ToolHost {
     void setToolResultTextSizeSp(float sp);
 
     /**
+     * Give the formula line an auto-size range of its own, so a long input shrinks to fit instead
+     * of being cut off. Only needed by tools that can produce long single-line text; the default
+     * tool range is restored whenever another tool is activated.
+     */
+    void setToolFormulaTextSizeRangeSp(float maxSp, float minSp);
+
+    /**
      * Best-effort numeric value currently shown on the display (result preferred, falling back
      * to the formula). Used to carry a value into a newly activated tool.
      *
@@ -80,4 +87,17 @@ public interface ToolHost {
      * Called by {@code ToolManager} based on {@link ToolMode#wantsExpandedDisplay()}.
      */
     void setExpandedDisplay(boolean expanded);
+
+    /** Relabel/restore the scientific pad for Programmer mode and enable valid radix digits. */
+    void setProgrammerPadMode(boolean enabled, int radix);
+
+    /**
+     * Relabel/restore the numeric pad for the kinship tool: every key becomes a relationship noun
+     * and the decimal-point key becomes the 互查 toggle. {@code reverse} drives the toggle's
+     * checked state and is ignored while {@code enabled} is false.
+     */
+    void setRelationshipPadMode(boolean enabled, boolean reverse);
+
+    /** Re-evaluate mode-specific items in the activity overflow menu. */
+    void refreshOptionsMenu();
 }

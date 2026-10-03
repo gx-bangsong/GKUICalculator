@@ -36,4 +36,6 @@
          (calculator formula_max is 128dip, which is far too large for "年度税额"). -->
     <dimen name="tool_formula_max_textsize">36sp</dimen>
     <dimen name="tool_result_textsize">16sp</dimen>
+    <dimen name="tool_uppercase_result_textsize">18sp</dimen>
+    <dimen name="tool_uppercase_result_min_textsize">11sp</dimen>
 </resources>

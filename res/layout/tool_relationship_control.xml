@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: 2026 The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<!--
+  Kinship tool: one secondary line for the explanation that goes with the result (why two terms
+  are shown). Kept out of the formula line so the whole relationship chain stays visible there.
+  -->
+<TextView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/relationship_hint"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="@dimen/formula_padding_start"
+    android:layout_marginEnd="@dimen/formula_padding_end"
+    android:ellipsize="end"
+    android:paddingTop="6dp"
+    android:paddingBottom="2dp"
+    android:gravity="start"
+    android:maxLines="2"
+    android:textAlignment="viewStart"
+    android:textColor="?android:attr/textColorSecondary"
+    android:textSize="13sp" />

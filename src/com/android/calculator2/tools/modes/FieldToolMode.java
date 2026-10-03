@@ -24,6 +24,7 @@ import com.android.calculator2.R;
 import com.android.calculator2.tools.ToolHost;
 import com.android.calculator2.tools.ToolInputFields;
 import com.android.calculator2.tools.ToolMode;
+import com.android.calculator2.tools.model.ChineseNumerals;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -42,6 +43,9 @@ public abstract class FieldToolMode implements ToolMode {
 
     /** Compact result-line text size (sp) fallback if the dimen is missing. */
     private static final float TOOL_RESULT_TEXT_SP = 14f;
+    /** Long 人民币大写 amounts need a lower formula-line floor to remain fully visible. */
+    private static final float UPPERCASE_FORMULA_MAX_SP = 20f;
+    private static final float UPPERCASE_FORMULA_MIN_SP = 10f;
 
     @Nullable
     protected ToolHost mHost;
@@ -54,6 +58,9 @@ public abstract class FieldToolMode implements ToolMode {
 
     private int mActiveColor;
     private int mInactiveColor;
+
+    /** Render monetary results as Chinese uppercase numerals (中文大写数字). */
+    private boolean mUppercaseNumbers;
 
     protected abstract int fieldCount();
 
@@ -69,6 +76,16 @@ public abstract class FieldToolMode implements ToolMode {
     @Override
     public boolean wantsExpandedDisplay() {
         return true;
+    }
+
+    @Override
+    public void setUppercaseNumbers(boolean enabled) {
+        if (mUppercaseNumbers == enabled) {
+            return;
+        }
+        mUppercaseNumbers = enabled;
+        configureFormulaTextSize();
+        recomputeAndDisplay();
     }
 
     /** Called after the control view is created, for extra controls (e.g. a method toggle). */
@@ -98,6 +115,7 @@ public abstract class FieldToolMode implements ToolMode {
         final float px = context.getResources().getDimension(R.dimen.tool_result_textsize);
         final float sp = px / context.getResources().getDisplayMetrics().scaledDensity;
         host.setToolResultTextSizeSp(sp > 0f ? sp : TOOL_RESULT_TEXT_SP);
+        configureFormulaTextSize();
         mountControls(context);
         recomputeAndDisplay();
     }
@@ -227,6 +245,38 @@ public abstract class FieldToolMode implements ToolMode {
         }
         return new DecimalFormat("#,##0.##")
                 .format(value.setScale(2, RoundingMode.HALF_UP));
+    }
+
+    /**
+     * Same as {@link #money} while 中文大写数字 is off, and the 人民币大写 form of the amount
+     * while it is on. All calculated monetary outputs use this, including the primary value on
+     * the formula line (月供、首月、年度税额).
+     */
+    @NonNull
+    protected String moneyUpper(@Nullable BigDecimal value) {
+        if (!mUppercaseNumbers) {
+            return money(value);
+        }
+        return ChineseNumerals.toUppercaseAmount(value);
+    }
+
+    /** Keep a long 大写 primary amount on-screen, then restore the normal tool range when off. */
+    private void configureFormulaTextSize() {
+        if (mHost == null) {
+            return;
+        }
+        if (mUppercaseNumbers) {
+            mHost.setToolFormulaTextSizeRangeSp(
+                    UPPERCASE_FORMULA_MAX_SP, UPPERCASE_FORMULA_MIN_SP);
+            return;
+        }
+        final Context context = mHost.getContext();
+        final float scaledDensity = context.getResources().getDisplayMetrics().scaledDensity;
+        final float maxSp = context.getResources().getDimension(
+                R.dimen.tool_formula_max_textsize) / scaledDensity;
+        final float minSp = context.getResources().getDimension(
+                R.dimen.formula_min_textsize) / scaledDensity;
+        mHost.setToolFormulaTextSizeRangeSp(maxSp, minSp);
     }
 
     private static int resolveThemeColor(@NonNull Context context, int attr, int fallback) {

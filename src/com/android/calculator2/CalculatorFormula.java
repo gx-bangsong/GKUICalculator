@@ -42,6 +42,12 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
     private final float mStepTextSize;
     /** Temporary cap used by tool modes; {@link Float#NaN} means "use the style max". */
     private float mMaximumTextSizeOverride = Float.NaN;
+    /**
+     * Temporary floor used by tool modes; {@link Float#NaN} means "use the style min". Without it
+     * the effective floor is {@code min(style min, effective max)}, which leaves tools that cap
+     * the maximum with no room to shrink and truncates long text.
+     */
+    private float mMinimumTextSizeOverride = Float.NaN;
 
     private final ClipboardManager mClipboardManager;
 
@@ -169,6 +175,21 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
         applyEffectiveTextSize();
     }
 
+    /**
+     * Lower the auto-sizing floor so long text shrinks to fit instead of being cut off. Pass a
+     * pixel size; {@link #clearMinimumTextSizeOverride()} restores the style min.
+     */
+    public void setMinimumTextSizeOverride(float px) {
+        mMinimumTextSizeOverride = px;
+        applyEffectiveTextSize();
+    }
+
+    /** Restore auto-sizing to the style {@code minTextSize}. */
+    public void clearMinimumTextSizeOverride() {
+        mMinimumTextSizeOverride = Float.NaN;
+        applyEffectiveTextSize();
+    }
+
     private float getEffectiveMaximumTextSize() {
         if (!Float.isNaN(mMaximumTextSizeOverride)) {
             return mMaximumTextSizeOverride;
@@ -177,7 +198,9 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
     }
 
     private float getEffectiveMinimumTextSize() {
-        return Math.min(mMinimumTextSize, getEffectiveMaximumTextSize());
+        final float floor = Float.isNaN(mMinimumTextSizeOverride)
+                ? mMinimumTextSize : mMinimumTextSizeOverride;
+        return Math.min(floor, getEffectiveMaximumTextSize());
     }
 
     private void applyEffectiveTextSize() {

@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: 2014 The Android Open Source Project
+     SPDX-License-Identifier: Apache-2.0
+-->
 <androidx.appcompat.widget.Toolbar
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/toolbar"
@@ -13,5 +17,27 @@
         android:fontFamily="sans-serif-medium"
         android:textAllCaps="true"
         android:textSize="16sp" />
+
+    <!-- Chinese-uppercase-numerals (中文大写数字) toggle. Shown in place of the DEG/RAD
+         indicator by the tools that show amounts (mortgage, income tax, currency), where
+         the angle mode is meaningless. Hidden in every other mode. -->
+    <TextView
+        android:id="@+id/uppercase_toggle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:minWidth="34dp"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:text="@string/tool_uppercase_toggle"
+        android:textColor="@color/display_formula_text_color"
+        android:textSize="19sp"
+        android:visibility="gone" />
 
 </androidx.appcompat.widget.Toolbar>
