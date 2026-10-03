@@ -26,6 +26,8 @@ import com.android.calculator2.tools.ToolMode;
 import com.android.calculator2.tools.data.UnitCategory;
 import com.android.calculator2.tools.data.UnitDef;
 import com.android.calculator2.tools.data.UnitRepository;
+import com.android.calculator2.tools.model.DecimalExpression;
+import com.android.calculator2.tools.model.DecimalExpression.Operation;
 import com.android.calculator2.tools.model.TemperatureConversion;
 import com.android.calculator2.tools.model.UnitConversion;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -67,7 +69,7 @@ public class UnitConverterMode implements ToolMode {
     private int mToSecondaryIndex;
     private boolean mSecondaryEnabled;
 
-    private final StringBuilder mInput = new StringBuilder();
+    private final DecimalExpression mInput = new DecimalExpression(DEFAULT_INPUT);
 
     @Nullable
     private ToolHost mHost;
@@ -144,8 +146,7 @@ public class UnitConverterMode implements ToolMode {
         }
         mCategories = mRepository.getCategories();
 
-        mInput.setLength(0);
-        mInput.append(carryValue != null ? carryValue : DEFAULT_INPUT);
+        mInput.set(carryValue != null ? carryValue : DEFAULT_INPUT);
         mCategoryIndex = 0;
         mFromIndex = 0;
         mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
@@ -167,33 +168,45 @@ public class UnitConverterMode implements ToolMode {
     }
 
     @Override
+    public boolean onPadKey(int viewId) {
+        if (viewId == R.id.op_add) {
+            mInput.onOperator(Operation.ADD);
+        } else if (viewId == R.id.op_sub) {
+            mInput.onOperator(Operation.SUBTRACT);
+        } else if (viewId == R.id.op_mul) {
+            mInput.onOperator(Operation.MULTIPLY);
+        } else if (viewId == R.id.op_div) {
+            mInput.onOperator(Operation.DIVIDE);
+        } else if (viewId == R.id.eq) {
+            mInput.onEquals();
+        } else {
+            return false;
+        }
+        redisplay();
+        return true;
+    }
+
+    @Override
     public void onDigit(int digit) {
-        mInput.append(digit);
+        mInput.onDigit(digit);
         redisplay();
     }
 
     @Override
     public void onDecimalPoint() {
-        if (mInput.indexOf(".") < 0) {
-            if (mInput.length() == 0) {
-                mInput.append("0");
-            }
-            mInput.append(".");
-        }
+        mInput.onDecimalPoint();
         redisplay();
     }
 
     @Override
     public void onDelete() {
-        if (mInput.length() > 0) {
-            mInput.deleteCharAt(mInput.length() - 1);
-        }
+        mInput.onDelete();
         redisplay();
     }
 
     @Override
     public void onClear() {
-        mInput.setLength(0);
+        mInput.onClear();
         redisplay();
     }
 
@@ -528,7 +541,7 @@ public class UnitConverterMode implements ToolMode {
         final UnitDef from = category.getUnits().get(clamp(mFromIndex));
         final UnitDef to = category.getUnits().get(clamp(mToIndex));
         final UnitDef toSecondary = category.getUnits().get(clamp(mToSecondaryIndex));
-        final BigDecimal value = parseInput();
+        final BigDecimal value = mInput.getValue();
 
         final String resultText;
         final String secondaryResultText;
@@ -543,7 +556,7 @@ public class UnitConverterMode implements ToolMode {
         }
 
         if (mInputView != null) {
-            mInputView.setText(displayInput());
+            mInputView.setText(mInput.getDisplayText());
         }
         if (mResultView != null) {
             mResultView.setText(resultText);
@@ -572,30 +585,6 @@ public class UnitConverterMode implements ToolMode {
             return null;
         }
         return UnitConversion.convert(value, from.getFactor(), to.getFactor(), MC);
-    }
-
-    @Nullable
-    private BigDecimal parseInput() {
-        if (mInput.length() == 0) {
-            return null;
-        }
-        String text = mInput.toString();
-        if (text.endsWith(".")) {
-            text = text.substring(0, text.length() - 1);
-            if (text.isEmpty()) {
-                return null;
-            }
-        }
-        try {
-            return new BigDecimal(text);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    @NonNull
-    private String displayInput() {
-        return mInput.length() == 0 ? "0" : mInput.toString();
     }
 
     @NonNull

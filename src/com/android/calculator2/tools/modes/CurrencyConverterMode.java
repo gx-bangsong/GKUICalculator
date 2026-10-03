@@ -26,6 +26,8 @@ import com.android.calculator2.tools.data.CurrencyDef;
 import com.android.calculator2.tools.data.ExchangeRateRepository;
 import com.android.calculator2.tools.model.ChineseNumerals;
 import com.android.calculator2.tools.model.CurrencyConversion;
+import com.android.calculator2.tools.model.DecimalExpression;
+import com.android.calculator2.tools.model.DecimalExpression.Operation;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -39,9 +41,8 @@ import java.util.Locale;
  * Currency conversion using ECB reference rates (EUR base) with on-disk caching and offline
  * fallback. Mirrors the data source of {@code com.yangdai.calc}, extended with caching/offline.
  * <p>
- * The display is reused: the formula line shows {@code "amount <from>"}, the result line shows
- * {@code "result <to>"}. The mode-specific controls (from / to selectors + swap) and the
- * update-time label are mounted into the host's {@link ToolHost#getToolControlSlot()}.
+ * Input and output values, selectors, optional second output, and their inline Chinese-uppercase
+ * readings are mounted into the host's {@link ToolHost#getToolControlSlot()}.
  */
 public class CurrencyConverterMode implements ToolMode {
 
@@ -50,9 +51,6 @@ public class CurrencyConverterMode implements ToolMode {
     private static final String DEFAULT_INPUT = "1";
     private static final String PREFS_NAME = "calc_tools";
     private static final String PREF_SECONDARY = "currency_secondary_output";
-    /** Auto-size range (sp) of the formula line while it shows a 大写 amount. */
-    private static final float UPPERCASE_FORMULA_MAX_SP = 20f;
-    private static final float UPPERCASE_FORMULA_MIN_SP = 10f;
 
     private static final int SELECTOR_FROM = 0;
     private static final int SELECTOR_TO = 1;
@@ -71,7 +69,7 @@ public class CurrencyConverterMode implements ToolMode {
     private boolean mSecondaryEnabled;
     private boolean mUppercaseNumbers;
 
-    private final StringBuilder mInput = new StringBuilder();
+    private final DecimalExpression mInput = new DecimalExpression(DEFAULT_INPUT);
 
     @Nullable
     private ToolHost mHost;
@@ -84,7 +82,11 @@ public class CurrencyConverterMode implements ToolMode {
     @Nullable
     private TextView mInputView;
     @Nullable
+    private TextView mInputUppercaseView;
+    @Nullable
     private TextView mResultView;
+    @Nullable
+    private TextView mResultUppercaseView;
     @Nullable
     private TextView mUpdateLabel;
     @Nullable
@@ -93,6 +95,8 @@ public class CurrencyConverterMode implements ToolMode {
     private TextView mToSecondaryView;
     @Nullable
     private TextView mSecondaryResultView;
+    @Nullable
+    private TextView mSecondaryResultUppercaseView;
     @Nullable
     private PopupMenu mOpenDropdown;
 
@@ -167,8 +171,7 @@ public class CurrencyConverterMode implements ToolMode {
         mCurrencies = mRepository.getConfig().getCurrencies();
         mRates = null;
 
-        mInput.setLength(0);
-        mInput.append(carryValue != null ? carryValue : DEFAULT_INPUT);
+        mInput.set(carryValue != null ? carryValue : DEFAULT_INPUT);
 
         // Sensible defaults: CNY -> USD when both exist, otherwise the first two.
         int cny = indexOfCode("CNY");
@@ -199,33 +202,45 @@ public class CurrencyConverterMode implements ToolMode {
     }
 
     @Override
+    public boolean onPadKey(int viewId) {
+        if (viewId == R.id.op_add) {
+            mInput.onOperator(Operation.ADD);
+        } else if (viewId == R.id.op_sub) {
+            mInput.onOperator(Operation.SUBTRACT);
+        } else if (viewId == R.id.op_mul) {
+            mInput.onOperator(Operation.MULTIPLY);
+        } else if (viewId == R.id.op_div) {
+            mInput.onOperator(Operation.DIVIDE);
+        } else if (viewId == R.id.eq) {
+            mInput.onEquals();
+        } else {
+            return false;
+        }
+        redisplay();
+        return true;
+    }
+
+    @Override
     public void onDigit(int digit) {
-        mInput.append(digit);
+        mInput.onDigit(digit);
         redisplay();
     }
 
     @Override
     public void onDecimalPoint() {
-        if (mInput.indexOf(".") < 0) {
-            if (mInput.length() == 0) {
-                mInput.append("0");
-            }
-            mInput.append(".");
-        }
+        mInput.onDecimalPoint();
         redisplay();
     }
 
     @Override
     public void onDelete() {
-        if (mInput.length() > 0) {
-            mInput.deleteCharAt(mInput.length() - 1);
-        }
+        mInput.onDelete();
         redisplay();
     }
 
     @Override
     public void onClear() {
-        mInput.setLength(0);
+        mInput.onClear();
         redisplay();
     }
 
@@ -259,11 +274,15 @@ public class CurrencyConverterMode implements ToolMode {
         mFromView = mControlRoot.findViewById(R.id.currency_from);
         mToView = mControlRoot.findViewById(R.id.currency_to);
         mInputView = mControlRoot.findViewById(R.id.currency_input_text);
+        mInputUppercaseView = mControlRoot.findViewById(R.id.currency_input_uppercase);
         mResultView = mControlRoot.findViewById(R.id.currency_result_text);
+        mResultUppercaseView = mControlRoot.findViewById(R.id.currency_result_uppercase);
         mUpdateLabel = mControlRoot.findViewById(R.id.currency_update_label);
         mSecondaryRow = mControlRoot.findViewById(R.id.currency_secondary_row);
         mToSecondaryView = mControlRoot.findViewById(R.id.currency_to_2);
         mSecondaryResultView = mControlRoot.findViewById(R.id.currency_result_2_text);
+        mSecondaryResultUppercaseView =
+                mControlRoot.findViewById(R.id.currency_result_2_uppercase);
         final ImageButton swap = mControlRoot.findViewById(R.id.currency_swap);
         swap.setOnClickListener(v -> swapCurrencies());
         configureCurrencyDropdown(mFromView, SELECTOR_FROM);
@@ -295,11 +314,14 @@ public class CurrencyConverterMode implements ToolMode {
         mFromView = null;
         mToView = null;
         mInputView = null;
+        mInputUppercaseView = null;
         mResultView = null;
+        mResultUppercaseView = null;
         mUpdateLabel = null;
         mSecondaryRow = null;
         mToSecondaryView = null;
         mSecondaryResultView = null;
+        mSecondaryResultUppercaseView = null;
     }
 
     private void swapCurrencies() {
@@ -385,7 +407,7 @@ public class CurrencyConverterMode implements ToolMode {
         final CurrencyDef from = mCurrencies.get(clamp(mFromIndex));
         final CurrencyDef to = mCurrencies.get(clamp(mToIndex));
         final CurrencyDef toSecondary = mCurrencies.get(clamp(mToSecondaryIndex));
-        final BigDecimal value = parseInput();
+        final BigDecimal value = mInput.getValue();
 
         final String resultText;
         final String secondaryResultText;
@@ -402,9 +424,11 @@ public class CurrencyConverterMode implements ToolMode {
             resultText = (out == null ? "—" : format(out));
             secondaryResultText = secondaryOut == null ? "—" : format(secondaryOut);
         }
-        // Update the inline number+unit display in the control slot (not the big display lines).
+        // Keep each 大写 reading directly under the numeric row it describes. This gives the
+        // optional second output its own measured space instead of letting it overlap text in the
+        // shared calculator result area.
         if (mInputView != null) {
-            mInputView.setText(displayInput());
+            mInputView.setText(mInput.getDisplayText());
         }
         if (mResultView != null) {
             mResultView.setText(resultText);
@@ -412,43 +436,25 @@ public class CurrencyConverterMode implements ToolMode {
         if (mSecondaryResultView != null) {
             mSecondaryResultView.setText(secondaryResultText);
         }
-        if (mUppercaseNumbers) {
-            // The 大写 reading of a conversion is much longer than its digits, so it goes on
-            // the display (which wraps and shrinks to fit) rather than in the compact
-            // selector row. The formula line gets a lower floor so the converted-from amount
-            // shrinks to fit too.
-            host.setToolFormulaTextSizeRangeSp(UPPERCASE_FORMULA_MAX_SP, UPPERCASE_FORMULA_MIN_SP);
-            host.setToolFormula(ChineseNumerals.toUppercase(displayInput()));
-            host.setToolResult(ChineseNumerals.toUppercase(resultText));
-        } else {
-            // Keep the big display lines empty — the conversion with tappable units is in the slot.
-            host.setToolFormula("");
-            host.setToolResult("");
-        }
+        final String inputValueText = mInput.getValueText();
+        setUppercaseText(mInputUppercaseView, inputValueText == null
+                ? "—" : ChineseNumerals.toUppercase(inputValueText));
+        setUppercaseText(mResultUppercaseView,
+                ChineseNumerals.toUppercase(resultText));
+        setUppercaseText(mSecondaryResultUppercaseView,
+                ChineseNumerals.toUppercase(secondaryResultText));
+
+        // Currency values and their 大写 readings now live together in the control rows.
+        host.setToolFormula("");
+        host.setToolResult("");
     }
 
-    @Nullable
-    private BigDecimal parseInput() {
-        if (mInput.length() == 0) {
-            return null;
+    private void setUppercaseText(@Nullable TextView view, @NonNull String text) {
+        if (view == null) {
+            return;
         }
-        String text = mInput.toString();
-        if (text.endsWith(".")) {
-            text = text.substring(0, text.length() - 1);
-            if (text.isEmpty()) {
-                return null;
-            }
-        }
-        try {
-            return new BigDecimal(text);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    @NonNull
-    private String displayInput() {
-        return mInput.length() == 0 ? "0" : mInput.toString();
+        view.setText(text);
+        view.setVisibility(mUppercaseNumbers ? View.VISIBLE : View.GONE);
     }
 
     @NonNull

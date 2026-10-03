@@ -643,8 +643,8 @@ public class Calculator extends AppCompatActivity
         // Stop the action mode or context menu if it's showing.
         stopActionModeOrContextMenu();
 
-        // If a non-calculator tool is active, only allow numeric input and edit keys;
-        // completely block arithmetic operators (+, -, *, /) and scientific operations.
+        // While a tool is active, route the common numeric/edit/arithmetic keys through the same
+        // pad dispatcher as touch input. Modes that do not implement arithmetic still consume it.
         if (mToolManager != null && mToolManager.isActive()) {
             switch (keyCode) {
                 case KeyEvent.KEYCODE_DEL:
@@ -656,6 +656,28 @@ public class Calculator extends AppCompatActivity
                 case KeyEvent.KEYCODE_NUMPAD_DOT:
                 case KeyEvent.KEYCODE_PERIOD:
                     mToolManager.handlePadClick(R.id.dec_point);
+                    return true;
+                case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_EQUALS:
+                    mToolManager.handlePadClick(R.id.eq);
+                    return true;
+                case KeyEvent.KEYCODE_NUMPAD_ADD:
+                case KeyEvent.KEYCODE_PLUS:
+                    mToolManager.handlePadClick(R.id.op_add);
+                    return true;
+                case KeyEvent.KEYCODE_NUMPAD_SUBTRACT:
+                case KeyEvent.KEYCODE_MINUS:
+                    mToolManager.handlePadClick(R.id.op_sub);
+                    return true;
+                case KeyEvent.KEYCODE_NUMPAD_MULTIPLY:
+                case KeyEvent.KEYCODE_STAR:
+                    mToolManager.handlePadClick(R.id.op_mul);
+                    return true;
+                case KeyEvent.KEYCODE_NUMPAD_DIVIDE:
+                case KeyEvent.KEYCODE_SLASH:
+                    mToolManager.handlePadClick(R.id.op_div);
                     return true;
                 default:
                     int digit = -1;
@@ -673,7 +695,8 @@ public class Calculator extends AppCompatActivity
                         };
                         mToolManager.handlePadClick(digitIds[digit]);
                     }
-                    // Silently consume all other keys (including +, -, *, /, enters, brackets, etc.)
+                    // Silently consume keys the active tool does not support (scientific
+                    // functions, brackets, and so on).
                     return true;
             }
         }
@@ -1511,10 +1534,11 @@ public class Calculator extends AppCompatActivity
             mResultText.setVisibility(View.VISIBLE);
         }
         mLastToolResult = text;
-        applyUppercaseResultLayout(mUppercaseNumbers);
+        final boolean wrapUppercaseResult = mUppercaseNumbers && text.length() > 0;
+        applyUppercaseResultLayout(wrapUppercaseResult);
         mResultText.setText(text);
-        if (mUppercaseNumbers) {
-            mResultText.removeCallbacks(mFitUppercaseResult);
+        mResultText.removeCallbacks(mFitUppercaseResult);
+        if (wrapUppercaseResult) {
             mResultText.post(mFitUppercaseResult);
         }
     }

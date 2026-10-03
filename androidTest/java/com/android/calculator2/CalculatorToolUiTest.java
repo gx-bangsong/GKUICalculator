@@ -97,4 +97,41 @@ public class CalculatorToolUiTest {
         // behavior left this formula line as digits while only the secondary line used 大写.
         onView(withId(R.id.formula)).check(matches(withText(containsString("元"))));
     }
+
+    /** Unit conversion accepts +, −, ×, ÷ and equals from the calculator pad. */
+    @Test
+    public void unitConverterAcceptsArithmetic() {
+        onView(withId(R.id.tool_more_button)).perform(click());
+        onView(allOf(withId(R.id.tool_panel_item_text),
+                withText(R.string.tool_unit), isDisplayed())).perform(click());
+        onView(withId(R.id.clr)).perform(click());
+        onView(withId(R.id.digit_2)).perform(click());
+        onView(withId(R.id.op_add)).perform(click());
+        onView(withId(R.id.digit_3)).perform(click());
+        onView(withId(R.id.op_mul)).perform(click());
+        onView(withId(R.id.digit_4)).perform(click());
+        onView(withId(R.id.eq)).perform(click());
+
+        onView(withId(R.id.unit_input_text)).check(matches(withText("14")));
+    }
+
+    /** Currency keeps 大写 readings in their rows and accepts arithmetic input. */
+    @Test
+    public void currencyConverterKeepsUppercaseInlineAndAcceptsArithmetic() {
+        onView(withId(R.id.tool_more_button)).perform(click());
+        onView(allOf(withId(R.id.tool_panel_item_text),
+                withText(R.string.tool_currency), isDisplayed())).perform(click());
+        onView(withId(R.id.clr)).perform(click());
+        onView(withId(R.id.digit_8)).perform(click());
+        onView(withId(R.id.op_div)).perform(click());
+        onView(withId(R.id.digit_2)).perform(click());
+        onView(withId(R.id.eq)).perform(click());
+        onView(withId(R.id.currency_input_text)).check(matches(withText("4")));
+
+        onView(withId(R.id.uppercase_toggle)).perform(click());
+        onView(withId(R.id.currency_input_uppercase)).check(matches(isDisplayed()));
+        onView(withId(R.id.currency_result_uppercase)).check(matches(isDisplayed()));
+        // The shared result area stays empty, so an optional second row cannot overlap it.
+        onView(withId(R.id.result)).check(matches(withText("")));
+    }
 }

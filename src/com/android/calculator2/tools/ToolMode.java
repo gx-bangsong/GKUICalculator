@@ -79,8 +79,8 @@ public interface ToolMode {
 
     /**
      * Gives specialized tools first chance to consume any calculator-pad key. Most tools return
-     * false and use the numeric callbacks below; Programmer mode also handles operators and the
-     * repurposed scientific-pad keys.
+     * false and use the numeric callbacks below; converter and Programmer modes also handle
+     * operators, and Programmer handles the repurposed scientific-pad keys.
      */
     default boolean onPadKey(int viewId) {
         return false;

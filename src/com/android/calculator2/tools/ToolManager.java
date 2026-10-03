@@ -261,7 +261,8 @@ public class ToolManager {
             mode.onDecimalPoint();
             return true;
         }
-        // Operators / equals / scientific keys are irrelevant in tool mode: consume silently.
+        // Any operator / equals / scientific key not claimed by onPadKey is irrelevant to this
+        // particular tool; consume it without leaking the press into the calculator evaluator.
         return true;
     }
 
