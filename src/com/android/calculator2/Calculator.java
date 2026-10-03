@@ -935,6 +935,11 @@ public class Calculator extends AppCompatActivity
         if (index != Evaluator.MAIN_INDEX) {
             throw new AssertionError("Unexpected evaluation result index\n");
         }
+        // A calculator evaluation may finish just after the user selects another tool. That
+        // result belongs to the calculator, not to the display now owned by the tool.
+        if (toolOwnsDisplay()) {
+            return;
+        }
 
         // Invalidate any options that may depend on the current result.
         invalidateOptionsMenu();
@@ -949,6 +954,11 @@ public class Calculator extends AppCompatActivity
 
     // Reset state to reflect evaluator cancellation.  Invoked by evaluator.
     public void onCancelled(long index) {
+        // Cancellation is asynchronous. Do not let its callback clear a tool result rendered
+        // after the calculator evaluation was cancelled during the mode hand-off.
+        if (toolOwnsDisplay()) {
+            return;
+        }
         // Index is Evaluator.MAIN_INDEX. We should be in EVALUATE state.
         setState(CalculatorState.INPUT);
         mResultText.onCancelled(index);
@@ -957,6 +967,9 @@ public class Calculator extends AppCompatActivity
     // Reevaluation completed; ask result to redisplay current value.
     public void onReevaluate(long index) {
         // Index is Evaluator.MAIN_INDEX.
+        if (toolOwnsDisplay()) {
+            return;
+        }
         mResultText.onReevaluate(index);
     }
 
@@ -1072,6 +1085,9 @@ public class Calculator extends AppCompatActivity
     public void onError(final long index, final int errorResourceId) {
         if (index != Evaluator.MAIN_INDEX) {
             throw new AssertionError("Unexpected error source");
+        }
+        if (toolOwnsDisplay()) {
+            return;
         }
         if (mCurrentState == CalculatorState.EVALUATE) {
             mResultText.announceForAccessibility(getResources().getString(errorResourceId));
@@ -1469,6 +1485,11 @@ public class Calculator extends AppCompatActivity
 
     // ===================== Tool bar integration (ToolHost) =====================
 
+    /** True while a non-calculator tool, rather than the evaluator, owns the shared display. */
+    private boolean toolOwnsDisplay() {
+        return mToolManager != null && mToolManager.isActive();
+    }
+
     @NonNull
     @Override
     public Context getContext() {
@@ -1527,8 +1548,14 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void prepareForToolDisplay() {
-        // Stop any in-flight instant evaluation so it cannot overwrite the tool's text.
-        cancelUnrequested();
+        // CalculatorResult normally asks the evaluator to run again after every layout. Tool
+        // setup changes its size and padding, so disable that request before touching the view;
+        // otherwise a pending (not-yet-equals) calculator result can be redrawn over the tool.
+        mResultText.setShouldEvaluateResult(CalculatorResult.SHOULD_NOT_EVALUATE, null);
+        // Cancel optional and explicitly requested evaluations alike. Their asynchronous
+        // callbacks are also ignored while toolOwnsDisplay() is true.
+        mEvaluator.cancel(Evaluator.MAIN_INDEX, true);
+        mResultText.clear();
         // Clear any leftover tool controls so the next tool owns the slot.
         if (mToolControlSlot != null) {
             mToolControlSlot.removeAllViews();
