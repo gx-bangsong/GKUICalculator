@@ -41,8 +41,9 @@ import java.util.Locale;
  * Currency conversion using ECB reference rates (EUR base) with on-disk caching and offline
  * fallback. Mirrors the data source of {@code com.yangdai.calc}, extended with caching/offline.
  * <p>
- * Input and output values, selectors, optional second output, and their inline Chinese-uppercase
- * readings are mounted into the host's {@link ToolHost#getToolControlSlot()}.
+ * Input and output values, selectors, and the optional second output are mounted into the host's
+ * {@link ToolHost#getToolControlSlot()}. Chinese-uppercase mode replaces the amounts in that same
+ * value column instead of drawing a separate result beneath the rows.
  */
 public class CurrencyConverterMode implements ToolMode {
 
@@ -51,6 +52,8 @@ public class CurrencyConverterMode implements ToolMode {
     private static final String DEFAULT_INPUT = "1";
     private static final String PREFS_NAME = "calc_tools";
     private static final String PREF_SECONDARY = "currency_secondary_output";
+    private static final float NUMBER_TEXT_SIZE_SP = 28f;
+    private static final float UPPERCASE_TEXT_SIZE_SP = 16f;
 
     private static final int SELECTOR_FROM = 0;
     private static final int SELECTOR_TO = 1;
@@ -82,11 +85,7 @@ public class CurrencyConverterMode implements ToolMode {
     @Nullable
     private TextView mInputView;
     @Nullable
-    private TextView mInputUppercaseView;
-    @Nullable
     private TextView mResultView;
-    @Nullable
-    private TextView mResultUppercaseView;
     @Nullable
     private TextView mUpdateLabel;
     @Nullable
@@ -95,8 +94,6 @@ public class CurrencyConverterMode implements ToolMode {
     private TextView mToSecondaryView;
     @Nullable
     private TextView mSecondaryResultView;
-    @Nullable
-    private TextView mSecondaryResultUppercaseView;
     @Nullable
     private PopupMenu mOpenDropdown;
 
@@ -274,15 +271,11 @@ public class CurrencyConverterMode implements ToolMode {
         mFromView = mControlRoot.findViewById(R.id.currency_from);
         mToView = mControlRoot.findViewById(R.id.currency_to);
         mInputView = mControlRoot.findViewById(R.id.currency_input_text);
-        mInputUppercaseView = mControlRoot.findViewById(R.id.currency_input_uppercase);
         mResultView = mControlRoot.findViewById(R.id.currency_result_text);
-        mResultUppercaseView = mControlRoot.findViewById(R.id.currency_result_uppercase);
         mUpdateLabel = mControlRoot.findViewById(R.id.currency_update_label);
         mSecondaryRow = mControlRoot.findViewById(R.id.currency_secondary_row);
         mToSecondaryView = mControlRoot.findViewById(R.id.currency_to_2);
         mSecondaryResultView = mControlRoot.findViewById(R.id.currency_result_2_text);
-        mSecondaryResultUppercaseView =
-                mControlRoot.findViewById(R.id.currency_result_2_uppercase);
         final ImageButton swap = mControlRoot.findViewById(R.id.currency_swap);
         swap.setOnClickListener(v -> swapCurrencies());
         configureCurrencyDropdown(mFromView, SELECTOR_FROM);
@@ -314,14 +307,11 @@ public class CurrencyConverterMode implements ToolMode {
         mFromView = null;
         mToView = null;
         mInputView = null;
-        mInputUppercaseView = null;
         mResultView = null;
-        mResultUppercaseView = null;
         mUpdateLabel = null;
         mSecondaryRow = null;
         mToSecondaryView = null;
         mSecondaryResultView = null;
-        mSecondaryResultUppercaseView = null;
     }
 
     private void swapCurrencies() {
@@ -424,37 +414,30 @@ public class CurrencyConverterMode implements ToolMode {
             resultText = (out == null ? "—" : format(out));
             secondaryResultText = secondaryOut == null ? "—" : format(secondaryOut);
         }
-        // Keep each 大写 reading directly under the numeric row it describes. This gives the
-        // optional second output its own measured space instead of letting it overlap text in the
-        // shared calculator result area.
-        if (mInputView != null) {
-            mInputView.setText(mInput.getDisplayText());
-        }
-        if (mResultView != null) {
-            mResultView.setText(resultText);
-        }
-        if (mSecondaryResultView != null) {
-            mSecondaryResultView.setText(secondaryResultText);
-        }
+        // 大写 replaces the three amounts in the existing left-hand value column (the area next
+        // to the currency selectors). It never uses the shared display below the rows, so showing
+        // the optional second output cannot collide with a separate 大写 area.
         final String inputValueText = mInput.getValueText();
-        setUppercaseText(mInputUppercaseView, inputValueText == null
+        setAmountText(mInputView, mInput.getDisplayText(), inputValueText == null
                 ? "—" : ChineseNumerals.toUppercase(inputValueText));
-        setUppercaseText(mResultUppercaseView,
-                ChineseNumerals.toUppercase(resultText));
-        setUppercaseText(mSecondaryResultUppercaseView,
+        setAmountText(mResultView, resultText, ChineseNumerals.toUppercase(resultText));
+        setAmountText(mSecondaryResultView, secondaryResultText,
                 ChineseNumerals.toUppercase(secondaryResultText));
 
-        // Currency values and their 大写 readings now live together in the control rows.
         host.setToolFormula("");
         host.setToolResult("");
     }
 
-    private void setUppercaseText(@Nullable TextView view, @NonNull String text) {
+    private void setAmountText(@Nullable TextView view, @NonNull String number,
+            @NonNull String uppercase) {
         if (view == null) {
             return;
         }
-        view.setText(text);
-        view.setVisibility(mUppercaseNumbers ? View.VISIBLE : View.GONE);
+        view.setText(mUppercaseNumbers ? uppercase : number);
+        view.setTextSize(mUppercaseNumbers ? UPPERCASE_TEXT_SIZE_SP : NUMBER_TEXT_SIZE_SP);
+        // Long 大写 readings wrap inside their own row; ordinary numbers stay on one line.
+        view.setSingleLine(!mUppercaseNumbers);
+        view.setHorizontallyScrolling(!mUppercaseNumbers);
     }
 
     @NonNull

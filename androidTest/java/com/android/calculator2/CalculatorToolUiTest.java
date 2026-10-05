@@ -115,9 +115,9 @@ public class CalculatorToolUiTest {
         onView(withId(R.id.unit_input_text)).check(matches(withText("14")));
     }
 
-    /** Currency keeps 大写 readings in their rows and accepts arithmetic input. */
+    /** Currency replaces the existing value column with 大写 and accepts arithmetic input. */
     @Test
-    public void currencyConverterKeepsUppercaseInlineAndAcceptsArithmetic() {
+    public void currencyConverterUsesValueColumnForUppercaseAndAcceptsArithmetic() {
         onView(withId(R.id.tool_more_button)).perform(click());
         onView(allOf(withId(R.id.tool_panel_item_text),
                 withText(R.string.tool_currency), isDisplayed())).perform(click());
@@ -129,9 +129,8 @@ public class CalculatorToolUiTest {
         onView(withId(R.id.currency_input_text)).check(matches(withText("4")));
 
         onView(withId(R.id.uppercase_toggle)).perform(click());
-        onView(withId(R.id.currency_input_uppercase)).check(matches(isDisplayed()));
-        onView(withId(R.id.currency_result_uppercase)).check(matches(isDisplayed()));
-        // The shared result area stays empty, so an optional second row cannot overlap it.
+        // The same circled amount view now shows 大写; no duplicate reading is drawn below.
+        onView(withId(R.id.currency_input_text)).check(matches(withText("肆")));
         onView(withId(R.id.result)).check(matches(withText("")));
     }
 }
