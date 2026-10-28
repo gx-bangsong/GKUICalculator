@@ -168,12 +168,15 @@ jq -n \
     --arg source "$source_url" \
     '{
         applicationId: $applicationId,
+        application_id: $applicationId,
         versionCode: $versionCode,
+        version_code: $versionCode,
         versionName: $versionName,
+        version_name: $versionName,
         signer_sha256: $signer_sha256,
         apk_sha256: $apk_sha256,
         commit: $commit,
-        source: $source
+        source_url: $source
     }' >dist/build-info.json
 
 tag="v${version_name}"
