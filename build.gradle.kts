@@ -15,33 +15,21 @@ plugins {
     id("org.lineageos.generatebp") version "+"
 }
 
-private data class GitVersion(val code: Int, val available: Boolean)
-
-private fun gitVersion(repositoryDir: File): GitVersion {
-    return try {
-        val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
-            .directory(repositoryDir)
-            .redirectErrorStream(true)
-            .start()
-        val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
-        val exitCode = process.waitFor()
-        val count = output.toIntOrNull()
-        if (exitCode == 0 && count != null && count > 0) {
-            GitVersion(count, true)
-        } else {
-            GitVersion(1, false)
-        }
-    } catch (_: Exception) {
-        GitVersion(1, false)
-    }
-}
-
 val isCi = System.getenv("CI")?.equals("true", ignoreCase = true) == true
-val resolvedGitVersion = gitVersion(rootDir)
-if (isCi && !resolvedGitVersion.available) {
+val gitCommitCount = try {
+    val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
+        .directory(rootDir)
+        .redirectErrorStream(true)
+        .start()
+    val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+    if (process.waitFor() == 0) output.toIntOrNull() else null
+} catch (_: Exception) {
+    null
+}
+if (isCi && (gitCommitCount == null || gitCommitCount < 1)) {
     throw GradleException("CI requires a complete Git checkout to derive versionCode")
 }
-val buildVersionCode = resolvedGitVersion.code
+val buildVersionCode = gitCommitCount?.takeIf { it > 0 } ?: 1
 val buildVersionName = System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }
     ?: "${LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.BASIC_ISO_DATE)}.$buildVersionCode"
 
@@ -133,7 +121,7 @@ android {
 // builds without them remain unsigned (never debug-signed) and emit a prominent warning.
 gradle.taskGraph.whenReady {
     val releaseRequested = allTasks.any { task ->
-        task.project == project && task.name.contains("release", ignoreCase = true)
+        task.name.contains("release", ignoreCase = true)
     }
     if (!releaseRequested) {
         return@whenReady
