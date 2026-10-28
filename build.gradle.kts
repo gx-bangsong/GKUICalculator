@@ -5,12 +5,53 @@
 
 import org.lineageos.generatebp.GenerateBpPluginExtension
 import org.lineageos.generatebp.models.Module
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 plugins {
     id("com.android.application") version "8.7.1"
     id("org.jetbrains.kotlin.android") version "1.9.23"
     id("org.lineageos.generatebp") version "+"
 }
+
+private data class GitVersion(val code: Int, val available: Boolean)
+
+private fun gitVersion(repositoryDir: File): GitVersion {
+    return try {
+        val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
+            .directory(repositoryDir)
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+        val exitCode = process.waitFor()
+        val count = output.toIntOrNull()
+        if (exitCode == 0 && count != null && count > 0) {
+            GitVersion(count, true)
+        } else {
+            GitVersion(1, false)
+        }
+    } catch (_: Exception) {
+        GitVersion(1, false)
+    }
+}
+
+val isCi = System.getenv("CI")?.equals("true", ignoreCase = true) == true
+val resolvedGitVersion = gitVersion(rootDir)
+if (isCi && !resolvedGitVersion.available) {
+    throw GradleException("CI requires a complete Git checkout to derive versionCode")
+}
+val buildVersionCode = resolvedGitVersion.code
+val buildVersionName = System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }
+    ?: "${LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.BASIC_ISO_DATE)}.$buildVersionCode"
+
+val keystoreFile = System.getenv("KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
+val keystorePassword = System.getenv("KEYSTORE_PASS")?.takeIf { it.isNotBlank() }
+val keyAliasName = System.getenv("KEY_ALIAS")?.takeIf { it.isNotBlank() }
+val keyPassword = System.getenv("KEY_PASS")?.takeIf { it.isNotBlank() }
+val signingValues = listOf(keystoreFile, keystorePassword, keyAliasName, keyPassword)
+val hasCompleteReleaseSigning = signingValues.all { it != null }
+val hasPartialReleaseSigning = signingValues.any { it != null } && !hasCompleteReleaseSigning
 
 android {
     compileSdk = 35
@@ -20,13 +61,30 @@ android {
         applicationId = "com.android.calculator2"
         minSdk = 30
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = buildVersionCode
+        versionName = buildVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    val productionReleaseSigning = if (hasCompleteReleaseSigning) {
+        signingConfigs.create("productionRelease") {
+            storeFile = file(keystoreFile!!)
+            storePassword = keystorePassword
+            keyAlias = keyAliasName
+            keyPassword = keyPassword
+        }
+    } else {
+        null
     }
 
     buildTypes {
         getByName("release") {
+            // A production release never inherits the debug package identity or debug flag.
+            applicationIdSuffix = null
+            versionNameSuffix = null
+            isDebuggable = false
+            signingConfig = productionReleaseSigning
+
             // Enables code shrinking, obfuscation, and optimization.
             isMinifyEnabled = true
 
@@ -67,6 +125,36 @@ android {
         getByName("androidTest") {
             java.setSrcDirs(listOf("androidTest/java"))
         }
+    }
+}
+
+// Do not break ordinary CI/debug builds that do not need release credentials. As soon as a
+// release task enters the graph, however, CI requires all production secrets. Local release
+// builds without them remain unsigned (never debug-signed) and emit a prominent warning.
+gradle.taskGraph.whenReady {
+    val releaseRequested = allTasks.any { task ->
+        task.project == project && task.name.contains("release", ignoreCase = true)
+    }
+    if (!releaseRequested) {
+        return@whenReady
+    }
+    if (hasPartialReleaseSigning) {
+        val message = "Release signing is incomplete; set KEYSTORE_FILE, KEYSTORE_PASS, " +
+                "KEY_ALIAS, and KEY_PASS together"
+        if (isCi) {
+            throw GradleException(message)
+        }
+        logger.warn("WARNING: $message. The local release APK will be unsigned.")
+    } else if (!hasCompleteReleaseSigning) {
+        if (isCi) {
+            throw GradleException("CI release builds require production signing credentials")
+        }
+        logger.warn(
+            "WARNING: Production signing credentials are missing; " +
+                    "the local release APK will be unsigned (never debug-signed)."
+        )
+    } else if (!file(keystoreFile!!).isFile) {
+        throw GradleException("KEYSTORE_FILE does not exist or is not a file: $keystoreFile")
     }
 }
 
