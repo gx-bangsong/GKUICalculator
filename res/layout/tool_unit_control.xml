@@ -31,9 +31,10 @@
 
         <TextView
             android:id="@+id/unit_category"
-            style="@style/ToolUnitButtonStyle"
+            style="@style/ToolDropdownStyle"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/tool_unit_category_label" />
 
         <!-- Placeholder view to match the horizontal alignment offset of swap button rows -->
         <View
@@ -62,10 +63,11 @@
 
         <TextView
             android:id="@+id/unit_from"
-            style="@style/ToolUnitButtonStyle"
+            style="@style/ToolDropdownStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp" />
+            android:layout_marginStart="16dp"
+            android:contentDescription="@string/unit_from_desc" />
 
         <!-- Placeholder view to align with Row 3's swap button -->
         <View
@@ -93,10 +95,11 @@
 
         <TextView
             android:id="@+id/unit_to"
-            style="@style/ToolUnitButtonStyle"
+            style="@style/ToolDropdownStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp" />
+            android:layout_marginStart="16dp"
+            android:contentDescription="@string/unit_to_desc" />
 
         <ImageButton
             android:id="@+id/unit_swap"
@@ -109,6 +112,40 @@
             android:src="@drawable/ic_unit_swap"
             android:contentDescription="@string/unit_swap_desc"
             app:tint="?colorOnSurface" />
+    </LinearLayout>
+
+    <!-- Optional second conversion output, toggled from the activity overflow menu. -->
+    <LinearLayout
+        android:id="@+id/unit_secondary_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/unit_result_2_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="end"
+            android:textColor="?colorOnSurface"
+            android:textSize="28sp" />
+
+        <TextView
+            android:id="@+id/unit_to_2"
+            style="@style/ToolDropdownStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:contentDescription="@string/unit_second_to_desc" />
+
+        <View
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="12dp" />
     </LinearLayout>
 
 </LinearLayout>

@@ -9,3 +9,6 @@ local.properties
 *.swp
 *.swo
 *.iml
+*.jks
+*.keystore
+dist/

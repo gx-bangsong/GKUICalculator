@@ -47,6 +47,45 @@ public interface ToolMode {
         return false;
     }
 
+    /** Whether this tool can show a second independently selectable conversion output. */
+    default boolean supportsSecondaryOutput() {
+        return false;
+    }
+
+    /** Current state of the optional second conversion output. */
+    default boolean isSecondaryOutputEnabled() {
+        return false;
+    }
+
+    /** Show or hide the optional second conversion output. */
+    default void setSecondaryOutputEnabled(boolean enabled) {
+    }
+
+    /**
+     * Whether this tool shows amounts that can also be read as Chinese uppercase numerals
+     * (中文大写数字). When it can, the host replaces the DEG/RAD indicator in the top-left
+     * corner with an 大写 toggle. Default false.
+     */
+    default boolean supportsUppercaseNumbers() {
+        return false;
+    }
+
+    /**
+     * Show this tool's amounts as Chinese uppercase numerals instead of digits. The tool
+     * re-renders itself; a long result is the host's problem to display in full.
+     */
+    default void setUppercaseNumbers(boolean enabled) {
+    }
+
+    /**
+     * Gives specialized tools first chance to consume any calculator-pad key. Most tools return
+     * false and use the numeric callbacks below; converter and Programmer modes also handle
+     * operators, and Programmer handles the repurposed scientific-pad keys.
+     */
+    default boolean onPadKey(int viewId) {
+        return false;
+    }
+
     /**
      * Called when the user selects this tool. The display has already been prepared by the host
      * (see {@link ToolHost#prepareForToolDisplay}). {@code carryValue} is the number that was on

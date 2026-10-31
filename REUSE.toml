@@ -19,6 +19,12 @@ SPDX-FileCopyrightText = "The LineageOS Project"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
+path = ["src/com/android/calculator2/tools/kinship/**", "assets/tools/relationship.json"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2016 Haole Zheng"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = ["gradle/wrapper/**", "gradlew*"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2007-2023 Gradle, Inc."

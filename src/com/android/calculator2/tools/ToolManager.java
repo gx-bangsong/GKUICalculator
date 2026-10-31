@@ -41,7 +41,6 @@ public class ToolManager {
 
     private static final String PREFS_NAME = "calc_tools";
     private static final String FREQ_PREFIX = "freq_";
-    private static final int PINNED_COUNT = 3;
 
     private final Context mAppContext;
     private final ToolHost mHost;
@@ -138,7 +137,20 @@ public class ToolManager {
                 return Integer.compare(score(b.getId(), freq), score(a.getId(), freq));
             }
         });
-        return tools.subList(0, Math.min(PINNED_COUNT, tools.size()));
+        return tools.subList(0, Math.min(pinnedLimit(), tools.size()));
+    }
+
+    /**
+     * How many non-calculator tools to pin on the bar. 0 (or negative) means every
+     * registered tool — used on tablets and unfolded foldables where the bar is wide.
+     */
+    private int pinnedLimit() {
+        // Use the host (activity) resources so fold/unfold and multi-window pick up
+        // the current window's sw/w qualifiers, not the application default.
+        final Context ctx = mHost.getContext();
+        final int configured = ctx.getResources()
+                .getInteger(R.integer.tool_bar_pinned_count);
+        return configured <= 0 ? Integer.MAX_VALUE : configured;
     }
 
     private int score(@NonNull String id, @NonNull Map<String, Integer> freq) {
@@ -192,6 +204,8 @@ public class ToolManager {
         }
 
         final boolean toCalc = ToolId.CALCULATOR.equals(id);
+        // Publish the next mode before the host refreshes mode-dependent chrome/menu state.
+        mActive = next;
 
         // Grow the display (hide the scientific pad) BEFORE the tool mounts its controls and
         // writes its result, so they are laid out in the larger display and don't overflow.
@@ -201,7 +215,6 @@ public class ToolManager {
             mHost.prepareForToolDisplay();
         }
 
-        mActive = next;
         next.onActivate(mHost, carry);
 
         if (toCalc) {
@@ -210,6 +223,7 @@ public class ToolManager {
             recordUse(id);
         }
 
+        mHost.refreshOptionsMenu();
         collapsePanel();
         refresh();
     }
@@ -227,6 +241,9 @@ public class ToolManager {
             return false;
         }
         final ToolMode mode = mActive;
+        if (mode.onPadKey(viewId)) {
+            return true;
+        }
         if (viewId == R.id.clr) {
             mode.onClear();
             return true;
@@ -244,7 +261,8 @@ public class ToolManager {
             mode.onDecimalPoint();
             return true;
         }
-        // Operators / equals / scientific keys are irrelevant in tool mode: consume silently.
+        // Any operator / equals / scientific key not claimed by onPadKey is irrelevant to this
+        // particular tool; consume it without leaking the press into the calculator evaluator.
         return true;
     }
 

@@ -40,6 +40,14 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
     private final float mMaximumTextSize;
     private final float mMinimumTextSize;
     private final float mStepTextSize;
+    /** Temporary cap used by tool modes; {@link Float#NaN} means "use the style max". */
+    private float mMaximumTextSizeOverride = Float.NaN;
+    /**
+     * Temporary floor used by tool modes; {@link Float#NaN} means "use the style min". Without it
+     * the effective floor is {@code min(style min, effective max)}, which leaves tools that cap
+     * the maximum with no room to shrink and truncates long text.
+     */
+    private float mMinimumTextSizeOverride = Float.NaN;
 
     private final ClipboardManager mClipboardManager;
 
@@ -85,7 +93,7 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         if (!isLaidOut()) {
             // Prevent shrinking/resizing with our variable textSize.
-            setTextSizeInternal(TypedValue.COMPLEX_UNIT_PX, mMaximumTextSize,
+            setTextSizeInternal(TypedValue.COMPLEX_UNIT_PX, getEffectiveMaximumTextSize(),
                     false /* notifyListener */);
             setMinimumHeight(getLineHeight() + getCompoundPaddingBottom()
                     + getCompoundPaddingTop());
@@ -148,22 +156,78 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
     }
 
     public float getMaximumTextSize() {
+        return getEffectiveMaximumTextSize();
+    }
+
+    /**
+     * Cap auto-sizing so labeled tool outputs (tax / BMI / mortgage) stay readable instead
+     * of filling the tablet/foldable display at {@code formula_max_textsize} (up to 128dip).
+     * Pass a pixel size; {@link #clearMaximumTextSizeOverride()} restores the style max.
+     */
+    public void setMaximumTextSizeOverride(float px) {
+        mMaximumTextSizeOverride = px;
+        applyEffectiveTextSize();
+    }
+
+    /** Restore auto-sizing to the style {@code maxTextSize}. */
+    public void clearMaximumTextSizeOverride() {
+        mMaximumTextSizeOverride = Float.NaN;
+        applyEffectiveTextSize();
+    }
+
+    /**
+     * Lower the auto-sizing floor so long text shrinks to fit instead of being cut off. Pass a
+     * pixel size; {@link #clearMinimumTextSizeOverride()} restores the style min.
+     */
+    public void setMinimumTextSizeOverride(float px) {
+        mMinimumTextSizeOverride = px;
+        applyEffectiveTextSize();
+    }
+
+    /** Restore auto-sizing to the style {@code minTextSize}. */
+    public void clearMinimumTextSizeOverride() {
+        mMinimumTextSizeOverride = Float.NaN;
+        applyEffectiveTextSize();
+    }
+
+    private float getEffectiveMaximumTextSize() {
+        if (!Float.isNaN(mMaximumTextSizeOverride)) {
+            return mMaximumTextSizeOverride;
+        }
         return mMaximumTextSize;
     }
 
+    private float getEffectiveMinimumTextSize() {
+        final float floor = Float.isNaN(mMinimumTextSizeOverride)
+                ? mMinimumTextSize : mMinimumTextSizeOverride;
+        return Math.min(floor, getEffectiveMaximumTextSize());
+    }
+
+    private void applyEffectiveTextSize() {
+        final float size = mWidthConstraint < 0
+                ? getEffectiveMaximumTextSize()
+                : getVariableTextSize(getText());
+        setTextSizeInternal(TypedValue.COMPLEX_UNIT_PX, size, true /* notifyListener */);
+    }
+
     public float getVariableTextSize(CharSequence text) {
-        if (mWidthConstraint < 0 || mMaximumTextSize <= mMinimumTextSize) {
+        final float maxSize = getEffectiveMaximumTextSize();
+        final float minSize = getEffectiveMinimumTextSize();
+        if (mWidthConstraint < 0) {
             // Not measured, bail early.
             return getTextSize();
+        }
+        if (maxSize <= minSize) {
+            return maxSize;
         }
 
         // Capture current paint state.
         mTempPaint.set(getPaint());
 
         // Step through increasing text sizes until the text would no longer fit.
-        float lastFitTextSize = mMinimumTextSize;
-        while (lastFitTextSize < mMaximumTextSize) {
-            mTempPaint.setTextSize(Math.min(lastFitTextSize + mStepTextSize, mMaximumTextSize));
+        float lastFitTextSize = minSize;
+        while (lastFitTextSize < maxSize) {
+            mTempPaint.setTextSize(Math.min(lastFitTextSize + mStepTextSize, maxSize));
             if (Layout.getDesiredWidth(text, mTempPaint) > mWidthConstraint) {
                 break;
             }
