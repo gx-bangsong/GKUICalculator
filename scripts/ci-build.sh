@@ -74,9 +74,9 @@ source_apk="${release_apks[0]}"
 
 badging="$(aapt dump badging "$source_apk")" || fail "aapt could not inspect the APK"
 package_line="$(printf '%s\n' "$badging" | grep -m1 '^package:')"
-application_id="$(printf '%s\n' "$package_line" | sed -n "s/.*name='\([^']*\)'.*/\1/p")"
-version_code="$(printf '%s\n' "$package_line" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
-version_name="$(printf '%s\n' "$package_line" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
+application_id="$(printf '%s\n' "$package_line" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+version_code="$(printf '%s\n' "$package_line" | sed -n "s/.* versionCode='\([^']*\)'.*/\1/p")"
+version_name="$(printf '%s\n' "$package_line" | sed -n "s/.* versionName='\([^']*\)'.*/\1/p")"
 
 [[ "$application_id" == "$EXPECTED_APPLICATION_ID" ]] ||
     fail "Unexpected applicationId: $application_id (expected $EXPECTED_APPLICATION_ID)"
