@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   release:
-    # A GitHub-hosted Linux runner supplies git, gh, jq, and sha256sum.
+    # A GitHub-hosted Linux runner supplies git, gh, jq, sha256sum and a preinstalled Android SDK.
     runs-on: ubuntu-latest
     steps:
       # A complete history is mandatory for git rev-list --count HEAD versioning.
@@ -37,23 +37,65 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      # aapt validates package/version/debuggable metadata; apksigner validates the certificate.
-      - name: Install Android build tools
+      # ubuntu-latest 已预装 Android SDK（$ANDROID_HOME）。
+      # 不使用 android-actions/setup-android：它默认安装已下架的 'tools' 包，必然失败。
+      # 若镜像未带 build-tools 35.0.0，则用预装的 sdkmanager 补装；最后两行为自检。
+      - name: Set up Android build-tools
         shell: bash
         run: |
-          sdkmanager 'build-tools;35.0.0'
-          echo "$ANDROID_HOME/build-tools/35.0.0" >> "$GITHUB_PATH"
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          BT="$SDK/build-tools/35.0.0"
+          if [ ! -x "$BT/aapt" ]; then
+            SDKMANAGER="$(ls -d "$SDK"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -n1)"
+            yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+            "$SDKMANAGER" 'build-tools;35.0.0'
+          fi
+          echo "$BT" >> "$GITHUB_PATH"
+          "$BT/aapt" version
+          "$BT/apksigner" --version
 
       # The repository script owns decoding, building, validation, naming, and metadata creation.
       - name: Build and validate the production APK
         id: build
         shell: bash
         env:
-          # 【修改了这里】让它读取你刚才设置的 KEYSTORE_FILE
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_FILE }}
+          # The temporary decoded keystore never enters the repository or release assets.
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          # Gradle reads these three values through the release signing configuration.
           KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASS: ${{ secrets.KEY_PASS }}
+          # gh reads the previous release's build-info.json for the monotonic version check.
           GH_TOKEN: ${{ github.token }}
+          # Missing production signing inputs are fatal in CI.
           CI: 'true'
         run: scripts/ci-build.sh
+
+      # Build a release body from values extracted from the validated APK, not guessed values.
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          ## Production APK
+
+          - applicationId: `${{ steps.build.outputs.application_id }}`
+          - versionCode: `${{ steps.build.outputs.version_code }}`
+          - versionName: `${{ steps.build.outputs.version_name }}`
+          - signer SHA-256: `${{ steps.build.outputs.signer_sha256 }}`
+          - APK SHA-256: `${{ steps.build.outputs.apk_sha256 }}`
+          - source for this commit: ${{ steps.build.outputs.source_url }}
+
+          This release is signed for production; it cannot be installed over previous `dev`/`debug` versions—please uninstall the old version before installing this one.
+          NOTES
+
+      # Publish the APK, checksum, and machine-readable build-info.json under the generated tag.
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          # gh uses the job-scoped token granted contents: write above.
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create '${{ steps.build.outputs.tag }}' dist/* \
+            --title '${{ steps.build.outputs.tag }}' \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --generate-notes
