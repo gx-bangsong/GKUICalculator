@@ -36,8 +36,8 @@ val buildVersionName = System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }
 val keystoreFile = System.getenv("KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
 val keystorePassword = System.getenv("KEYSTORE_PASS")?.takeIf { it.isNotBlank() }
 val keyAliasName = System.getenv("KEY_ALIAS")?.takeIf { it.isNotBlank() }
-val keyPassword = System.getenv("KEY_PASS")?.takeIf { it.isNotBlank() }
-val signingValues = listOf(keystoreFile, keystorePassword, keyAliasName, keyPassword)
+val keyPasswordValue = System.getenv("KEY_PASS")?.takeIf { it.isNotBlank() }
+val signingValues = listOf(keystoreFile, keystorePassword, keyAliasName, keyPasswordValue)
 val hasCompleteReleaseSigning = signingValues.all { it != null }
 val hasPartialReleaseSigning = signingValues.any { it != null } && !hasCompleteReleaseSigning
 
@@ -59,7 +59,7 @@ android {
             storeFile = file(keystoreFile!!)
             storePassword = keystorePassword
             keyAlias = keyAliasName
-            keyPassword = keyPassword
+            keyPasswordValue = keyPassword
         }
     } else {
         null
