@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   release:
-    # A GitHub-hosted Linux runner supplies git, gh, jq, sha256sum and a preinstalled Android SDK.
+    # A GitHub-hosted Linux runner supplies git, gh, jq, and sha256sum.
     runs-on: ubuntu-latest
     steps:
       # A complete history is mandatory for git rev-list --count HEAD versioning.
@@ -37,22 +37,12 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      # ubuntu-latest 已预装 Android SDK（$ANDROID_HOME）。
-      # 不使用 android-actions/setup-android：它默认安装已下架的 'tools' 包，必然失败。
-      # 若镜像未带 build-tools 35.0.0，则用预装的 sdkmanager 补装；最后两行为自检。
-      - name: Set up Android build-tools
+      # aapt validates package/version/debuggable metadata; apksigner validates the certificate.
+      - name: Install Android build tools
         shell: bash
         run: |
-          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          BT="$SDK/build-tools/35.0.0"
-          if [ ! -x "$BT/aapt" ]; then
-            SDKMANAGER="$(ls -d "$SDK"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -n1)"
-            yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-            "$SDKMANAGER" 'build-tools;35.0.0'
-          fi
-          echo "$BT" >> "$GITHUB_PATH"
-          "$BT/aapt" version
-          "$BT/apksigner" --version
+          sdkmanager 'build-tools;35.0.0'
+          echo "$ANDROID_HOME/build-tools/35.0.0" >> "$GITHUB_PATH"
 
       # The repository script owns decoding, building, validation, naming, and metadata creation.
       - name: Build and validate the production APK
@@ -60,7 +50,7 @@ jobs:
         shell: bash
         env:
           # The temporary decoded keystore never enters the repository or release assets.
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_FILE }}
           # Gradle reads these three values through the release signing configuration.
           KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
