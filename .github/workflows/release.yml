@@ -37,53 +37,23 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      # Install sdkmanager and expose ANDROID_HOME for the following build-tools step.
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
+      # aapt validates package/version/debuggable metadata; apksigner validates the certificate.
+      - name: Install Android build tools
+        shell: bash
+        run: |
+          sdkmanager 'build-tools;35.0.0'
+          echo "$ANDROID_HOME/build-tools/35.0.0" >> "$GITHUB_PATH"
 
       # The repository script owns decoding, building, validation, naming, and metadata creation.
       - name: Build and validate the production APK
         id: build
         shell: bash
         env:
-          # The temporary decoded keystore never enters the repository or release assets.
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          # Gradle reads these three values through the release signing configuration.
+          # 【修改了这里】让它读取你刚才设置的 KEYSTORE_FILE
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_FILE }}
           KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASS: ${{ secrets.KEY_PASS }}
-          # gh reads the previous release's build-info.json for the monotonic version check.
           GH_TOKEN: ${{ github.token }}
-          # Missing production signing inputs are fatal in CI.
           CI: 'true'
         run: scripts/ci-build.sh
-
-      # Build a release body from values extracted from the validated APK, not guessed values.
-      - name: Prepare release notes
-        shell: bash
-        run: |
-          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
-          ## Production APK
-
-          - applicationId: `${{ steps.build.outputs.application_id }}`
-          - versionCode: `${{ steps.build.outputs.version_code }}`
-          - versionName: `${{ steps.build.outputs.version_name }}`
-          - signer SHA-256: `${{ steps.build.outputs.signer_sha256 }}`
-          - APK SHA-256: `${{ steps.build.outputs.apk_sha256 }}`
-          - source for this commit: ${{ steps.build.outputs.source_url }}
-
-          This release is signed for production; it cannot be installed over previous `dev`/`debug` versions—please uninstall the old version before installing this one.
-          NOTES
-
-      # Publish the APK, checksum, and machine-readable build-info.json under the generated tag.
-      - name: Create GitHub Release
-        shell: bash
-        env:
-          # gh uses the job-scoped token granted contents: write above.
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create '${{ steps.build.outputs.tag }}' dist/* \
-            --title '${{ steps.build.outputs.tag }}' \
-            --notes-file "$RUNNER_TEMP/release-notes.md" \
-            --generate-notes
