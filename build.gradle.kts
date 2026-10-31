@@ -59,7 +59,7 @@ android {
             storeFile = file(keystoreFile!!)
             storePassword = keystorePassword
             keyAlias = keyAliasName
-            keyPasswordValue = keyPassword
+            keyPassword = keyPasswordValue
         }
     } else {
         null
