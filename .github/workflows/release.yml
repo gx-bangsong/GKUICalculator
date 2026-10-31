@@ -41,12 +41,6 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      # aapt validates package/version/debuggable metadata; apksigner validates the certificate.
-      - name: Install Android build tools
-        shell: bash
-        run: |
-          sdkmanager 'build-tools;35.0.0'
-          echo "$ANDROID_HOME/build-tools/35.0.0" >> "$GITHUB_PATH"
 
       # The repository script owns decoding, building, validation, naming, and metadata creation.
       - name: Build and validate the production APK
