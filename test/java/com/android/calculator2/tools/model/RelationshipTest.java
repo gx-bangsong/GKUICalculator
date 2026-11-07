@@ -178,6 +178,15 @@ public class RelationshipTest {
     }
 
     @Test
+    public void prewarmBuildsCommonAndNorthernLookups() {
+        RelationshipCalculator.prewarm(sData);
+        assertEquals(list("外公"), RelationshipCalculator.resolve(sData,
+                chain(Step.MOTHER, Step.FATHER), Dialect.SOUTH, false).terms);
+        assertEquals(list("姥爷"), RelationshipCalculator.resolve(sData,
+                chain(Step.MOTHER, Step.FATHER), Dialect.NORTH, false).terms);
+    }
+
+    @Test
     public void northernVocabulary() {
         final List<Step> grandpa = chain(Step.MOTHER, Step.FATHER);
         assertEquals(list("外公"), RelationshipCalculator.resolve(

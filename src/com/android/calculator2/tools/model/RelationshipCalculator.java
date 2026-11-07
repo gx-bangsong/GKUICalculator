@@ -148,6 +148,15 @@ public final class RelationshipCalculator {
     }
 
     /**
+     * Build the lookup tables before the first relationship key is pressed. Table expansion is
+     * intentionally kept off the UI thread by callers during application startup.
+     */
+    public static void prewarm(@NonNull RelationshipData data) {
+        RelationshipEngine.get(data);
+        RelationshipEngine.get(data, "north");
+    }
+
+    /**
      * Resolve a chain.
      *
      * @param data    parsed relation tables; {@code null} yields an empty answer

@@ -2079,11 +2079,24 @@ public class Calculator extends AppCompatActivity
 
     private void setupEdgeToEdge() {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-        ViewCompat.setOnApplyWindowInsetsListener(requireViewById(R.id.main_calculator),
-            (v, windowInsets) -> {
-                Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-                v.setPadding(0, insets.top, 0, insets.bottom);
-                return WindowInsetsCompat.CONSUMED;
-            });
+        final View calculator = requireViewById(R.id.main_calculator);
+        final ViewGroup.MarginLayoutParams originalParams =
+                (ViewGroup.MarginLayoutParams) calculator.getLayoutParams();
+        final int originalBottomMargin = originalParams.bottomMargin;
+        ViewCompat.setOnApplyWindowInsetsListener(calculator, (v, windowInsets) -> {
+            final Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            // MotionLayout's percentage constraints still use its full measured bounds when the
+            // inset is only applied as padding. Shrink its actual bottom edge so the display and
+            // pad rows are laid out above a three-button navigation bar as well.
+            final ViewGroup.MarginLayoutParams params =
+                    (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+            final int bottomMargin = originalBottomMargin + insets.bottom;
+            if (params.bottomMargin != bottomMargin) {
+                params.bottomMargin = bottomMargin;
+                v.setLayoutParams(params);
+            }
+            v.setPadding(0, insets.top, 0, 0);
+            return WindowInsetsCompat.CONSUMED;
+        });
     }
 }
