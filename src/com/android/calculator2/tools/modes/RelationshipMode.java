@@ -31,6 +31,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Chinese kinship tool (亲戚称呼): the pad turns into a wall of relationship nouns, the formula
@@ -71,7 +73,15 @@ public final class RelationshipMode implements ToolMode {
     private static final Map<Integer, Key> PAD_KEYS = padMapping();
 
     @Nullable
-    private static RelationshipData sData;
+    private static volatile RelationshipData sData;
+    private static final Object DATA_LOCK = new Object();
+    private static final ExecutorService DATA_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        final Thread thread = new Thread(r, "relationship-data-prewarm");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private static final List<Runnable> DATA_READY_CALLBACKS = new ArrayList<>();
+    private static boolean sDataLoadStarted;
 
     private final List<Step> mChain = new ArrayList<>();
     private boolean mReverse;
@@ -157,7 +167,11 @@ public final class RelationshipMode implements ToolMode {
         mChain.clear();
         mReverse = false;
         mDialect = readDialect(host.getContext());
-        loadData(host.getContext());
+        ensureDataLoaded(host.getContext(), () -> host.runOnUiThread(() -> {
+            if (mHost == host) {
+                redisplay();
+            }
+        }));
         host.setRelationshipPadMode(true, false);
         host.setToolResultTextSizeSp(32f);
         mountControls(host);
@@ -302,15 +316,45 @@ public final class RelationshipMode implements ToolMode {
         slot.setVisibility(View.VISIBLE);
     }
 
-    private static void loadData(@NonNull Context context) {
-        if (sData != null) {
-            return;
+    /** Start reading and expanding the relationship tables without blocking the first key press. */
+    public static void prewarm(@NonNull Context context) {
+        ensureDataLoaded(context, null);
+    }
+
+    private static void ensureDataLoaded(@NonNull Context context,
+            @Nullable Runnable onReady) {
+        synchronized (DATA_LOCK) {
+            if (sData != null) {
+                return;
+            }
+            if (onReady != null) {
+                DATA_READY_CALLBACKS.add(onReady);
+            }
+            if (sDataLoadStarted) {
+                return;
+            }
+            sDataLoadStarted = true;
         }
-        try {
-            sData = RelationshipData.load(context.getApplicationContext());
-        } catch (IOException e) {
-            sData = null;
-        }
+        final Context appContext = context.getApplicationContext();
+        DATA_EXECUTOR.execute(() -> {
+            RelationshipData data = null;
+            try {
+                data = RelationshipData.load(appContext);
+                RelationshipCalculator.prewarm(data);
+            } catch (IOException ignored) {
+                // Preserve the existing empty-answer fallback if the bundled table is unreadable.
+            }
+            final List<Runnable> callbacks;
+            synchronized (DATA_LOCK) {
+                sData = data;
+                sDataLoadStarted = false;
+                callbacks = new ArrayList<>(DATA_READY_CALLBACKS);
+                DATA_READY_CALLBACKS.clear();
+            }
+            for (Runnable callback : callbacks) {
+                callback.run();
+            }
+        });
     }
 
     /** Every applicable term, side by side: "堂哥 / 堂弟". */
