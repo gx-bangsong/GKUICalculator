@@ -6,9 +6,16 @@
 package com.android.calculator2.tools.modes;
 
 import android.content.Context;
+import android.text.StaticLayout;
+import android.text.TextPaint;
+import android.util.DisplayMetrics;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -27,6 +34,14 @@ import java.math.BigDecimal;
 /** Signed 64-bit programmer calculator with four bases and arithmetic/bitwise operations. */
 public final class ProgrammerMode implements ToolMode {
 
+    private static final float PROGRAMMER_FORMULA_MAX_SP = 13f;
+    private static final float PROGRAMMER_FORMULA_MIN_SP = 11f;
+    private static final float PROGRAMMER_FORMULA_WEIGHT = 0.32f;
+    private static final float PROGRAMMER_RESULT_MAX_SP = 30f;
+    private static final float PROGRAMMER_RESULT_SINGLE_LINE_MIN_SP = 13f;
+    private static final float PROGRAMMER_RESULT_MULTI_LINE_MIN_SP = 10f;
+    private static final int PROGRAMMER_RESULT_MAX_LINES = 2;
+
     private int mRadix = 10;
     private final StringBuilder mEntry = new StringBuilder("0");
     private long mAccumulator;
@@ -42,6 +57,9 @@ public final class ProgrammerMode implements ToolMode {
     private ToolHost mHost;
     @Nullable
     private View mControlRoot;
+    @Nullable
+    private TextView mResultView;
+    private final Runnable mFitResultRunnable = this::fitResultText;
 
     @NonNull
     @Override
@@ -70,12 +88,15 @@ public final class ProgrammerMode implements ToolMode {
         }
         mountControls(host.getContext());
         host.setProgrammerPadMode(true, mRadix);
-        host.setToolResultTextSizeSp(36f);
+        host.setToolFormulaTextSizeRangeSp(PROGRAMMER_FORMULA_MAX_SP, PROGRAMMER_FORMULA_MIN_SP);
+        host.setToolResultTextSizeSp(PROGRAMMER_RESULT_MAX_SP);
+        configureDisplayLayout(true);
         redisplay();
     }
 
     @Override
     public void onDeactivate(@NonNull ToolHost host) {
+        configureDisplayLayout(false);
         host.setProgrammerPadMode(false, 10);
         final ViewGroup slot = host.getToolControlSlot();
         if (slot != null) {
@@ -354,6 +375,112 @@ public final class ProgrammerMode implements ToolMode {
         }
         mHost.setToolFormula(mExpression);
         mHost.setToolResult(mError == null ? mEntry : mError);
+        fitResultText();
+    }
+
+    private void configureDisplayLayout(boolean active) {
+        final ToolHost host = mHost;
+        if (host == null) {
+            return;
+        }
+        final ViewGroup slot = host.getToolControlSlot();
+        final ViewParent parent = slot != null ? slot.getParent() : null;
+        if (!(parent instanceof ViewGroup)) {
+            return;
+        }
+        final ViewGroup display = (ViewGroup) parent;
+        final View formulaScroll = display.findViewById(R.id.formula_scroll_view);
+        final View formula = display.findViewById(R.id.formula);
+        final TextView result = display.findViewById(R.id.result);
+        if (active) {
+            mResultView = result;
+            if (formula != null) {
+                formula.setMinimumHeight(0);
+            }
+            if (formulaScroll != null
+                    && formulaScroll.getLayoutParams() instanceof LinearLayout.LayoutParams) {
+                final LinearLayout.LayoutParams lp =
+                        (LinearLayout.LayoutParams) formulaScroll.getLayoutParams();
+                lp.height = 0;
+                lp.weight = PROGRAMMER_FORMULA_WEIGHT;
+                formulaScroll.setLayoutParams(lp);
+            }
+            if (result != null) {
+                result.scrollTo(0, 0);
+            }
+        } else {
+            if (mResultView != null) {
+                mResultView.removeCallbacks(mFitResultRunnable);
+                mResultView.scrollTo(0, 0);
+                mResultView = null;
+            }
+            if (formulaScroll != null
+                    && formulaScroll.getLayoutParams() instanceof LinearLayout.LayoutParams) {
+                final LinearLayout.LayoutParams lp =
+                        (LinearLayout.LayoutParams) formulaScroll.getLayoutParams();
+                lp.height = 0;
+                lp.weight = 1f;
+                formulaScroll.setLayoutParams(lp);
+            }
+        }
+    }
+
+    private void fitResultText() {
+        final TextView result = mResultView;
+        final ToolHost host = mHost;
+        if (result == null || host == null) {
+            return;
+        }
+        final CharSequence text = result.getText();
+        final String value = text == null ? "" : text.toString();
+        final DisplayMetrics dm = host.getContext().getResources().getDisplayMetrics();
+        final int measuredWidth = result.getWidth();
+        final int availWidth = (measuredWidth > 0 ? measuredWidth : dm.widthPixels)
+                - result.getPaddingLeft() - result.getPaddingRight();
+        if (availWidth <= 0 || value.isEmpty()) {
+            result.setTextSize(TypedValue.COMPLEX_UNIT_SP, PROGRAMMER_RESULT_MAX_SP);
+            result.scrollTo(0, 0);
+            return;
+        }
+        final TextPaint paint = new TextPaint(result.getPaint());
+        float chosenSp = -1f;
+        for (float sp = PROGRAMMER_RESULT_MAX_SP;
+                sp >= PROGRAMMER_RESULT_SINGLE_LINE_MIN_SP; sp -= 1f) {
+            paint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, dm));
+            if (paint.measureText(value) <= availWidth) {
+                chosenSp = sp;
+                break;
+            }
+        }
+        if (chosenSp > 0f) {
+            result.setSingleLine(true);
+            result.setMaxLines(1);
+            result.setHorizontallyScrolling(false);
+            result.setTextSize(TypedValue.COMPLEX_UNIT_SP, chosenSp);
+        } else {
+            result.setSingleLine(false);
+            result.setHorizontallyScrolling(false);
+            result.setMaxLines(PROGRAMMER_RESULT_MAX_LINES);
+            float multiSp = PROGRAMMER_RESULT_MULTI_LINE_MIN_SP;
+            for (float sp = PROGRAMMER_RESULT_SINGLE_LINE_MIN_SP;
+                    sp >= PROGRAMMER_RESULT_MULTI_LINE_MIN_SP; sp -= 1f) {
+                paint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, dm));
+                final StaticLayout layout = StaticLayout.Builder
+                        .obtain(value, 0, value.length(), paint, availWidth)
+                        .setIncludePad(false)
+                        .build();
+                if (layout.getLineCount() <= PROGRAMMER_RESULT_MAX_LINES) {
+                    multiSp = sp;
+                    break;
+                }
+            }
+            result.setTextSize(TypedValue.COMPLEX_UNIT_SP, multiSp);
+        }
+        result.scrollTo(0, 0);
+        if (measuredWidth <= 0) {
+            result.removeCallbacks(mFitResultRunnable);
+            result.post(mFitResultRunnable);
+        }
     }
 
     @Nullable
