@@ -88,8 +88,8 @@ android {
             )
         }
         getByName("debug") {
-            // Append .dev to package name so we won't conflict with AOSP build.
-            applicationIdSuffix = ".dev"
+            // Append .gkcitest to package name so we won't conflict with AOSP build.
+            applicationIdSuffix = ".gkcitest"
         }
     }
     compileOptions {
