@@ -15,5 +15,5 @@
     app:chipStartPadding="9dp"
     app:chipEndPadding="9dp"
     app:chipStrokeWidth="0dp"
-    app:chipTextColor="@color/calculator_chip_text_states"
+    android:textColor="@color/calculator_chip_text_states"
     app:ensureMinTouchTargetSize="false" />

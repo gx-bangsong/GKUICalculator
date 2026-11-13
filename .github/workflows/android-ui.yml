@@ -33,11 +33,11 @@ jobs:
       - name: Run instrumented UI tests and capture screens
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
+          api-level: 29
+          target: default
+          arch: x86
           profile: pixel_2
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
             set +e
