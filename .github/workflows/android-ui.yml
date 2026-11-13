@@ -15,7 +15,7 @@ permissions:
 jobs:
   emulator-ui:
     name: Pixel-style emulator UI checks
-    # Use Intel macOS so the x86_64 Android image can use native hardware acceleration.
+    # Use Intel macOS so the Android emulator can use native x86 virtualization.
     runs-on: macos-15-intel
     timeout-minutes: 45
 
@@ -40,10 +40,20 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
-            set +e
-            ./gradlew connectedDebugAndroidTest --stacktrace
-            test_result=$?
             mkdir -p build/ui-screenshots
+            log_file=build/connected-debug-android-test.log
+            set +e
+            ./gradlew connectedDebugAndroidTest --stacktrace --console=plain >"$log_file" 2>&1
+            test_result=$?
+            cat "$log_file"
+            if [ "$test_result" -ne 0 ]; then
+              diagnostics=$(grep -nEi 'error:|what went wrong|execution failed|caused by:|assertionerror|tests run:|FAILED|^failure:' "$log_file" | tail -n 60 || true)
+              if [ -z "$diagnostics" ]; then
+                diagnostics=$(tail -n 60 "$log_file")
+              fi
+              diagnostics=$(printf '%s\n' "$diagnostics" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
+              echo "::error title=connectedDebugAndroidTest failed::$diagnostics"
+            fi
             screenshot_dir=/sdcard/Android/data/com.android.calculator2.dev/files/ui-screenshots
             adb pull "$screenshot_dir/calculator-default.png" build/ui-screenshots/ || true
             adb pull "$screenshot_dir/calculator-units.png" build/ui-screenshots/ || true
@@ -51,7 +61,7 @@ jobs:
 
       - name: Upload emulator screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: calculator-ui-screenshots
           path: build/ui-screenshots/*.png
