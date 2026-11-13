@@ -13,6 +13,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
 import android.content.Context;
@@ -231,6 +232,15 @@ public class CalculatorToolUiTest {
     }
 
     private static void saveScreenshot(String name) throws IOException {
+        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        final UiObject waitButton = device.findObject(new UiSelector().text("Wait"));
+        final UiObject closeAppButton = device.findObject(new UiSelector().text("Close app"));
+        final UiObject systemUiAnrTitle = device.findObject(
+                new UiSelector().textContains("isn't responding"));
+        assertFalse("System UI recovery dialog is visible; refusing to save an obscured screenshot",
+                waitButton.waitForExists(500) || closeAppButton.waitForExists(500)
+                        || systemUiAnrTitle.waitForExists(500));
+
         final Bitmap screenshot = InstrumentationRegistry.getInstrumentation()
                 .getUiAutomation().takeScreenshot();
         assertNotNull("UI Automation did not return a screenshot", screenshot);
