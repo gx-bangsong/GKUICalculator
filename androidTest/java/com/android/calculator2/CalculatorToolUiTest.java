@@ -13,6 +13,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
@@ -241,11 +242,13 @@ public class CalculatorToolUiTest {
                 waitButton.waitForExists(500) || closeAppButton.waitForExists(500)
                         || systemUiAnrTitle.waitForExists(500));
 
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        assertEquals("Calculator is not the foreground app at screenshot time",
+                context.getPackageName(), device.getCurrentPackageName());
+
         final Bitmap screenshot = InstrumentationRegistry.getInstrumentation()
                 .getUiAutomation().takeScreenshot();
         assertNotNull("UI Automation did not return a screenshot", screenshot);
-
-        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         final File parent = context.getExternalFilesDir("ui-screenshots");
         if (parent == null) {
             screenshot.recycle();
