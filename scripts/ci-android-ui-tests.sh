@@ -29,61 +29,90 @@ from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 
-build = Path("build")
-xml_reports = sorted(
-    path for path in build.rglob("*.xml")
-    if any(token in str(path).lower() for token in ("androidtest", "test-results", "connected"))
+roots = [
+    Path("build/outputs/androidTest-results"),
+    Path("build/reports/androidTests/connected/debug"),
+]
+report_files = sorted(
+    path for root in roots if root.exists() for path in root.rglob("*")
+    if path.is_file() and path.suffix.lower() in (".xml", ".html", ".txt", ".log")
 )
-found_failure = False
-for report in xml_reports:
+details = []
+for report in report_files:
+    if report.suffix.lower() != ".xml":
+        continue
     try:
         root = ET.parse(report).getroot()
-    except ET.ParseError:
+    except (ET.ParseError, OSError):
         continue
-    for test in root.iter("testcase"):
-        for failure in list(test.findall("failure")) + list(test.findall("error")):
-            found_failure = True
+    for test in root.iter():
+        if test.tag.rsplit("}", 1)[-1] != "testcase":
+            continue
+        for failure in test:
+            if failure.tag.rsplit("}", 1)[-1] not in ("failure", "error"):
+                continue
             message = (failure.get("message") or "").strip()
-            detail = " ".join("".join(failure.itertext()).split())
-            summary = " | ".join(part for part in (message, detail) if part)
+            trace = " ".join("".join(failure.itertext()).split())
             label = ".".join(part for part in (test.get("classname"), test.get("name")) if part)
-            print(f"{report.name} {label}: {summary[:1800]}")
+            details.append(f"XML failure {label}: {' | '.join(x for x in (message, trace) if x)}")
 
-if not found_failure:
-    class VisibleText(HTMLParser):
-        def __init__(self):
-            super().__init__()
-            self.parts = []
-            self.hidden = 0
-        def handle_starttag(self, tag, attrs):
-            if tag in ("script", "style"):
-                self.hidden += 1
-        def handle_endtag(self, tag):
-            if tag in ("script", "style") and self.hidden:
-                self.hidden -= 1
-        def handle_data(self, data):
-            if not self.hidden:
-                text = " ".join(data.split())
-                if text:
-                    self.parts.append(text)
+class VisibleText(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.parts = []
+        self.hidden = 0
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"):
+            self.hidden += 1
+    def handle_endtag(self, tag):
+        if tag in ("script", "style") and self.hidden:
+            self.hidden -= 1
+    def handle_data(self, data):
+        if not self.hidden:
+            text = " ".join(data.split())
+            if text:
+                self.parts.append(text)
 
-    reports = Path("build/reports/androidTests/connected/debug")
-    for report in sorted(reports.rglob("*.html")) if reports.exists() else []:
-        parser = VisibleText()
+if not details:
+    for report in report_files:
+        if report.suffix.lower() != ".html":
+            continue
         try:
+            parser = VisibleText()
             parser.feed(report.read_text(errors="replace"))
         except OSError:
             continue
         text = " ".join(parser.parts)
-        if "captureCalculatorScreenshot" in text:
-            start = text.index("captureCalculatorScreenshot")
-            print(f"{report.name}: {text[max(0, start - 300):start + 2200]}")
+        match = re.search(
+            r"captureCalculatorScreenshot|AssertionError|NoMatchingViewException|"
+            r"PerformException|FATAL EXCEPTION|FAILED|exception",
+            text, re.IGNORECASE
+        )
+        if match:
+            start = max(0, match.start() - 500)
+            details.append(f"HTML report {report}: {text[start:start + 5000]}")
+            break
+
+if details:
+    print("\n".join(details)[:2400])
+else:
+    print("No failure details were present in the Android test XML/HTML reports.")
+print("Report files: " + (", ".join(str(path) for path in report_files[:12]) or "none found"))
 PY
 )
-    if [[ -n "$failure_summary" ]]; then
-        failure_summary=$(printf '%s\n' "$failure_summary" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
-        echo "::error title=Instrumented test failure details::$failure_summary"
+    logcat_summary=$(adb logcat -d -v brief 2>/dev/null | grep -nEi -B 4 -A 12 'CalculatorToolUiTest|TestRunner|AndroidJUnitRunner|AssertionError|NoMatchingViewException|PerformException|FATAL EXCEPTION|INSTRUMENTATION_RESULT|instrumentation.*fail' | tail -n 90 || true)
+    if [[ -n "$logcat_summary" ]]; then
+        if [[ ${#failure_summary} -gt 1600 ]]; then
+            failure_summary="${failure_summary:0:1600} [report output truncated]"
+        fi
+        failure_summary+=$'\n--- Relevant emulator logcat ---\n'
+        failure_summary+="${logcat_summary:0:1600}"
     fi
+    if [[ ${#failure_summary} -gt 3500 ]]; then
+        failure_summary="${failure_summary:0:3500} [diagnostics truncated]"
+    fi
+    failure_summary=$(printf '%s\n' "$failure_summary" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
+    echo "::error title=Instrumented test failure details::$failure_summary"
 fi
 
 screenshot_dir=/sdcard/Android/data/com.android.calculator2.dev/files/ui-screenshots
@@ -112,7 +141,7 @@ emit_review_preview() {
     while IFS= read -r chunk; do
         echo "::notice title=$label part $part::$chunk"
         part=$((part + 1))
-    done < <(base64 < "$preview" | tr -d '\n' | fold -w 8000)
+    done < <(base64 < "$preview" | tr -d '\n' | fold -w 3000)
 }
 
 # Keep original PNGs as artifacts; small JPEG previews are carried in check annotations for review.

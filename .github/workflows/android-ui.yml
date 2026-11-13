@@ -54,6 +54,10 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: calculator-ui-screenshots
-          path: build/ui-screenshots/*.png
+          path: |
+            build/ui-screenshots/*.png
+            build/connected-debug-android-test.log
+            build/outputs/androidTest-results/connected/debug/**
+            build/reports/androidTests/connected/debug/**
           if-no-files-found: warn
           retention-days: 14
