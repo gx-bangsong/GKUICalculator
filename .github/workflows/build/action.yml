@@ -20,7 +20,11 @@ runs:
         else
           status=$?
           cat "$log_file"
-          diagnostics=$(tail -n 60 "$log_file" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
+          diagnostics=$(grep -nEi 'error:|what went wrong|execution failed|^failure:|^> task .* failed|caused by:' "$log_file" | tail -n 40 || true)
+          if [[ -z "$diagnostics" ]]; then
+            diagnostics=$(tail -n 60 "$log_file")
+          fi
+          diagnostics=$(printf '%s\n' "$diagnostics" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
           echo "::error title=assembleDebug failed::$diagnostics"
           exit "$status"
         fi
@@ -34,7 +38,11 @@ runs:
         else
           status=$?
           cat "$log_file"
-          diagnostics=$(tail -n 60 "$log_file" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
+          diagnostics=$(grep -nEi 'error:|what went wrong|execution failed|^failure:|^> task .* failed|caused by:' "$log_file" | tail -n 40 || true)
+          if [[ -z "$diagnostics" ]]; then
+            diagnostics=$(tail -n 60 "$log_file")
+          fi
+          diagnostics=$(printf '%s\n' "$diagnostics" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
           echo "::error title=generateBp failed::$diagnostics"
           exit "$status"
         fi

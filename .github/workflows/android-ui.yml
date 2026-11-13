@@ -15,8 +15,8 @@ permissions:
 jobs:
   emulator-ui:
     name: Pixel-style emulator UI checks
-    # The emulator-runner action must run on macOS for hardware acceleration; Linux disables KVM.
-    runs-on: macos-15
+    # Use Intel macOS so the x86_64 Android image can use native hardware acceleration.
+    runs-on: macos-15-intel
     timeout-minutes: 45
 
     steps:
