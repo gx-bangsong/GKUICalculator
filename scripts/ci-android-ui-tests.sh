@@ -2,7 +2,10 @@
 set -euo pipefail
 
 mkdir -p build/ui-screenshots
+rm -f build/ui-screenshots/*.png
 log_file=build/connected-debug-android-test.log
+screenshot_dir=/sdcard/Android/data/com.android.calculator2.dev/files/ui-screenshots
+adb shell rm -rf "$screenshot_dir" || true
 
 # Avoid Play Protect timing out while this unaccelerated CI emulator installs the debug APK.
 adb shell settings put global verifier_verify_adb_installs 0 || true
@@ -39,6 +42,16 @@ else
     test_result=$?
 fi
 cat "$log_file"
+
+if ((test_result == 0)); then
+    test_summary=$(grep -E 'Tests [0-9]+/[0-9]+ completed|BUILD SUCCESSFUL' "$log_file" | tail -n 4 || true)
+    if [[ -n "$test_summary" ]]; then
+        test_summary=$(printf '%s\n' "$test_summary" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
+        echo "::notice title=Android UI test result::$test_summary"
+    else
+        echo "::warning title=Android UI test result::Gradle reported success without a visible test-count summary."
+    fi
+fi
 
 if ((test_result != 0)); then
     diagnostics=$(grep -nEi 'error:|what went wrong|execution failed|caused by:|assertionerror|tests run:|FAILED|^failure:' "$log_file" | tail -n 60 || true)
@@ -140,9 +153,16 @@ PY
     echo "::error title=Instrumented test failure details::$failure_summary"
 fi
 
-screenshot_dir=/sdcard/Android/data/com.android.calculator2.dev/files/ui-screenshots
 adb pull "$screenshot_dir/calculator-default.png" build/ui-screenshots/ || true
 adb pull "$screenshot_dir/calculator-units.png" build/ui-screenshots/ || true
+
+default_screenshot_is_from_test=false
+if [[ -s build/ui-screenshots/calculator-default.png ]]; then
+    default_screenshot_is_from_test=true
+    echo "::notice title=Calculator screenshot source::The screenshot test saved calculator-default.png."
+else
+    echo "::warning title=Calculator screenshot source::No in-app default screenshot was saved; capturing the emulator display instead."
+fi
 
 # Capture the device display even if an Espresso assertion failed before its in-app PNG save.
 if [[ ! -s build/ui-screenshots/calculator-default.png ]]; then
@@ -150,6 +170,11 @@ if [[ ! -s build/ui-screenshots/calculator-default.png ]]; then
     if [[ ! -s build/ui-screenshots/calculator-default.png ]]; then
         rm -f build/ui-screenshots/calculator-default.png
     fi
+fi
+
+if ((test_result == 0)) && [[ "$default_screenshot_is_from_test" != true ]]; then
+    test_result=1
+    echo "::error title=Missing in-app screenshot::The selected screenshot test passed without saving calculator-default.png."
 fi
 
 emit_review_preview() {

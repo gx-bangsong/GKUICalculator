@@ -13,6 +13,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
 import android.content.Context;
@@ -222,6 +223,9 @@ public class CalculatorToolUiTest {
     }
 
     private static void saveScreenshot(String name) throws IOException {
+        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        assertFalse("System UI recovery dialog is obscuring the calculator",
+                device.findObject(new UiSelector().text("Wait")).exists());
         final Bitmap screenshot = InstrumentationRegistry.getInstrumentation()
                 .getUiAutomation().takeScreenshot();
         assertNotNull("UI Automation did not return a screenshot", screenshot);
