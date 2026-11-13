@@ -116,7 +116,7 @@ public class CalculatorToolUiTest {
         final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         final UiObject inputPad = device.findObject(new UiSelector()
-                .resourceId(context.getPackageName() + ":id/input_pad"));
+                .resourceId(context.getResources().getResourceName(R.id.input_pad)));
         assertTrue("Calculator keypad is not visible", inputPad.waitForExists(10000));
         saveScreenshot("calculator-default.png");
     }
