@@ -21,16 +21,16 @@ import android.content.Context;
 import android.util.Log;
 import android.view.View;
 
+import androidx.test.core.app.ActivityScenario;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.UiObject;
 import androidx.test.uiautomator.UiSelector;
 
+import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -47,17 +47,14 @@ import java.io.IOException;
 @RunWith(AndroidJUnit4.class)
 public class CalculatorToolUiTest {
 
-    @Rule
-    public ActivityScenarioRule<Calculator> mActivityRule =
-            new ActivityScenarioRule<>(Calculator.class);
+    private ActivityScenario<Calculator> mActivityScenario;
 
     /**
-     * Keep headless CI runs interactive. Some fresh AVD boots surface Android's
-     * System UI "isn't responding" dialog after the Gradle install phase; dismissing its Wait
-     * action (or closing the still-stalled System UI process) restores focus before Espresso.
+     * Recover System UI before launching the calculator: closing a persistently stalled System UI
+     * process can destroy an already-launched activity, so start ActivityScenario afterward.
      */
     @Before
-    public void clearSystemUiRecoveryPrompt() {
+    public void recoverSystemUiThenLaunchCalculator() {
         final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         try {
             device.wakeUp();
@@ -81,6 +78,14 @@ public class CalculatorToolUiTest {
             }
         } catch (Exception exception) {
             Log.w("CalculatorToolUiTest", "Unable to recover emulator window focus", exception);
+        }
+        mActivityScenario = ActivityScenario.launch(Calculator.class);
+    }
+
+    @After
+    public void closeCalculatorActivity() {
+        if (mActivityScenario != null) {
+            mActivityScenario.close();
         }
     }
 
@@ -120,7 +125,7 @@ public class CalculatorToolUiTest {
         assertCalculatorUnobstructed(device, context.getPackageName());
 
         final boolean[] keypadShown = new boolean[1];
-        mActivityRule.getScenario().onActivity(activity -> {
+        mActivityScenario.onActivity(activity -> {
             final View inputPad = activity.findViewById(R.id.input_pad);
             keypadShown[0] = inputPad != null && inputPad.isShown();
         });
@@ -228,8 +233,7 @@ public class CalculatorToolUiTest {
         final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         context.getSharedPreferences("calc_tools", Context.MODE_PRIVATE)
                 .edit().clear().commit();
-        mActivityRule.getScenario().recreate();
-        clearSystemUiRecoveryPrompt();
+        mActivityScenario.recreate();
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
