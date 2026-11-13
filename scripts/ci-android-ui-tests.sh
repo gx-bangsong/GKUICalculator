@@ -8,6 +8,26 @@ log_file=build/connected-debug-android-test.log
 adb shell settings put global verifier_verify_adb_installs 0 || true
 adb shell settings put global package_verifier_enable 0 || true
 
+# Keep the headless AVD awake and unlocked. Fresh emulator boots occasionally leave the
+# System UI "isn't responding" prompt over the launcher, which prevents Espresso from getting
+# window focus. Choose Wait if that dialog is present, then give System UI time to recover.
+adb shell svc power stayon true || true
+adb shell settings put system screen_off_timeout 600000 || true
+adb shell input keyevent KEYCODE_WAKEUP || true
+adb shell wm dismiss-keyguard || true
+adb shell input keyevent 82 || true
+display_size=$(adb shell wm size 2>/dev/null | awk -F': ' '/Physical size/ {print $2}' | tail -n 1)
+if [[ "$display_size" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+    wait_x=$((${BASH_REMATCH[1]} / 2))
+    wait_y=$((${BASH_REMATCH[2]} * 57 / 100))
+    for attempt in 1 2 3; do
+        adb shell input tap "$wait_x" "$wait_y" || true
+        sleep 2
+    done
+fi
+adb shell wm dismiss-keyguard || true
+adb shell input keyevent KEYCODE_WAKEUP || true
+
 if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorToolUiTest#captureCalculatorScreenshot --stacktrace --console=plain >"$log_file" 2>&1; then
     test_result=0
 else
