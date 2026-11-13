@@ -4,11 +4,12 @@ set -euo pipefail
 mkdir -p build/ui-screenshots
 rm -f build/ui-screenshots/*.png
 log_file=build/connected-debug-android-test.log
-screenshot_dir=/sdcard/Android/data/com.android.calculator2.dev/files/ui-screenshots
+screenshot_dir=/sdcard
 
 # Avoid Play Protect timing out while the fresh CI emulator installs the debug APK.
 adb shell settings put global verifier_verify_adb_installs 0 || true
 adb shell settings put global package_verifier_enable 0 || true
+adb shell rm -f "$screenshot_dir/calculator-default.png" "$screenshot_dir/calculator-units.png" || true
 
 # Keep the headless AVD awake and unlocked. Fresh emulator boots occasionally leave the
 # System UI "isn't responding" prompt over the launcher, which prevents Espresso from getting
@@ -175,7 +176,7 @@ if [[ -s build/ui-screenshots/calculator-default.png ]]; then
     default_screenshot_is_from_test=true
     echo "::notice title=Calculator screenshot source::The screenshot test saved calculator-default.png."
 else
-    echo "::warning title=Calculator screenshot source::No in-app default screenshot was saved; capturing the emulator display instead."
+    echo "::warning title=Calculator screenshot source::No test-generated default screenshot was saved; capturing the emulator display instead."
 fi
 
 # Capture the device display even if an Espresso assertion failed before its in-app PNG save.
@@ -188,7 +189,7 @@ fi
 
 if ((test_result == 0)) && [[ "$default_screenshot_is_from_test" != true ]]; then
     test_result=1
-    echo "::error title=Missing in-app screenshot::The selected screenshot test passed without saving calculator-default.png."
+    echo "::error title=Missing test-generated screenshot::The selected screenshot test passed without saving calculator-default.png."
 fi
 
 emit_review_preview() {

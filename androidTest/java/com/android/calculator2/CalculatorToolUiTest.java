@@ -17,11 +17,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import android.app.UiAutomation;
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -37,8 +33,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 
 /**
@@ -243,28 +237,16 @@ public class CalculatorToolUiTest {
         final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         assertCalculatorUnobstructed(device, context.getPackageName());
 
-        final Bitmap screenshot = takeDeviceScreenshot();
-        try {
-            // Check again after capture so a recovery prompt that appeared during screencap
-            // cannot produce a successful, but obscured, artifact.
-            assertCalculatorUnobstructed(device, context.getPackageName());
-            final File parent = context.getExternalFilesDir("ui-screenshots");
-            if (parent == null) {
-                throw new IOException("External app files directory is unavailable");
-            }
-            if (!parent.exists() && !parent.mkdirs()) {
-                throw new IOException("Could not create screenshot directory: " + parent);
-            }
-            final File file = new File(parent, name);
-            try (FileOutputStream output = new FileOutputStream(file)) {
-                if (!screenshot.compress(Bitmap.CompressFormat.PNG, 100, output)) {
-                    throw new IOException("Could not encode screenshot: " + file);
-                }
-                Log.i("CalculatorToolUiTest", "Saved in-app screenshot: " + file.getAbsolutePath());
-            }
-        } finally {
-            screenshot.recycle();
-        }
+        // Run screencap as the shell user so the full device frame, including any system overlay,
+        // is captured and can be pulled from shared storage by the CI host.
+        final String path = "/sdcard/" + name;
+        device.executeShellCommand("screencap -p " + path);
+        assertEquals("Test-generated screenshot was not written to shared storage", "present",
+                device.executeShellCommand("test -s " + path + " && echo present").trim());
+
+        // A recovery dialog appearing during capture must still fail the test, not publish a bad PNG.
+        assertCalculatorUnobstructed(device, context.getPackageName());
+        Log.i("CalculatorToolUiTest", "Saved test-generated screenshot: " + path);
     }
 
     private static void assertCalculatorUnobstructed(UiDevice device, String packageName) {
@@ -277,25 +259,5 @@ public class CalculatorToolUiTest {
                         || systemUiAnrTitle.waitForExists(500));
         assertEquals("Calculator is not the foreground app at screenshot time",
                 packageName, device.getCurrentPackageName());
-    }
-
-    private static Bitmap takeDeviceScreenshot() throws IOException {
-        final UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
-        Bitmap screenshot = null;
-        try (ParcelFileDescriptor.AutoCloseInputStream input =
-                     new ParcelFileDescriptor.AutoCloseInputStream(
-                             uiAutomation.executeShellCommand("screencap -p"))) {
-            screenshot = BitmapFactory.decodeStream(input);
-        } catch (RuntimeException exception) {
-            Log.w("CalculatorToolUiTest", "Shell screencap failed; trying UiAutomation capture",
-                    exception);
-        }
-        if (screenshot == null) {
-            screenshot = uiAutomation.takeScreenshot();
-        }
-        if (screenshot == null) {
-            throw new IOException("Neither shell screencap nor UiAutomation returned a screenshot");
-        }
-        return screenshot;
     }
 }
