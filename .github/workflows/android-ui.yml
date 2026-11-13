@@ -15,7 +15,8 @@ permissions:
 jobs:
   emulator-ui:
     name: Pixel-style emulator UI checks
-    runs-on: ubuntu-latest
+    # The emulator-runner action must run on macOS for hardware acceleration; Linux disables KVM.
+    runs-on: macos-15
     timeout-minutes: 45
 
     steps:
