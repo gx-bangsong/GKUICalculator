@@ -15,10 +15,12 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 
+import android.app.UiAutomation;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -232,8 +234,36 @@ public class CalculatorToolUiTest {
                 withText(R.string.tool_unit), isDisplayed())).perform(click());
     }
 
-    private static void saveScreenshot(String name) throws IOException {
+    private void saveScreenshot(String name) throws IOException {
         final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        assertCalculatorUnobstructed(device, context.getPackageName());
+
+        final Bitmap screenshot = takeDeviceScreenshot();
+        try {
+            // Check again after capture so a recovery prompt that appeared during screencap
+            // cannot produce a successful, but obscured, artifact.
+            assertCalculatorUnobstructed(device, context.getPackageName());
+            final File parent = context.getExternalFilesDir("ui-screenshots");
+            if (parent == null) {
+                throw new IOException("External app files directory is unavailable");
+            }
+            if (!parent.exists() && !parent.mkdirs()) {
+                throw new IOException("Could not create screenshot directory: " + parent);
+            }
+            final File file = new File(parent, name);
+            try (FileOutputStream output = new FileOutputStream(file)) {
+                if (!screenshot.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                    throw new IOException("Could not encode screenshot: " + file);
+                }
+                Log.i("CalculatorToolUiTest", "Saved in-app screenshot: " + file.getAbsolutePath());
+            }
+        } finally {
+            screenshot.recycle();
+        }
+    }
+
+    private static void assertCalculatorUnobstructed(UiDevice device, String packageName) {
         final UiObject waitButton = device.findObject(new UiSelector().text("Wait"));
         final UiObject closeAppButton = device.findObject(new UiSelector().text("Close app"));
         final UiObject systemUiAnrTitle = device.findObject(
@@ -241,31 +271,27 @@ public class CalculatorToolUiTest {
         assertFalse("System UI recovery dialog is visible; refusing to save an obscured screenshot",
                 waitButton.waitForExists(500) || closeAppButton.waitForExists(500)
                         || systemUiAnrTitle.waitForExists(500));
-
-        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         assertEquals("Calculator is not the foreground app at screenshot time",
-                context.getPackageName(), device.getCurrentPackageName());
+                packageName, device.getCurrentPackageName());
+    }
 
-        final Bitmap screenshot = InstrumentationRegistry.getInstrumentation()
-                .getUiAutomation().takeScreenshot();
-        assertNotNull("UI Automation did not return a screenshot", screenshot);
-        final File parent = context.getExternalFilesDir("ui-screenshots");
-        if (parent == null) {
-            screenshot.recycle();
-            throw new IOException("External app files directory is unavailable");
+    private static Bitmap takeDeviceScreenshot() throws IOException {
+        final UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        Bitmap screenshot = null;
+        try (ParcelFileDescriptor.AutoCloseInputStream input =
+                     new ParcelFileDescriptor.AutoCloseInputStream(
+                             uiAutomation.executeShellCommand("screencap -p"))) {
+            screenshot = BitmapFactory.decodeStream(input);
+        } catch (RuntimeException exception) {
+            Log.w("CalculatorToolUiTest", "Shell screencap failed; trying UiAutomation capture",
+                    exception);
         }
-        if (!parent.exists() && !parent.mkdirs()) {
-            screenshot.recycle();
-            throw new IOException("Could not create screenshot directory: " + parent);
+        if (screenshot == null) {
+            screenshot = uiAutomation.takeScreenshot();
         }
-        final File file = new File(parent, name);
-        try (FileOutputStream output = new FileOutputStream(file)) {
-            if (!screenshot.compress(Bitmap.CompressFormat.PNG, 100, output)) {
-                throw new IOException("Could not encode screenshot: " + file);
-            }
-            Log.i("CalculatorToolUiTest", "Saved in-app screenshot: " + file.getAbsolutePath());
-        } finally {
-            screenshot.recycle();
+        if (screenshot == null) {
+            throw new IOException("Neither shell screencap nor UiAutomation returned a screenshot");
         }
+        return screenshot;
     }
 }
