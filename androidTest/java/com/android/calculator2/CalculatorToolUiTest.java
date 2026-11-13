@@ -113,6 +113,7 @@ public class CalculatorToolUiTest {
     /** Capture the two key UI states so the emulator job can publish screenshots for review. */
     @Test
     public void captureCalculatorScreenshot() throws IOException {
+        resetTestPreferences();
         final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         final UiObject inputPad = device.findObject(new UiSelector()
