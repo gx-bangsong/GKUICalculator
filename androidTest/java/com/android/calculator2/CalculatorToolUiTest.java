@@ -15,6 +15,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.app.UiAutomation;
 import android.content.Context;
@@ -118,8 +119,12 @@ public class CalculatorToolUiTest {
     /** Capture the two key UI states so the emulator job can publish screenshots for review. */
     @Test
     public void captureCalculatorScreenshot() throws IOException {
-        resetTestPreferences();
-        onView(withId(R.id.input_pad)).check(matches(isDisplayed()));
+        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        final UiObject inputPad = device.findObject(new UiSelector()
+                .resourceId(context.getPackageName() + ":id/input_pad"));
+        assertTrue("Calculator keypad is not visible",
+                inputPad.waitForExists(10000) && inputPad.isDisplayed());
         saveScreenshot("calculator-default.png");
     }
 
