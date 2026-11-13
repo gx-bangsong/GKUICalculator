@@ -10,6 +10,9 @@ screenshot_dir=/sdcard
 adb shell settings put global verifier_verify_adb_installs 0 || true
 adb shell settings put global package_verifier_enable 0 || true
 adb shell rm -f "$screenshot_dir/calculator-default.png" "$screenshot_dir/calculator-units.png" || true
+# Keep the Pixel 2 logical size while reducing software-rendered pixels on the hosted VM.
+adb shell wm size 720x1280 || true
+adb shell wm density 280 || true
 
 # Keep the headless AVD awake and unlocked. Fresh emulator boots occasionally leave the
 # System UI "isn't responding" prompt over the launcher, which prevents Espresso from getting
@@ -30,6 +33,27 @@ else
 fi
 echo "::notice title=Android emulator wakeup::Display ${display_size:-unknown}; tapping the system dialog Wait position at $wait_x,$wait_y if present."
 for attempt in 1 2 3; do
+    adb shell input tap "$wait_x" "$wait_y" || true
+    sleep 2
+done
+adb shell wm dismiss-keyguard || true
+adb shell input keyevent KEYCODE_WAKEUP || true
+
+# Separate package installation from instrumentation so System UI has a chance to recover from
+# any ANR dialog caused by the install broadcasts before Espresso/ActivityScenario start.
+install_log=build/install-debug-android-test.log
+if ./gradlew installDebug installDebugAndroidTest --stacktrace --console=plain >"$install_log" 2>&1; then
+    cat "$install_log"
+else
+    install_result=$?
+    cat "$install_log"
+    install_diagnostics=$(tail -n 40 "$install_log" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
+    echo "::error title=Install UI test APKs failed::$install_diagnostics"
+    exit "$install_result"
+fi
+
+# Dismiss a prompt that appeared during the install phase before starting instrumentation.
+for attempt in 1 2 3 4 5; do
     adb shell input tap "$wait_x" "$wait_y" || true
     sleep 2
 done

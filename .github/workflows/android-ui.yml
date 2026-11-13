@@ -57,6 +57,7 @@ jobs:
           path: |
             build/ui-screenshots/*.png
             build/connected-debug-android-test.log
+            build/install-debug-android-test.log
             build/outputs/androidTest-results/connected/debug/**
             build/reports/androidTests/connected/debug/**
           if-no-files-found: warn
