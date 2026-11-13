@@ -16,15 +16,20 @@ adb shell settings put system screen_off_timeout 600000 || true
 adb shell input keyevent KEYCODE_WAKEUP || true
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent 82 || true
-display_size=$(adb shell wm size 2>/dev/null | awk -F': ' '/Physical size/ {print $2}' | tail -n 1)
+display_size=$(adb shell wm size 2>/dev/null | tr -d '\r' | sed -n 's/.*size: \([0-9][0-9]*x[0-9][0-9]*\).*/\1/p' | tail -n 1)
+wait_x=540
+wait_y=1094
 if [[ "$display_size" =~ ^([0-9]+)x([0-9]+)$ ]]; then
     wait_x=$((${BASH_REMATCH[1]} / 2))
     wait_y=$((${BASH_REMATCH[2]} * 57 / 100))
-    for attempt in 1 2 3; do
-        adb shell input tap "$wait_x" "$wait_y" || true
-        sleep 2
-    done
+else
+    echo "::warning title=Android emulator wakeup::Could not parse the display size '$display_size'; using Pixel 2 Wait coordinates."
 fi
+echo "::notice title=Android emulator wakeup::Display ${display_size:-unknown}; tapping the system dialog Wait position at $wait_x,$wait_y if present."
+for attempt in 1 2 3; do
+    adb shell input tap "$wait_x" "$wait_y" || true
+    sleep 2
+done
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent KEYCODE_WAKEUP || true
 
