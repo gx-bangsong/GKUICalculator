@@ -10,7 +10,7 @@
     style="@style/PadLayoutStyle.Advanced"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?colorSurface">
+    android:background="@color/display_background_color">
 
     <com.android.calculator2.HapticButton
         android:id="@+id/toggle_mode"

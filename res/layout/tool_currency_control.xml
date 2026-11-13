@@ -1,120 +1,122 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Currency: input and conversion outputs with tappable currency selectors. -->
+<!-- Currency converter keeps the Google-style stacked amount rows but uses anchored currency menus. -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@color/display_background_color"
     android:orientation="vertical"
-    android:paddingStart="@dimen/formula_padding_start"
-    android:paddingEnd="@dimen/formula_padding_end"
-    android:paddingTop="12dp"
-    android:paddingBottom="12dp">
+    android:paddingStart="20dp"
+    android:paddingEnd="20dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="4dp">
 
-    <!-- Row 1: input amount + from currency. 大写 replaces the amount in this same column. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="12dp"
-        android:orientation="horizontal">
-
-        <TextView
-            android:id="@+id/currency_input_text"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:fontFamily="sans-serif-medium"
-            android:gravity="end"
-            android:textColor="?colorOnSurface"
-            android:textSize="28sp" />
+        android:gravity="end"
+        android:orientation="vertical">
 
         <TextView
             android:id="@+id/currency_from"
             style="@style/ToolDropdownStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
+            android:layout_gravity="end"
             android:contentDescription="@string/currency_from_desc" />
 
-        <!-- Placeholder view to align with Row 2's swap button -->
-        <View
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="12dp" />
+        <TextView
+            android:id="@+id/currency_input_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="end"
+            android:includeFontPadding="false"
+            android:textColor="@color/calculator_key_text"
+            android:textSize="34sp" />
+
     </LinearLayout>
 
-    <!-- Row 2: result amount + to currency + swap. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/currency_swap"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/unit_swap_desc"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_unit_swap"
+            app:tint="@color/calculator_chip_text" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1"
+            android:background="@color/calculator_display_divider" />
+
+    </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="8dp"
-        android:orientation="horizontal">
-
-        <TextView
-            android:id="@+id/currency_result_text"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:fontFamily="sans-serif-medium"
-            android:gravity="end"
-            android:textColor="?colorOnSurface"
-            android:textSize="28sp" />
+        android:gravity="end"
+        android:orientation="vertical">
 
         <TextView
             android:id="@+id/currency_to"
             style="@style/ToolDropdownStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
+            android:layout_gravity="end"
             android:contentDescription="@string/currency_to_desc" />
 
-        <ImageButton
-            android:id="@+id/currency_swap"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="12dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="8dp"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_unit_swap"
-            android:contentDescription="@string/unit_swap_desc"
-            app:tint="?colorOnSurface" />
+        <TextView
+            android:id="@+id/currency_result_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="end"
+            android:includeFontPadding="false"
+            android:textColor="@color/display_result_text_color"
+            android:textSize="34sp" />
+
     </LinearLayout>
 
-    <!-- Optional second conversion output, toggled from the activity overflow menu. -->
+    <!-- Optional second conversion output, toggled from the calculator overflow menu. -->
     <LinearLayout
         android:id="@+id/currency_secondary_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
+        android:gravity="end"
+        android:orientation="vertical"
         android:visibility="gone">
-
-        <TextView
-            android:id="@+id/currency_result_2_text"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:fontFamily="sans-serif-medium"
-            android:gravity="end"
-            android:textColor="?colorOnSurface"
-            android:textSize="28sp" />
 
         <TextView
             android:id="@+id/currency_to_2"
             style="@style/ToolDropdownStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
+            android:layout_gravity="end"
             android:contentDescription="@string/currency_second_to_desc" />
 
-        <View
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="12dp" />
+        <TextView
+            android:id="@+id/currency_result_2_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="end"
+            android:includeFontPadding="false"
+            android:textColor="@color/display_result_text_color"
+            android:textSize="28sp" />
+
     </LinearLayout>
 
     <TextView
@@ -122,9 +124,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="end"
-        android:paddingTop="2dp"
+        android:paddingTop="4dp"
+        android:text="@string/currency_loading"
         android:textAppearance="?attr/textAppearanceLabelSmall"
-        android:textColor="?colorOnSurfaceVariant"
-        android:text="@string/currency_loading" />
+        android:textColor="@color/calculator_chip_text" />
 
 </LinearLayout>

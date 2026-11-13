@@ -1,17 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-     SPDX-FileCopyrightText: 2015 The Android Open Source Project
-     SPDX-License-Identifier: Apache-2.0
--->
+<!-- Use the same palette on Android 14+; the window still follows system light/dark mode. -->
 <resources>
-
-    <!-- Display background -->
-    <color name="history_background_color">@android:color/system_surface_container_light</color>
-    <color name="display_background_color">@android:color/system_surface_light</color>
-
-    <!-- Display text -->
-    <color name="display_formula_text_color">@android:color/system_on_surface_light</color>
-    <color name="display_result_text_color">@android:color/system_tertiary_light</color>
-    <color name="display_result_exponent_text_color">@android:color/system_tertiary_light</color>
-
+    <color name="history_background_color">#FFF2E3</color>
+    <color name="display_background_color">#FFFBF4</color>
+    <color name="display_formula_text_color">#FF29251E</color>
+    <color name="display_result_text_color">#FF566642</color>
+    <color name="display_result_exponent_text_color">#FF566642</color>
 </resources>

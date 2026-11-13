@@ -30,6 +30,8 @@ import com.android.calculator2.tools.model.DecimalExpression;
 import com.android.calculator2.tools.model.DecimalExpression.Operation;
 import com.android.calculator2.tools.model.TemperatureConversion;
 import com.android.calculator2.tools.model.UnitConversion;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
@@ -43,9 +45,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Offline, data-driven unit conversion. Category and unit selection use anchored popup menus.
- * Linear categories also expose an "Add custom unit" action that opens a Material 3 form and
- * persists the resulting exact conversion factor through {@link UnitRepository}.
+ * Offline, data-driven unit conversion. Categories remain as inline, horizontally scrollable pills;
+ * individual unit menus are anchored to their current selectors. Linear categories also expose an
+ * "Add custom unit" action that persists an exact conversion factor through {@link UnitRepository}.
  */
 public class UnitConverterMode implements ToolMode {
 
@@ -76,7 +78,7 @@ public class UnitConverterMode implements ToolMode {
     @Nullable
     private View mControlRoot;
     @Nullable
-    private TextView mCategoryView;
+    private ChipGroup mCategoryPills;
     @Nullable
     private TextView mFromView;
     @Nullable
@@ -223,7 +225,7 @@ public class UnitConverterMode implements ToolMode {
         }
         mControlRoot = LayoutInflater.from(context)
                 .inflate(R.layout.tool_unit_control, slot, false);
-        mCategoryView = mControlRoot.findViewById(R.id.unit_category);
+        mCategoryPills = mControlRoot.findViewById(R.id.unit_category_pills);
         mFromView = mControlRoot.findViewById(R.id.unit_from);
         mToView = mControlRoot.findViewById(R.id.unit_to);
         mInputView = mControlRoot.findViewById(R.id.unit_input_text);
@@ -235,7 +237,7 @@ public class UnitConverterMode implements ToolMode {
         final ImageButton swap = mControlRoot.findViewById(R.id.unit_swap);
         swap.setOnClickListener(v -> swapUnits());
 
-        configureCategoryDropdown();
+        configureCategoryPills(context);
         configureUnitDropdowns();
         updateLabels();
         updateSecondaryVisibility();
@@ -256,7 +258,7 @@ public class UnitConverterMode implements ToolMode {
             slot.setVisibility(View.GONE);
         }
         mControlRoot = null;
-        mCategoryView = null;
+        mCategoryPills = null;
         mFromView = null;
         mToView = null;
         mInputView = null;
@@ -266,37 +268,37 @@ public class UnitConverterMode implements ToolMode {
         mSecondaryResultView = null;
     }
 
-    private void configureCategoryDropdown() {
-        if (mCategoryView != null) {
-            mCategoryView.setOnClickListener(v -> showCategoryDropdown());
+    private void configureCategoryPills(@NonNull Context context) {
+        if (mCategoryPills == null) {
+            return;
+        }
+        mCategoryPills.setSingleSelection(true);
+        mCategoryPills.setSelectionRequired(true);
+        mCategoryPills.removeAllViews();
+        for (int i = 0; i < mCategories.size(); i++) {
+            final int categoryIndex = i;
+            final UnitCategory category = mCategories.get(i);
+            final Chip chip = (Chip) LayoutInflater.from(context)
+                    .inflate(R.layout.unit_category_chip, mCategoryPills, false);
+            chip.setText(category.getDisplayName());
+            chip.setContentDescription(category.getDisplayName());
+            chip.setChecked(i == mCategoryIndex);
+            chip.setOnClickListener(v -> selectCategory(categoryIndex));
+            mCategoryPills.addView(chip);
         }
     }
 
-    /** Uses one click source only; AutoCompleteTextView used to race its internal touch handler. */
-    private void showCategoryDropdown() {
-        if (mCategoryView == null || mCategories.isEmpty() || mOpenDropdown != null) {
+    private void selectCategory(int position) {
+        if (position < 0 || position >= mCategories.size() || position == mCategoryIndex) {
             return;
         }
-        final PopupMenu popup = createPopup(mCategoryView);
-        for (int i = 0; i < mCategories.size(); i++) {
-            popup.getMenu().add(Menu.NONE, i + 1, i,
-                    mCategories.get(i).getDisplayName());
-        }
-        popup.setOnMenuItemClickListener(item -> {
-            final int position = item.getItemId() - 1;
-            if (position < 0 || position >= mCategories.size()) {
-                return false;
-            }
-            mCategoryIndex = position;
-            mFromIndex = 0;
-            mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
-            mToSecondaryIndex = Math.min(2, Math.max(0, currentUnitCount() - 1));
-            configureUnitDropdowns();
-            updateLabels();
-            redisplay();
-            return true;
-        });
-        popup.show();
+        mCategoryIndex = position;
+        mFromIndex = 0;
+        mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
+        mToSecondaryIndex = Math.min(2, Math.max(0, currentUnitCount() - 1));
+        configureUnitDropdowns();
+        updateLabels();
+        redisplay();
     }
 
     private void configureUnitDropdowns() {
@@ -492,8 +494,13 @@ public class UnitConverterMode implements ToolMode {
         if (category == null) {
             return;
         }
-        if (mCategoryView != null) {
-            mCategoryView.setText(category.getDisplayName());
+        if (mCategoryPills != null) {
+            for (int i = 0; i < mCategoryPills.getChildCount(); i++) {
+                final View child = mCategoryPills.getChildAt(i);
+                if (child instanceof Chip) {
+                    ((Chip) child).setChecked(i == mCategoryIndex);
+                }
+            }
         }
         if (mFromView != null && !category.getUnits().isEmpty()) {
             mFromView.setText(category.getUnits().get(clamp(mFromIndex)).getDisplayName());
@@ -650,15 +657,6 @@ public class UnitConverterMode implements ToolMode {
             }
         }
         return false;
-    }
-
-    @NonNull
-    private List<String> categoryNames() {
-        final List<String> names = new ArrayList<>();
-        for (UnitCategory category : mCategories) {
-            names.add(category.getDisplayName());
-        }
-        return names;
     }
 
     @NonNull

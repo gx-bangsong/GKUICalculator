@@ -52,9 +52,18 @@
         <item name="android:gravity">center</item>
         <item name="android:includeFontPadding">false</item>
         <item name="android:padding">0dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">24sp</item>
         <item name="android:onClick">onButtonClick</item>
         <item name="android:fontFeatureSettings">tnum, cv03, cv04</item>
         <item name="android:layout_marginHorizontal">@dimen/button_horizontal_margin</item>
+        <item name="cornerRadius">32dp</item>
+        <item name="insetLeft">0dp</item>
+        <item name="insetRight">0dp</item>
+        <item name="insetTop">0dp</item>
+        <item name="insetBottom">0dp</item>
     </style>
 
     <style name="PadButtonStyle.Caps">
@@ -69,10 +78,12 @@
 
     <style name="PadButtonStyle.SmallCaps">
         <item name="textAllCaps">true</item>
+        <item name="android:textSize">13sp</item>
         <item name="android:layout_marginHorizontal">@dimen/button_small_horizontal_margin</item>
     </style>
 
     <style name="PadButtonStyle.SmallText">
+        <item name="android:textSize">16sp</item>
         <item name="android:layout_marginHorizontal">@dimen/button_small_horizontal_margin</item>
     </style>
 
@@ -107,24 +118,24 @@
         <item name="android:gravity">center_vertical</item>
     </style>
 
-    <!-- Pill-shaped base style for compact selectors in the converter display. -->
+    <!-- Borderless pill selectors used by the inline unit and currency controls. -->
     <style name="ToolUnitButtonStyle">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:minWidth">96dp</item>
-        <item name="android:maxWidth">152dp</item>
-        <item name="android:minHeight">48dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:maxWidth">176dp</item>
+        <item name="android:minHeight">36dp</item>
         <item name="android:gravity">center_vertical</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
         <item name="android:background">@drawable/tool_unit_button_background</item>
-        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
-        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/calculator_unit_selector_text</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingStart">14dp</item>
         <item name="android:paddingEnd">8dp</item>
-        <item name="android:paddingTop">8dp</item>
-        <item name="android:paddingBottom">8dp</item>
+        <item name="android:paddingTop">6dp</item>
+        <item name="android:paddingBottom">6dp</item>
     </style>
 
     <!-- Single-tap anchor for the Material-themed popup menus used by converters. -->
@@ -132,6 +143,7 @@
         <item name="android:singleLine">true</item>
         <item name="android:ellipsize">end</item>
         <item name="android:drawableEnd">@drawable/ic_arrow_drop_down</item>
+        <item name="android:drawableTint">@color/calculator_unit_selector_text</item>
         <item name="android:drawablePadding">4dp</item>
     </style>
 

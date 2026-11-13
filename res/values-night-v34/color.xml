@@ -1,17 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-     SPDX-FileCopyrightText: 2015 The Android Open Source Project
-     SPDX-License-Identifier: Apache-2.0
--->
+<!-- Keep the warm dark calculator palette on Android 14+. -->
 <resources>
-
-    <!-- Display background -->
-    <color name="history_background_color">@android:color/system_surface_container_dark</color>
-    <color name="display_background_color">@android:color/system_surface_dark</color>
-
-    <!-- Display text -->
-    <color name="display_formula_text_color">@android:color/system_on_surface_dark</color>
-    <color name="display_result_text_color">@android:color/system_tertiary_dark</color>
-    <color name="display_result_exponent_text_color">@android:color/system_tertiary_dark</color>
-
+    <color name="history_background_color">#FF25261F</color>
+    <color name="display_background_color">#FF191A15</color>
+    <color name="display_formula_text_color">#FFF1EEE3</color>
+    <color name="display_result_text_color">#FFBDCEA7</color>
+    <color name="display_result_exponent_text_color">#FFBDCEA7</color>
+    <color name="tool_panel_background_color">#FF24251E</color>
 </resources>

@@ -374,6 +374,11 @@ public class Calculator extends AppCompatActivity
         getSupportActionBar().setDisplayOptions(0);
 
         mMainCalculator = findViewById(R.id.main_calculator);
+        final androidx.appcompat.widget.Toolbar topToolbar = findViewById(R.id.toolbar);
+        topToolbar.setNavigationIcon(R.drawable.ic_history);
+        topToolbar.setNavigationContentDescription(R.string.menu_history);
+        topToolbar.setNavigationOnClickListener(v -> mMainCalculator.transitionToEnd());
+
         mModeView = findViewById(R.id.mode);
         mFormulaText = findViewById(R.id.formula);
         mDeleteButton = findViewById(R.id.del);
@@ -1963,10 +1968,10 @@ public class Calculator extends AppCompatActivity
 
     private void setupScientificToggle() {
         mScientificToggle = findViewById(R.id.scientific_toggle);
-        // Default visible so the scientific pad is available out of the box; the toggle (and
-        // tool mode) can hide it to give the display more room.
+        // Keep the first-run calculator focused on the standard keypad. The scientific pad is
+        // still one tap away and the user's previous visibility choice remains persisted.
         mScientificVisible = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .getBoolean(PREF_SCIENTIFIC, true);
+                .getBoolean(PREF_SCIENTIFIC, false);
         applyAdvancedPadVisibility(mScientificVisible);
         updateScientificToggleLabel();
         updateScientificToggleVisibility();

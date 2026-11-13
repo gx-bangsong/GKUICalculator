@@ -1,0 +1,58 @@
+name: Android UI on emulator
+
+on:
+  push:
+    branches:
+      - 'arena/**'
+      - 'lineage-*'
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  emulator-ui:
+    name: Pixel-style emulator UI checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: '17'
+          cache: gradle
+
+      - name: Run instrumented UI tests and capture screens
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            set +e
+            ./gradlew connectedDebugAndroidTest --stacktrace
+            test_result=$?
+            mkdir -p build/ui-screenshots
+            screenshot_dir=/sdcard/Android/data/com.android.calculator2.dev/files/ui-screenshots
+            adb pull "$screenshot_dir/calculator-default.png" build/ui-screenshots/ || true
+            adb pull "$screenshot_dir/calculator-units.png" build/ui-screenshots/ || true
+            exit "$test_result"
+
+      - name: Upload emulator screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: calculator-ui-screenshots
+          path: build/ui-screenshots/*.png
+          if-no-files-found: warn
+          retention-days: 14

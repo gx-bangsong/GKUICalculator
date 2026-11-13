@@ -1,11 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-     SPDX-FileCopyrightText: The LineageOS Project
-     SPDX-License-Identifier: Apache-2.0
--->
+<!-- The display is a continuous canvas rather than a raised card. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <solid android:color="@color/display_background_color" />
-    <corners
-         android:bottomLeftRadius="@dimen/display_corner_radius"
-         android:bottomRightRadius="@dimen/display_corner_radius" />
 </shape>

@@ -37,7 +37,7 @@
     <!-- Buttons -->
     <dimen name="button_horizontal_margin">4dp</dimen>
     <dimen name="button_small_horizontal_margin">2dp</dimen>
-    <dimen name="button_iconsize">48dp</dimen>
+    <dimen name="button_iconsize">24dp</dimen>
 
     <!-- Tool bar -->
     <dimen name="tool_bar_horizontal_padding">4dp</dimen>

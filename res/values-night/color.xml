@@ -1,26 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     SPDX-FileCopyrightText: The LineageOS Project
+     SPDX-FileCopyrightText: 2026 The GKUICalculator Project
      SPDX-License-Identifier: Apache-2.0
-
-     Static (non-dynamic) fallback colors (dark) for Android 11 (API 30), where Material You
-     dynamic colors do not exist. On Android 12+ the values-night-v31 overrides restore them.
 -->
 <resources>
 
-    <!-- Display background -->
-    <color name="history_background_color">#FF322F35</color>
-    <color name="display_background_color">#FF141218</color>
+    <color name="history_background_color">#FF25261F</color>
+    <color name="display_background_color">#FF191A15</color>
 
-    <!-- Display text -->
-    <color name="display_formula_text_color">#FFE6E0E9</color>
-    <color name="display_result_text_color">#FFCAC4D0</color>
-    <color name="display_result_exponent_text_color">#FFCCC2DC</color>
+    <color name="display_formula_text_color">#FFF1EEE3</color>
+    <color name="display_result_text_color">#FFBDCEA7</color>
+    <color name="display_result_exponent_text_color">#FFBDCEA7</color>
 
-    <!-- Tool overlay panel surface (sits above the pads; reads as a raised sheet). -->
-    <color name="tool_panel_background_color">#FF322F35</color>
+    <color name="tool_panel_background_color">#FF24251E</color>
+    <color name="tool_field_text_color">#FFF1EEE3</color>
 
-    <!-- Tool input-field text (inactive); a flat color so it always renders visibly. -->
-    <color name="tool_field_text_color">#FFE6E0E9</color>
+    <color name="calculator_key_number">#FF292A24</color>
+    <color name="calculator_key_action">#FF48402F</color>
+    <color name="calculator_key_operator">#FF403D32</color>
+    <color name="calculator_key_clear">#FF34342D</color>
+    <color name="calculator_key_equals">#FFBED29F</color>
+    <color name="calculator_key_text">#FFF1EEE3</color>
+    <color name="calculator_key_text_on_accent">#FF27331E</color>
+
+    <color name="calculator_chip_background">#FF2C2D26</color>
+    <color name="calculator_chip_text">#FFD6D1C5</color>
+    <color name="calculator_chip_selected_background">#FFD5C39A</color>
+    <color name="calculator_chip_selected_text">#FF2E2A1F</color>
+    <color name="calculator_unit_selector_background">#FF30312A</color>
+    <color name="calculator_unit_selector_text">#FFECE7DC</color>
+    <color name="calculator_display_divider">#FF3D3E35</color>
 
 </resources>

@@ -8,7 +8,7 @@
     android:id="@+id/display"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/rounded_bottom"
+    android:background="@color/display_background_color"
     android:clipChildren="false"
     android:orientation="vertical">
 

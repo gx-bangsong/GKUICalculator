@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One compact, checkable category pill inside the inline unit-converter strip. -->
+<com.google.android.material.chip.Chip
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.Material3.Chip.Filter"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:checkable="true"
+    android:textSize="12sp"
+    app:checkedIcon="@null"
+    app:chipBackgroundColor="@color/calculator_chip_background_states"
+    app:chipCornerRadius="18dp"
+    app:chipMinHeight="32dp"
+    app:chipStartPadding="10dp"
+    app:chipEndPadding="10dp"
+    app:chipStrokeWidth="0dp"
+    app:chipTextColor="@color/calculator_chip_text_states"
+    app:ensureMinTouchTargetSize="false" />

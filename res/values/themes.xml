@@ -8,7 +8,7 @@
     <style name="Theme" parent="Theme.Material3Expressive.DayNight">
         <item name="android:statusBarColor">@color/display_background_color</item>
         <item name="android:windowLightStatusBar">?isLightTheme</item>
-        <item name="android:navigationBarColor">?colorSurface</item>
+        <item name="android:navigationBarColor">@color/display_background_color</item>
         <item name="android:windowLightNavigationBar">?isLightTheme</item>
     </style>
 
@@ -30,33 +30,33 @@
     </style>
 
     <style name="Theme.Button.Advanced">
-        <item name="colorContainer">?colorSurface</item>
-        <item name="colorOnContainer">?colorOnSurface</item>
+        <item name="colorContainer">@color/calculator_key_number</item>
+        <item name="colorOnContainer">@color/calculator_key_text</item>
     </style>
 
     <style name="Theme.Button.Numeric">
-        <item name="colorContainer">?colorSurfaceVariant</item>
-        <item name="colorOnContainer">?colorOnSurface</item>
+        <item name="colorContainer">@color/calculator_key_number</item>
+        <item name="colorOnContainer">@color/calculator_key_text</item>
     </style>
 
     <style name="Theme.Button.Operator">
-        <item name="colorContainer">?colorSecondaryContainer</item>
-        <item name="colorOnContainer">?colorOnSecondaryContainer</item>
+        <item name="colorContainer">@color/calculator_key_operator</item>
+        <item name="colorOnContainer">@color/calculator_key_text</item>
     </style>
 
     <style name="Theme.Button.Clear">
-        <item name="colorContainer">?colorSurfaceVariant</item>
-        <item name="colorOnContainer">?colorOnSurfaceVariant</item>
+        <item name="colorContainer">@color/calculator_key_clear</item>
+        <item name="colorOnContainer">@color/calculator_key_text</item>
     </style>
 
     <style name="Theme.Button.Action">
-        <item name="colorContainer">?colorPrimaryContainer</item>
-        <item name="colorOnContainer">?colorOnPrimaryContainer</item>
+        <item name="colorContainer">@color/calculator_key_action</item>
+        <item name="colorOnContainer">@color/calculator_key_text</item>
     </style>
 
     <style name="Theme.Button.Equals">
-        <item name="colorContainer">?colorTertiary</item>
-        <item name="colorOnContainer">?colorOnTertiary</item>
+        <item name="colorContainer">@color/calculator_key_equals</item>
+        <item name="colorOnContainer">@color/calculator_key_text_on_accent</item>
     </style>
 
 </resources>

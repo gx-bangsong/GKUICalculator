@@ -1,27 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     SPDX-FileCopyrightText: 2015 The Android Open Source Project
+     SPDX-FileCopyrightText: 2026 The GKUICalculator Project
      SPDX-License-Identifier: Apache-2.0
 
-     Static (non-dynamic) fallback colors for Android 11 (API 30), where Material You
-     dynamic colors (material_dynamic_*) do not exist. On Android 12+ the values-v31 /
-     values-night-v31 overrides restore the dynamic colors. Values-v34 use system colors.
+     A warm, low-contrast calculator palette inspired by the Google Calculator v10 preview.
+     The key colors are explicit so the keypad stays visually consistent across wallpapers.
 -->
 <resources>
 
-    <!-- Display background -->
-    <color name="history_background_color">#FFF1EDF1</color>
-    <color name="display_background_color">#FFE7E0EC</color>
+    <color name="history_background_color">#FFF2E3</color>
+    <color name="display_background_color">#FFFBF4</color>
 
-    <!-- Display text -->
-    <color name="display_formula_text_color">#FF1D1B20</color>
-    <color name="display_result_text_color">#FF49454F</color>
-    <color name="display_result_exponent_text_color">#FF49454F</color>
+    <color name="display_formula_text_color">#FF29251E</color>
+    <color name="display_result_text_color">#FF566642</color>
+    <color name="display_result_exponent_text_color">#FF566642</color>
 
-    <!-- Tool overlay panel surface (sits above the pads; reads as a raised sheet). -->
-    <color name="tool_panel_background_color">#FFF1EDF1</color>
+    <color name="tool_panel_background_color">#FFF4E9</color>
+    <color name="tool_field_text_color">#FF29251E</color>
 
-    <!-- Tool input-field text (inactive); a flat color so it always renders visibly. -->
-    <color name="tool_field_text_color">#FF1D1B20</color>
+    <!-- Calculator key surfaces. -->
+    <color name="calculator_key_number">#FFF0E8DF</color>
+    <color name="calculator_key_action">#FFFFE2C0</color>
+    <color name="calculator_key_operator">#FFF8DEBF</color>
+    <color name="calculator_key_clear">#FFEEE8DF</color>
+    <color name="calculator_key_equals">#FF506443</color>
+    <color name="calculator_key_text">#FF29251E</color>
+    <color name="calculator_key_text_on_accent">#FFFFFBF4</color>
+
+    <!-- Filter/tool pills share the same checked state and warm ink. -->
+    <color name="calculator_chip_background">#FFF2EADD</color>
+    <color name="calculator_chip_text">#FF5B4E3B</color>
+    <color name="calculator_chip_selected_background">#FF796849</color>
+    <color name="calculator_chip_selected_text">#FFFFFBF4</color>
+    <color name="calculator_unit_selector_background">#FFF1E8DC</color>
+    <color name="calculator_unit_selector_text">#FF4A4338</color>
+    <color name="calculator_display_divider">#FFE4DACB</color>
 
 </resources>

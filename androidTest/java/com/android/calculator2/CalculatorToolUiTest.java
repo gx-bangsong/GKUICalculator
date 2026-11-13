@@ -13,16 +13,23 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.Assert.assertNotNull;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 
 import androidx.test.core.app.ApplicationProvider;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 
 /**
  * Instrumented UI tests for the life-calculation tool bar.
@@ -44,6 +51,42 @@ public class CalculatorToolUiTest {
     public void overlayStartsCollapsed() {
         onView(withId(R.id.tool_panel_overlay))
                 .check(matches(org.hamcrest.Matchers.not(isDisplayed())));
+    }
+
+    /** A first-run install opens on the standard keypad with the science pad one tap away. */
+    @Test
+    public void firstRunUsesStandardKeypad() {
+        resetTestPreferences();
+        onView(withId(R.id.advanced_pad))
+                .check(matches(org.hamcrest.Matchers.not(isDisplayed())));
+        onView(withId(R.id.scientific_toggle))
+                .check(matches(withText(R.string.tool_scientific_show)));
+    }
+
+    /** Unit categories stay as inline pills, rather than opening a full-screen unit chooser. */
+    @Test
+    public void unitCategoriesRemainInlinePills() {
+        openUnitConverter();
+        onView(withId(R.id.unit_category_pills)).check(matches(isDisplayed()));
+        onView(withText(R.string.tool_units_area)).perform(click());
+        onView(withId(R.id.unit_from)).check(matches(isDisplayed()));
+        onView(withId(R.id.unit_to)).check(matches(isDisplayed()));
+    }
+
+    /** Capture the two key UI states so the emulator job can publish screenshots for review. */
+    @Test
+    public void captureCalculatorScreenshot() throws IOException {
+        resetTestPreferences();
+        onView(withId(R.id.input_pad)).check(matches(isDisplayed()));
+        saveScreenshot("calculator-default.png");
+    }
+
+    @Test
+    public void captureUnitConverterScreenshot() throws IOException {
+        resetTestPreferences();
+        openUnitConverter();
+        onView(withId(R.id.unit_category_pills)).check(matches(isDisplayed()));
+        saveScreenshot("calculator-units.png");
     }
 
     /** Tapping the "more" button must expand the overlay. */
@@ -132,5 +175,44 @@ public class CalculatorToolUiTest {
         // The same circled amount view now shows 大写; no duplicate reading is drawn below.
         onView(withId(R.id.currency_input_text)).check(matches(withText("肆")));
         onView(withId(R.id.result)).check(matches(withText("")));
+    }
+
+    private void resetTestPreferences() {
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        context.getSharedPreferences("calc_tools", Context.MODE_PRIVATE)
+                .edit().clear().commit();
+        mActivityRule.getScenario().recreate();
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+    }
+
+    private void openUnitConverter() {
+        onView(withId(R.id.tool_more_button)).perform(click());
+        onView(allOf(withId(R.id.tool_panel_item_text),
+                withText(R.string.tool_unit), isDisplayed())).perform(click());
+    }
+
+    private static void saveScreenshot(String name) throws IOException {
+        final Bitmap screenshot = InstrumentationRegistry.getInstrumentation()
+                .getUiAutomation().takeScreenshot();
+        assertNotNull("UI Automation did not return a screenshot", screenshot);
+
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        final File parent = context.getExternalFilesDir("ui-screenshots");
+        if (parent == null) {
+            screenshot.recycle();
+            throw new IOException("External app files directory is unavailable");
+        }
+        if (!parent.exists() && !parent.mkdirs()) {
+            screenshot.recycle();
+            throw new IOException("Could not create screenshot directory: " + parent);
+        }
+        final File file = new File(parent, name);
+        try (FileOutputStream output = new FileOutputStream(file)) {
+            if (!screenshot.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                throw new IOException("Could not encode screenshot: " + file);
+            }
+        } finally {
+            screenshot.recycle();
+        }
     }
 }
