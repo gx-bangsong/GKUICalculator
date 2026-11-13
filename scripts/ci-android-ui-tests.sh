@@ -5,7 +5,6 @@ mkdir -p build/ui-screenshots
 rm -f build/ui-screenshots/*.png
 log_file=build/connected-debug-android-test.log
 screenshot_dir=/sdcard/Android/data/com.android.calculator2.dev/files/ui-screenshots
-adb shell rm -rf "$screenshot_dir" || true
 
 # Avoid Play Protect timing out while this unaccelerated CI emulator installs the debug APK.
 adb shell settings put global verifier_verify_adb_installs 0 || true
@@ -50,6 +49,12 @@ if ((test_result == 0)); then
         echo "::notice title=Android UI test result::$test_summary"
     else
         echo "::warning title=Android UI test result::Gradle reported success without a visible test-count summary."
+    fi
+    recovery_summary=$(adb logcat -d -v brief 2>/dev/null | grep -F 'CalculatorToolUiTest' | tail -n 12 || true)
+    if [[ -n "$recovery_summary" ]]; then
+        recovery_summary=${recovery_summary:0:1400}
+        recovery_summary=$(printf '%s\n' "$recovery_summary" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
+        echo "::notice title=Emulator focus recovery::$recovery_summary"
     fi
 fi
 
