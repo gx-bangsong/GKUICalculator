@@ -4,7 +4,7 @@ set -euo pipefail
 mkdir -p build/ui-screenshots
 log_file=build/connected-debug-android-test.log
 
-if ./gradlew connectedDebugAndroidTest --stacktrace --console=plain >"$log_file" 2>&1; then
+if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorToolUiTest#captureCalculatorScreenshot --stacktrace --console=plain >"$log_file" 2>&1; then
     test_result=0
 else
     test_result=$?
@@ -18,6 +18,30 @@ if ((test_result != 0)); then
     fi
     diagnostics=$(printf '%s\n' "$diagnostics" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
     echo "::error title=connectedDebugAndroidTest failed::$diagnostics"
+
+    failure_summary=$(python3 - <<'PY'
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+results = Path("build/outputs/androidTest-results")
+for report in sorted(results.rglob("*.xml")) if results.exists() else []:
+    try:
+        root = ET.parse(report).getroot()
+    except ET.ParseError:
+        continue
+    for test in root.iter("testcase"):
+        for failure in list(test.findall("failure")) + list(test.findall("error")):
+            message = (failure.get("message") or "").strip()
+            detail = " ".join("".join(failure.itertext()).split())
+            summary = " | ".join(part for part in (message, detail) if part)
+            label = ".".join(part for part in (test.get("classname"), test.get("name")) if part)
+            print(f"{label}: {summary[:1800]}")
+PY
+)
+    if [[ -n "$failure_summary" ]]; then
+        failure_summary=$(printf '%s\n' "$failure_summary" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
+        echo "::error title=Instrumented test failure details::$failure_summary"
+    fi
 fi
 
 screenshot_dir=/sdcard/Android/data/com.android.calculator2.dev/files/ui-screenshots
