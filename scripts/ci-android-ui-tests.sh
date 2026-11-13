@@ -6,7 +6,7 @@ rm -f build/ui-screenshots/*.png
 log_file=build/connected-debug-android-test.log
 screenshot_dir=/sdcard/Android/data/com.android.calculator2.dev/files/ui-screenshots
 
-# Avoid Play Protect timing out while this unaccelerated CI emulator installs the debug APK.
+# Avoid Play Protect timing out while the fresh CI emulator installs the debug APK.
 adb shell settings put global verifier_verify_adb_installs 0 || true
 adb shell settings put global package_verifier_enable 0 || true
 
@@ -187,10 +187,24 @@ emit_review_preview() {
     local label="$2"
     local preview="${image%.png}-review.jpg"
     local part=1
-    if ! command -v sips >/dev/null || [[ ! -f "$image" ]]; then
+    if [[ ! -f "$image" ]]; then
         return
     fi
-    if ! sips -s format jpeg -s formatOptions 60 -Z 720 "$image" --out "$preview" >/dev/null 2>&1; then
+    if command -v sips >/dev/null; then
+        sips -s format jpeg -s formatOptions 60 -Z 720 "$image" --out "$preview" >/dev/null 2>&1 || return
+    elif command -v magick >/dev/null; then
+        magick "$image" -resize 720x -quality 60 "$preview" >/dev/null 2>&1 || return
+    elif command -v convert >/dev/null; then
+        convert "$image" -resize 720x -quality 60 "$preview" >/dev/null 2>&1 || return
+    elif python3 -c 'from PIL import Image' >/dev/null 2>&1; then
+        python3 - "$image" "$preview" <<'PY'
+from PIL import Image
+import sys
+with Image.open(sys.argv[1]) as image:
+    image.thumbnail((720, 720))
+    image.convert("RGB").save(sys.argv[2], "JPEG", quality=60)
+PY
+    else
         return
     fi
     while IFS= read -r chunk; do

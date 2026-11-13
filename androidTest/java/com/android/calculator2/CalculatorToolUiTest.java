@@ -52,9 +52,9 @@ public class CalculatorToolUiTest {
             new ActivityScenarioRule<>(Calculator.class);
 
     /**
-     * Keep headless CI runs interactive. Some fresh API 35 AVD boots surface Android's
+     * Keep headless CI runs interactive. Some fresh AVD boots surface Android's
      * System UI "isn't responding" dialog after the Gradle install phase; dismissing its Wait
-     * action restores window focus before Espresso starts matching app views.
+     * action (or closing the still-stalled System UI process) restores focus before Espresso.
      */
     @Before
     public void clearSystemUiRecoveryPrompt() {
