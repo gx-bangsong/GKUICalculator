@@ -125,7 +125,7 @@ else:
 print("Report files: " + (", ".join(str(path) for path in report_files[:12]) or "none found"))
 PY
 )
-    logcat_summary=$(adb logcat -d -v brief 2>/dev/null | grep -nEi -B 4 -A 12 'CalculatorToolUiTest|TestRunner|AndroidJUnitRunner|AssertionError|NoMatchingViewException|PerformException|FATAL EXCEPTION|INSTRUMENTATION_RESULT|instrumentation.*fail' | tail -n 90 || true)
+    logcat_summary=$(adb logcat -d -v brief 2>/dev/null | grep -nEi -B 4 -A 12 'CalculatorToolUiTest|TestRunner|AndroidJUnitRunner|AssertionError|NoMatchingViewException|PerformException|FATAL EXCEPTION|INSTRUMENTATION_RESULT|instrumentation.*fail|ANR|not responding|Input dispatching timed out|com\.android\.systemui|system_server' | tail -n 90 || true)
     if [[ -n "$logcat_summary" ]]; then
         if [[ ${#failure_summary} -gt 1600 ]]; then
             failure_summary="${failure_summary:0:1600} [report output truncated]"

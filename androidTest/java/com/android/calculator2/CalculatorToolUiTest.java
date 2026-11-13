@@ -17,12 +17,17 @@ import static org.junit.Assert.assertNotNull;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.util.Log;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject;
+import androidx.test.uiautomator.UiSelector;
 
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,6 +50,30 @@ public class CalculatorToolUiTest {
     @Rule
     public ActivityScenarioRule<Calculator> mActivityRule =
             new ActivityScenarioRule<>(Calculator.class);
+
+    /**
+     * Keep headless CI runs interactive. Some fresh API 35 AVD boots surface Android's
+     * System UI "isn't responding" dialog after the Gradle install phase; dismissing its Wait
+     * action restores window focus before Espresso starts matching app views.
+     */
+    @Before
+    public void clearSystemUiRecoveryPrompt() {
+        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        try {
+            device.wakeUp();
+            device.executeShellCommand("wm dismiss-keyguard");
+            final UiObject waitButton = device.findObject(new UiSelector().text("Wait"));
+            if (waitButton.waitForExists(5000)) {
+                Log.i("CalculatorToolUiTest", "Dismissing the System UI ANR prompt with Wait");
+                waitButton.click();
+                device.waitForIdle(10000);
+            } else {
+                Log.i("CalculatorToolUiTest", "No System UI ANR prompt appeared before the test");
+            }
+        } catch (Exception exception) {
+            Log.w("CalculatorToolUiTest", "Unable to recover emulator window focus", exception);
+        }
+    }
 
     /** The "more" overlay must be collapsed (not displayed) when the app launches. */
     @Test
@@ -182,6 +211,7 @@ public class CalculatorToolUiTest {
         context.getSharedPreferences("calc_tools", Context.MODE_PRIVATE)
                 .edit().clear().commit();
         mActivityRule.getScenario().recreate();
+        clearSystemUiRecoveryPrompt();
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
