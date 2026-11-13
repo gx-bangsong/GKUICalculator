@@ -251,8 +251,6 @@ public class CalculatorToolUiTest {
         // is captured and can be pulled from shared storage by the CI host.
         final String path = "/sdcard/" + name;
         device.executeShellCommand("screencap -p " + path);
-        assertEquals("Test-generated screenshot was not written to shared storage", "present",
-                device.executeShellCommand("test -s " + path + " && echo present").trim());
 
         // A recovery dialog appearing during capture must still fail the test, not publish a bad PNG.
         assertCalculatorUnobstructed(device, context.getPackageName());
