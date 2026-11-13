@@ -33,12 +33,23 @@ jobs:
       - name: Run instrumented UI tests and capture screens
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
-          target: default
-          arch: x86
+          api-level: 35
+          target: google_apis
+          arch: x86_64
           profile: pixel_2
+          cores: 2
+          ram-size: 3072M
+          heap-size: 512M
+          disk-size: 6G
+          emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           disable-animations: true
+          pre-emulator-launch-script: |
+            acceleration=$(emulator -accel-check 2>&1 || true)
+            acceleration=$(printf '%s\n' "$acceleration" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
+            echo "::notice title=Android emulator acceleration::$acceleration"
+            disk=$(df -h "$HOME/.android/avd" | tail -n 1)
+            echo "::notice title=Android AVD free space::$disk"
           script: |
             mkdir -p build/ui-screenshots
             log_file=build/connected-debug-android-test.log
