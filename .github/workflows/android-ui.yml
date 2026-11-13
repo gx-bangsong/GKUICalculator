@@ -45,7 +45,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           pre-emulator-launch-script: |
-            echo "::notice title=Android emulator acceleration::$(emulator -accel-check 2>&1 | tr '\n' ' ')"
+            if [ -e /dev/kvm ]; then echo "::notice title=KVM acceleration::/dev/kvm is available"; else echo "::warning title=KVM acceleration::/dev/kvm is missing"; fi
             echo "::notice title=Android AVD free space::$(df -h "$HOME/.android/avd" | tail -n 1 | sed 's/%/%25/g')"
           script: bash scripts/ci-android-ui-tests.sh
 
