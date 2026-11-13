@@ -19,6 +19,7 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.util.Log;
+import android.view.View;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -116,9 +117,14 @@ public class CalculatorToolUiTest {
         resetTestPreferences();
         final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        final UiObject digitOne = device.findObject(
-                new UiSelector().text(context.getString(R.string.digit_1)));
-        assertTrue("Calculator keypad is not visible", digitOne.waitForExists(10000));
+        assertCalculatorUnobstructed(device, context.getPackageName());
+
+        final boolean[] keypadShown = new boolean[1];
+        mActivityRule.getScenario().onActivity(activity -> {
+            final View inputPad = activity.findViewById(R.id.input_pad);
+            keypadShown[0] = inputPad != null && inputPad.isShown();
+        });
+        assertTrue("Calculator keypad is not visible", keypadShown[0]);
         saveScreenshot("calculator-default.png");
     }
 
