@@ -4,6 +4,10 @@ set -euo pipefail
 mkdir -p build/ui-screenshots
 log_file=build/connected-debug-android-test.log
 
+# Avoid Play Protect timing out while this unaccelerated CI emulator installs the debug APK.
+adb shell settings put global verifier_verify_adb_installs 0 || true
+adb shell settings put global package_verifier_enable 0 || true
+
 if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorToolUiTest#captureCalculatorScreenshot --stacktrace --console=plain >"$log_file" 2>&1; then
     test_result=0
 else
@@ -47,5 +51,26 @@ fi
 screenshot_dir=/sdcard/Android/data/com.android.calculator2.dev/files/ui-screenshots
 adb pull "$screenshot_dir/calculator-default.png" build/ui-screenshots/ || true
 adb pull "$screenshot_dir/calculator-units.png" build/ui-screenshots/ || true
+
+emit_review_preview() {
+    local image="$1"
+    local label="$2"
+    local preview="${image%.png}-review.jpg"
+    local part=1
+    if ! command -v sips >/dev/null || [[ ! -f "$image" ]]; then
+        return
+    fi
+    if ! sips -s format jpeg -s formatOptions 60 -Z 720 "$image" --out "$preview" >/dev/null 2>&1; then
+        return
+    fi
+    while IFS= read -r chunk; do
+        echo "::notice title=$label part $part::$chunk"
+        part=$((part + 1))
+    done < <(base64 < "$preview" | tr -d '\n' | fold -w 8000)
+}
+
+# Keep original PNGs as artifacts; small JPEG previews are carried in check annotations for review.
+emit_review_preview build/ui-screenshots/calculator-default.png "VM calculator screenshot"
+emit_review_preview build/ui-screenshots/calculator-units.png "VM unit-converter screenshot"
 
 exit "$test_result"
