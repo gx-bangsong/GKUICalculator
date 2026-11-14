@@ -46,30 +46,44 @@
             layout="@layout/tool_bar"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            app:layout_constraintBottom_toTopOf="@id/advanced_pad"
+            app:layout_constraintBottom_toTopOf="@id/pad_stack"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHeight_percent="@dimen/layout_tool_bar_ratio"
             app:layout_constraintStart_toStartOf="parent" />
 
-        <include
-            android:id="@+id/advanced_pad"
-            layout="@layout/advanced_pad"
+        <!--
+            The scientific pad and the digit pad share ONE fixed-height block. Google Calculator
+            v10 keeps the key block's top edge (and therefore the 123 / fx / ⇄ strip and the
+            display above it) in exactly the same place when fx is pressed; only the rows inside
+            the block are re-divided (5 tall rows <-> 8 shorter ones). Sizing the two pads with
+            weights inside a single stack reproduces that: the block never moves, so the display
+            never shrinks.
+        -->
+        <LinearLayout
+            android:id="@+id/pad_stack"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            app:layout_constraintBottom_toTopOf="@id/input_pad"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHeight_percent="@dimen/layout_advanced_pad_ratio"
-            app:layout_constraintStart_toStartOf="parent" />
-
-        <include
-            android:id="@+id/input_pad"
-            layout="@layout/input_pad"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
+            android:orientation="vertical"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHeight_percent="@dimen/layout_input_pad_ratio"
-            app:layout_constraintStart_toStartOf="parent" />
+            app:layout_constraintHeight_percent="@dimen/layout_pads_ratio"
+            app:layout_constraintStart_toStartOf="parent">
+
+            <include
+                android:id="@+id/advanced_pad"
+                layout="@layout/advanced_pad"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="@integer/advanced_pad_weight" />
+
+            <include
+                android:id="@+id/input_pad"
+                layout="@layout/input_pad"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="@integer/input_pad_weight" />
+
+        </LinearLayout>
 
         <FrameLayout
             android:id="@+id/animation_helper"

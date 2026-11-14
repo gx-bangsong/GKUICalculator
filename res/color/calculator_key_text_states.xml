@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Key labels fade out while the key sits in a disabled state (e.g. programmer keys outside
+     hexadecimal), so a disabled key reads as unavailable rather than merely grey. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/calculator_key_text_disabled" android:state_enabled="false" />
+    <item android:color="@color/calculator_key_text" />
+</selector>

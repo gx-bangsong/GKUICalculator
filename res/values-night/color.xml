@@ -21,6 +21,7 @@
     <color name="calculator_key_clear">#FF34342D</color>
     <color name="calculator_key_equals">#FFBED29F</color>
     <color name="calculator_key_text">#FFF1EEE3</color>
+    <color name="calculator_key_text_disabled">#FF7A766B</color>
     <color name="calculator_key_text_on_accent">#FF27331E</color>
 
     <color name="calculator_chip_background">#FF2C2D26</color>
@@ -30,5 +31,6 @@
     <color name="calculator_unit_selector_background">#FF30312A</color>
     <color name="calculator_unit_selector_text">#FFECE7DC</color>
     <color name="calculator_display_divider">#FF3D3E35</color>
+    <color name="mode_segment_ripple">#33D5C39A</color>
 
 </resources>

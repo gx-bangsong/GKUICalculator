@@ -91,10 +91,12 @@
     <string name="tool_date">日期</string>
     <string name="tool_more">更多</string>
     <string name="tool_more_close">收起</string>
-    <string name="tool_scientific_show">科学</string>
+    <!-- 123 / fx / ⇄ 模式切换的辅助说明。 -->
+    <string name="desc_mode_basic">标准键盘</string>
+    <string name="desc_mode_scientific">科学键盘</string>
+    <string name="desc_mode_convert">换算工具</string>
     <string name="desc_uppercase_numbers_off">显示中文大写数字</string>
     <string name="desc_uppercase_numbers_on">关闭中文大写数字</string>
-    <string name="tool_scientific_hide">收起</string>
     <string name="tool_panel_title">全部工具</string>
     <string name="tool_panel_empty">暂无更多工具</string>
     <string name="tool_coming_soon">“%1$s”功能即将上线</string>

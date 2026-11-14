@@ -18,17 +18,24 @@ reconstructed from this repository's layout resources (`res/layout`, `ratios.xml
 | [`02-unit-conversion.png`](02-unit-conversion.png) | unit conversion, unit selection |
 | [`03-history-and-more.png`](03-history-and-more.png) | history entry point, overflow surface |
 
+Both steps are reproducible: `python3 docs/ui-comparison/render_ours.py` rewrites `ours/` from
+this repository's resources, then `python3 docs/ui-comparison/build_sheets.py` recomposes the
+three sheets.
+
 ---
 
 ## 1. Summary
 
 The palette already reads as the same product: the warm cream surfaces and the olive "equals" key
-match Google within a few percent. The visible differences are structural, not colour-related:
+match Google within a few percent. The mode control, the key-label size and the scientific pad were
+the three structural differences. The tables below describe the *implemented* state, and §9
+separates what this change fixed from what is still open (key shape and gutter, unit/category
+pickers, precision, currency coverage):
 
 | | Google v10 | GKUICalculator |
 |---|---|---|
-| Mode control | **Segmented pill** `123 │ ƒx │ ⇄` (icons only), *below* the display, above the keypad | **Chip row**: `Sci` + `Calc`/`Units`/`Currency`… + overflow, one 8 % band |
-| Scientific pad | **3 flat, low pills** (20.6 dp tall, 47.4 dp pitch, ~10 dp radius) inside the same 6-row block, so the display never moves | **3 rounded rows** in a separate 0.17 H band with the same 32 dp key style, so the display shrinks when `Sci` is on |
+| Mode control | **Segmented pill** `123 │ ƒx │ ⇄`: a 135 × 44 dp track, dark selected segment, *below* the display and above the keypad | **Same segmented control**, 44 dp track with a dark selected segment (`tool_bar.xml`); tool pills appear beside it only while a tool is active |
+| Scientific pad | **3 flat pills** (95 × 47.6 dp, r ≈ 24 dp, 15–17 dp labels) inside one fixed 409 dp key block, so the display never moves | **3 flat pills** (10 dp radius, 0.165 label scale) inside the fixed `pad_stack` block; pressing `fx` re-divides the rows and **does not move the display** |
 | Unit categories | Inline chips **below** the two rows, right above the keypad (`Currency Length Weight …`) **plus** a full-screen `Choose a category` picker with search | Inline chips **above** the from-row at the top of the control slot; the `Choose a category` screen does not exist, the *unit* picker is an anchored `PopupMenu` |
 | Currency | **130+ currencies**, flag + name + ISO code, `Loading exchange rates…`, EUR/USD pill labels | **12 curated currencies**, `symbol ISO · name` text rows, `Loading rates…`, `Offline rates` fallback |
 | Unit names | Descriptive: `Celsius (°C)`, `Kilometer per hour (km/h)`, `Horsepower (HP)` | Compact: `°C`, `km/h`, `hp` |
@@ -41,51 +48,48 @@ match Google within a few percent. The visible differences are structural, not c
 Measured values (Google side from the frame; our side from `ratios.xml` / `dimens.xml` /
 `styles.xml`):
 
-| Item | Google | GKUI | Δ |
+| Item | Google v10 (measured) | GKUI (now, from `res/`) | Δ |
 |---|---|---|---|
 | App width | 400 dp | 400 dp | — |
-| Key pitch | **96.5 × 99.1 dp** | **96 × 106.6 dp** ¹ | +7 dp per row |
-| Key size | **76.4 × 78.8 dp** | 88 × 106.6 dp | +12 / +28 dp |
-| Corner radius | **≈ 37.8 dp → stadium** (r ≈ h/2) | 32 dp (r ≈ 0.30 h) | flatter |
-| Gaps between keys | **≈ 4 dp** horizontal, **≈ 4 dp** vertical (glyph-free runs 4.5/4.3 dp; component bounds merge through the gutter) | **8 dp** horizontal, **0 dp** vertical ² | — |
-| Outer padding | **3.5 dp** each side (keys at x = 3.5 … 393.5 dp) | **12 dp** (8 dp pad + 4 dp margin) | — |
-| Row structure | 6 equal rows: **4 digit rows + 1 bottom row + a 44 dp control row** (~110 dp total) | 5 rows in one 0.45 H band + a separate 0.17 H band | — |
-| Key label size | 24.7 dp ink (AC ≈ 25.7) | `PadButtonStyle` 24 sp, but **overridden to 0.4 × key height** = 42.6 dp ³ | ~1.7× |
-| Formula / result | 24.7 dp ink, result `#515E3C` | 32–48 sp auto / 32 sp, result `#566642` | larger |
-| Display area (full chrome) | 54 % (keypad block starts at 46 %) | **75 %** (0.30 H display + 0.08 H chip band; keypad starts at 38 %) | — |
-| Scientific band | 0.00 H — the 3 rows are *inside* the 46 % keypad block (6 rows total) | **0.17 H** extra band (`advanced_pad`) on top of the 0.45 H keypad | iPad-style growth |
+| Key block | **one 409 dp block**, 456 → 865 dp, 34 dp above the gesture bar | `@id/pad_stack`, **0.47 H**, bottom-anchored | block height matches once the 34 dp inset is counted |
+| Standard keypad rows | 5 rows, **78.5 dp** tall, pitch 82.8 dp | 5 rows in the block ⇒ **≈ 79.8 dp** on a 899 dp window | ≈ 1 dp |
+| Scientific rows | **47.6–47.9 dp** tall, pitch 51.7 dp | 3 rows, 3/8 of the block ⇒ **≈ 47.9 dp** | ≈ 0 dp |
+| Keys | **76.4 × 78.8 dp** stadium (r ≈ h/2) | 88 × 75.8 dp, radius 32 dp | we are 12 dp wider, 3 dp shorter |
+| Gaps between keys | 4.5 dp horizontal, 4.3 dp vertical | 8 dp horizontal, 4 dp vertical (`button_vertical_margin`) | horizontal double |
+| Outer padding | 3.5 dp each side | 12 dp (8 dp pad + 4 dp margin) | 8.5 dp |
+| Key label | **24.7 dp ink** on a digit key, **15.3 dp** on a scientific key | 0.21 × width clamped to 0.42 × height ⇒ **20.2 sp** digits, 0.165 × width ⇒ **15.9 sp** scientific | digits ~4 dp small |
+| Mode strip | **135.1 × 44.4 dp**, r = 22 dp, ink ≈ 21 dp, 11.8 dp from the left edge | `mode_segments`, height **44 dp**, r 22 dp, 15 sp ink, 4 dp padding | matches |
+| Display top | key block starts at 46 % of the window | 0.45 display + 0.08 strip ⇒ block starts at 53 % | we keep 7 % less display |
+| Display on `ƒx` | **does not move at all** | **does not move** — the pad is GONE and the digit pad inherits its 3 rows (weight 3:5 → 8) | fixed |
+| Scientific band | 0.00 H — rows live inside the key block | 0.00 H — `advanced_pad` lives inside `pad_stack` | fixed |
 
-¹ 62 % of the height for five rows on a 860 dp-tall working area.
-² `PadButtonStyle` sets only `layout_marginHorizontal`; rows share a guideline with no vertical margin.
-³ `HapticButton.onSizeChanged()` calls `setTextSize(h * 0.4f)` — it overrides the 24 sp in
-`PadButtonStyle`, and because the 0.45 H band is shared by five rows the label scales with screen
-height (≈42 dp ink on a 1080×2392 phone vs Google's ~25 dp).
-
-**What this feels like:** our keys are taller than they are wide (aspect 0.83) with no vertical
-air, so the pad reads as a dense wall of tall pills. Google's pad is a 4 × 5 grid of near-square
-"stadium" keys (aspect 0.97, radius ≈ half the key height) with a tight ~4 dp gutter, and the whole
-keypad — including the extra scientific rows — occupies a fixed 6-row block at the bottom of the
-screen. The single most visible difference is not the gutter: it is that **Google's keypad block is
-110 dp shorter and starts ~340 dp lower** (46 % vs 75 % for the display), and that enabling the
-scientific pad *adds* a band in ours (the display shrinks from 75 % to 58 %) whereas Google simply
-re-flows the same 6-row block into 9 rows. Our labels are also ~1.7× larger because
-`HapticButton.onSizeChanged()` sizes text from the key height.
+**What this feels like:** the keypad block now occupies the same share of the screen as Google's
+(a 409 dp block ending 34 dp above the gesture bar), the rows inside it are re-divided instead of
+adding a band, and the `123 / fx / ⇄` strip is a 44 dp stadium group that never moves. What is
+still visibly different is the key *shape* — our keys are 88 × 75.8 dp with a 32 dp radius (a
+squircle), Google's are 76.4 × 78.8 dp with a radius of half the height (a stadium) — and the
+horizontal gutter, which is 8 dp against Google's 4.5 dp. Both are cosmetic follow-ups: see §9.
 
 ## 3. Mode strip and scientific pad
 
-* Google's `123 │ ƒx │ ⇄` is a **segmented control**: one 36 dp container `#F4E5D9` with the active
-  segment drawn as a dark `#715B3E` circle/rounded rect. It sits **below** the display and directly
-  above the pad, and it is the same control in calculator and converter modes (the active converter
-  category is appended as a 4th, dark segment, e.g. `⑄ Power`).
-* Ours is a row of independent filter chips (`scientific_toggle_background` + `tool_chip.xml`) plus
-  a `Calc` chip for the calculator itself, so the active mode is a *olive pill* rather than a segment,
-  and the calculator is one of the modes instead of the "123" segment.
-* Scientific keys: Google uses **flat, low** pills — 20.6 dp tall × 67.5 dp wide, 47.4 dp pitch,
-  ~11–15 dp labels, radius ≈ 10 dp — so the block reads as a different "keyboard layer" while
-  keeping the keypad's exact width and column guides. The whole keypad is then a fixed 6-row block
-  (3 scientific + 3 rows + AC…), which is why enabling `ƒx` does not move the display at all.
-  Ours mounts a separate 0.17 H `advanced_pad` with the same 32 dp-rounded `PadButtonStyle` and 16 sp
-  text, so our scientific keys look identical to the digit keys and the display shrinks instead.
+* Google's `123 │ ƒx │ ⇄` is a **segmented control**: a **135.1 × 44.4 dp** track `#F4E5D9`, radius
+  22 dp, starting **11.8 dp** from the left edge. The active segment is a dark `#715B3E` stadium
+  covering roughly a third of the track (`123` ≈ 47 dp, `ƒx` ≈ 52 dp, `⇄` ≈ 36 dp) with ~21 dp
+  cream ink. It sits below the display and directly above the pad, and in a converter the third
+  segment *becomes* the active category (`⑄ Temperature`).
+* Ours (implemented, `res/layout/tool_bar.xml` + `res/values/styles.xml`): one 44 dp
+  `LinearLayout` track (`mode_segment_group_background`, radius 22 dp) holding three 40 dp-minimum
+  `TextView` segments that are selected with `setSelected()` — `Calculator.onModeSegmentClick()`
+  routes `123` → calculator, `ƒx` → toggle the scientific pad, `⇄` → Units (and from Units →
+  Currency). The calculator is no longer a pill, `fx` is disabled only for tools that cannot use
+  it, and `ToolBarView.setModeSelection(basic, scientific, convert)` is the single place that
+  paints the selection.
+* Scientific keys: Google draws **flat stadium pills, 95.1 × 47.6 dp**, 4.2 dp gutter, radius ≈
+  23.8 dp (half the height), labels **14.6–17.7 dp** — all four columns are as wide as a digit
+  key, and the third and fourth rows of the block are still the digit rows. Ours now does the same:
+  `PadButtonStyle.Scientific` gives the 18 scientific keys a **10 dp** radius, 2 dp gutters and a
+  0.165 label scale (~15.9 sp), the band is 3/8 of the fixed pad block, and the block keeps its
+  height, so enabling `ƒx` no longer moves the display.
 * Google's scientific rows are **contextual**: `Rad`/`Deg`, `Inv`, `sin/cos/tan` are toggles-stateful;
   GKUI matches the function set (Rad/Inv/sin/cos/tan/e/ln/log/π/√/^/!) — the set is right, the
   presentation differs.
@@ -201,25 +205,39 @@ CAD, INR). Also:
   possible, and `google/g5-history.png` keeps the original frame with the two history affordances
   ringed for clarity.
 
-## 9. Suggested next steps (ordered by visual impact)
+## 9. Status and next steps
 
-1. **Keypad geometry and label size** — keep the ~4 dp gutter but make the keys near-square
-   (Google: 96.5 × 99.1 dp pitch → 76.4 × 78.8 dp keys, radius ≈ h/2) by giving the pad a fixed
-   5-row block instead of three percentage bands, and stop sizing labels from the key height:
-   replace `h * 0.4f` in `HapticButton.onSizeChanged()` with ~0.32 × height (Google's ink is
-   ~25 dp on a 78.8 dp key) or a max-capped `sp` value.
-2. **Replace the chip row with a segmented control** for `123 / ƒx / ⇄`, keeping tool chips as a
-   second, separate row only when a tool is active — this also fixes the `Sci`/`Calc` duplication.
-3. **`Choose a category` parity** — an optional full-screen picker with search for the unit
+### Implemented in this change
+
+1. ~~**Replace the chip row with a segmented control**~~ — done. `123 / fx / ⇄` is a 44 dp
+   stadium track with a dark selected segment, driven by `Calculator.onModeSegmentClick()`;
+   tool chips only appear while a real tool is active, and the calculator is never a chip.
+2. ~~**Stop the display from shrinking when the scientific pad opens**~~ — done. The pads are one
+   fixed `@id/pad_stack` block (0.47 H portrait) weighted 3:5; hiding `advanced_pad` hands its
+   three rows to `input_pad` (weight 8) instead of changing the block's height, so the strip and
+   the display stay put. `scientificPadDoesNotMoveDisplay` in
+   `androidTest/java/com/android/calculator2/CalculatorToolUiTest.java` locks this in.
+3. ~~**Key label size**~~ — done. `HapticButton.onSizeChanged()` sizes labels from the key
+   *width* (0.21 × w, clamped to 0.42 × h and 26 sp); `PadButtonStyle.Scientific` carries its own
+   0.165 scale so the flat pills get ~15.9 sp instead of the digits' 20.2 sp. The pad bands were
+   re-derived from the measured frame (display 0.45 H, strip 0.08 H, pads 0.47 H) and
+   `button_vertical_margin` gives the rows their missing 4 dp gutter.
+
+### Still open, ordered by visual impact
+
+4. **Key shape** — move from `cornerRadius 32dp` to a stadium (radius = h/2, ~38 dp on a 76 dp
+   key) and narrow the keys by halving `button_horizontal_margin` to 2 dp, which also brings the
+   outer padding down from 12 dp to ~6 dp (Google: 3.5 dp).
+5. **`Choose a category` parity** — an optional full-screen picker with search for the unit
    converter (the `Choose a unit` popup can stay for the fast path), so unit names can be shown in
    full (`Celsius (°C)` instead of `°C`) without widening the selector pill.
-4. **Restore inline category chips below the rows** (per `tool_unit_control.xml`'s stated design) and
-   keep the row stack above them.
-5. **Number formatting** — keep the trailing-zero trimming we already do, but drop `DISPLAY_MC`
+6. **Restore inline category chips below the rows** (per `tool_unit_control.xml`'s stated design)
+   and keep the row stack above them.
+7. **Number formatting** — keep the trailing-zero trimming we already do, but drop `DISPLAY_MC`
    from 12 to ~8 significant digits so converted values read like Google's (`424.39652429` →
    `424.3965`) and the result line stops overflowing with long decimals.
-6. **Currency coverage + error copy** — grow past 12 codes if offline data allows, and add a
+8. **Currency coverage + error copy** — grow past 12 codes if offline data allows, and add a
    "can't update rates, try again later" string next to `currency_offline`.
-7. **Menu tidy-up** — remove `menu_history` from `res/menu/activity_calculator.xml` (it duplicates
+9. **Menu tidy-up** — remove `menu_history` from `res/menu/activity_calculator.xml` (it duplicates
    the toolbar navigation icon, which already opens history) and consider a `Choose theme`
    (light/dark/system) item to match Google.

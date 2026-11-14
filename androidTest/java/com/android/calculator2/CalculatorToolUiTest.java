@@ -9,9 +9,11 @@ import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.isSelected;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -79,14 +81,79 @@ public class CalculatorToolUiTest {
                 .check(matches(org.hamcrest.Matchers.not(isDisplayed())));
     }
 
-    /** A first-run install opens on the standard keypad with the science pad one tap away. */
+    /** A first-run install opens on the standard keypad, with 123 selected in the mode control. */
     @Test
     public void firstRunUsesStandardKeypad() {
         resetTestPreferences();
         onView(withId(R.id.advanced_pad))
                 .check(matches(org.hamcrest.Matchers.not(isDisplayed())));
-        onView(withId(R.id.scientific_toggle))
-                .check(matches(withText(R.string.tool_scientific_show)));
+        onView(withId(R.id.mode_segment_basic)).check(matches(isSelected()));
+        onView(withId(R.id.mode_segment_scientific)).check(matches(not(isSelected())));
+    }
+
+    /** The fx segment is the only way to reach the scientific pad from the calculator. */
+    @Test
+    public void scientificSegmentTogglesPad() {
+        resetTestPreferences();
+        onView(withId(R.id.mode_segment_scientific)).perform(click());
+        onView(withId(R.id.advanced_pad)).check(matches(isDisplayed()));
+        onView(withId(R.id.mode_segment_scientific)).check(matches(isSelected()));
+        onView(withId(R.id.mode_segment_basic)).check(matches(not(isSelected())));
+
+        onView(withId(R.id.mode_segment_basic)).perform(click());
+        onView(withId(R.id.advanced_pad))
+                .check(matches(org.hamcrest.Matchers.not(isDisplayed())));
+        onView(withId(R.id.mode_segment_basic)).check(matches(isSelected()));
+    }
+
+    /**
+     * Google Calculator keeps the display and the 123 / fx / ⇄ strip perfectly still when the
+     * scientific pad opens: the pad block has a fixed height and only its rows are re-divided.
+     * Ours used to grow a separate 0.17 H band and push the display up, so lock the geometry.
+     */
+    @Test
+    public void scientificPadDoesNotMoveDisplay() {
+        resetTestPreferences();
+        final int[] before = new int[4];
+        final int[] after = new int[4];
+        mActivityScenario.onActivity(activity -> {
+            final View display = activity.findViewById(R.id.display);
+            final View bar = activity.findViewById(R.id.tool_bar);
+            before[0] = display.getHeight();
+            before[1] = display.getTop();
+            before[2] = bar.getTop();
+            before[3] = activity.findViewById(R.id.input_pad).getHeight();
+        });
+        onView(withId(R.id.mode_segment_scientific)).perform(click());
+        onView(withId(R.id.advanced_pad)).check(matches(isDisplayed()));
+        mActivityScenario.onActivity(activity -> {
+            final View display = activity.findViewById(R.id.display);
+            final View bar = activity.findViewById(R.id.tool_bar);
+            after[0] = display.getHeight();
+            after[1] = display.getTop();
+            after[2] = bar.getTop();
+            after[3] = activity.findViewById(R.id.input_pad).getHeight();
+        });
+        assertEquals("display height changed when fx opened", before[0], after[0]);
+        assertEquals("display top changed when fx opened", before[1], after[1]);
+        assertEquals("mode strip moved when fx opened", before[2], after[2]);
+        assertTrue("digit rows should get shorter, not move", after[3] < before[3]);
+    }
+
+    /** The converter segment opens a converter without leaving the mode control. */
+    @Test
+    public void convertSegmentOpensConverter() {
+        resetTestPreferences();
+        onView(withId(R.id.mode_segment_convert)).perform(click());
+        onView(withId(R.id.mode_segment_convert)).check(matches(isSelected()));
+        onView(withId(R.id.unit_category_pills)).check(matches(isDisplayed()));
+
+        // ⇄ again flips to the other converter, and 123 returns to the calculator.
+        onView(withId(R.id.mode_segment_convert)).perform(click());
+        onView(withId(R.id.currency_input_text)).check(matches(isDisplayed()));
+        onView(withId(R.id.mode_segment_basic)).perform(click());
+        onView(withId(R.id.mode_segment_basic)).check(matches(isSelected()));
+        onView(withId(R.id.input_pad)).check(matches(isDisplayed()));
     }
 
     /** Unit categories stay as inline pills, rather than opening a full-screen unit chooser. */

@@ -6,4 +6,16 @@
 <resources>
     <!-- How many non-calculator tools to pin on the bar. 0 = pin every registered tool. -->
     <integer name="tool_bar_pinned_count">3</integer>
+
+    <!-- Row-count weights for the shared pad block (see activity_calculator.xml).
+         Google Calculator v10 keeps the block the same height in both modes and re-divides the
+         rows inside it: 3 flat scientific rows + 5 digit rows when fx is on (8 rows), or simply
+         5 digit rows when it is off. Weighting by row count makes the digit rows tall in the
+         standard keypad (a 0.45 window -> 79.8 dp rows, which is Google's 78.5 dp) and short in
+         the scientific one (the whole 0.62 window -> 48.7 dp rows, Google's 47.6-47.9 dp). -->
+    <integer name="advanced_pad_weight">3</integer>
+    <integer name="input_pad_weight">5</integer>
+    <!-- When the scientific pad is hidden its 3 rows are given to the digit pad, so the block
+         keeps its height and the display never shifts (see applyAdvancedPadVisibility). -->
+    <integer name="scientific_off_input_pad_weight">8</integer>
 </resources>

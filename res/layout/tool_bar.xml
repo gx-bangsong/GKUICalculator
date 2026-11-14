@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Compact mode strip immediately above the keypad: scientific toggle, tool pills, overflow.
-    Converter category pills stay in the converter's display and never open a full-screen picker.
+    Compact mode strip immediately above the keypad, modelled on Google Calculator v10:
+    a single segmented control (123 / fx / ⇄) that both selects the active surface
+    (calculator / scientific pad / converters) and shows it, followed by the tool pills
+    only while a life-calculation tool is active, and the overflow button.
 -->
 <com.android.calculator2.tools.ui.ToolBarView
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -17,32 +19,49 @@
     android:paddingTop="@dimen/tool_bar_vertical_padding"
     android:paddingBottom="@dimen/tool_bar_vertical_padding">
 
-    <!-- Scientific-pad toggle uses the same compact pill language as the mode tabs. -->
-    <TextView
-        android:id="@+id/scientific_toggle"
+    <!-- Segmented control: 123 (standard keypad) / fx (scientific) / ⇄ (converters). -->
+    <LinearLayout
+        android:id="@+id/mode_segments"
         android:layout_width="wrap_content"
-        android:layout_height="36dp"
-        android:background="@drawable/scientific_toggle_background"
-        android:clickable="true"
-        android:focusable="true"
-        android:fontFamily="sans-serif-medium"
-        android:gravity="center"
-        android:minWidth="44dp"
-        android:onClick="onScientificToggleClick"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp"
-        android:textAllCaps="false"
-        android:textColor="@color/calculator_chip_text"
-        android:textSize="12sp" />
+        android:layout_height="@dimen/mode_segment_height"
+        android:background="@drawable/mode_segment_group_background"
+        android:clipToOutline="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/mode_segment_basic"
+            style="@style/ModeSegment"
+            android:contentDescription="@string/desc_mode_basic"
+            android:onClick="onModeSegmentClick"
+            android:text="@string/mode_segment_basic" />
+
+        <TextView
+            android:id="@+id/mode_segment_scientific"
+            style="@style/ModeSegment"
+            android:contentDescription="@string/desc_mode_scientific"
+            android:onClick="onModeSegmentClick"
+            android:text="@string/mode_segment_scientific" />
+
+        <TextView
+            android:id="@+id/mode_segment_convert"
+            style="@style/ModeSegment"
+            android:contentDescription="@string/desc_mode_convert"
+            android:onClick="onModeSegmentClick"
+            android:text="@string/mode_segment_convert" />
+
+    </LinearLayout>
 
     <HorizontalScrollView
         android:id="@+id/tool_chips_scroll"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
         android:layout_weight="1"
         android:fillViewport="false"
         android:overScrollMode="never"
-        android:scrollbars="none">
+        android:scrollbars="none"
+        android:visibility="gone">
 
         <LinearLayout
             android:id="@+id/tool_chips_container"

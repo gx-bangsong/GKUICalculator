@@ -55,11 +55,18 @@
         <item name="android:minWidth">0dp</item>
         <item name="android:minHeight">0dp</item>
         <item name="android:fontFamily">sans-serif</item>
+        <!-- Fallback only: HapticButton overrides this from the key's smaller side. -->
         <item name="android:textSize">24sp</item>
+        <item name="android:textColor">@color/calculator_key_text_states</item>
+        <item name="keyLabelScale">@dimen/dimen_key_label_scale</item>
+        <item name="keyLabelMaxTextSize">@dimen/key_label_max_textsize</item>
         <item name="android:onClick">onButtonClick</item>
         <item name="android:fontFeatureSettings">tnum, cv03, cv04</item>
         <item name="android:layout_marginHorizontal">@dimen/button_horizontal_margin</item>
         <item name="cornerRadius">32dp</item>
+        <!-- Google's key grid: 4.5 dp columns, 4.3 dp rows. The horizontal margin was the only
+             gutter before, which made rows touch when the pads were re-weighted. -->
+        <item name="android:layout_marginVertical">@dimen/button_vertical_margin</item>
         <item name="android:insetLeft">0dp</item>
         <item name="android:insetRight">0dp</item>
         <item name="android:insetTop">0dp</item>
@@ -76,27 +83,51 @@
         <item name="iconSize">@dimen/button_iconsize</item>
     </style>
 
+    <!-- Narrow keys in the scientific pad: label scaled from the smaller side, then capped. -->
     <style name="PadButtonStyle.SmallCaps">
         <item name="textAllCaps">true</item>
         <item name="android:textSize">13sp</item>
+        <item name="keyLabelScale">0.22</item>
+        <item name="keyLabelMaxTextSize">14sp</item>
         <item name="android:layout_marginHorizontal">@dimen/button_small_horizontal_margin</item>
     </style>
 
     <style name="PadButtonStyle.SmallText">
         <item name="android:textSize">16sp</item>
+        <item name="keyLabelScale">0.28</item>
+        <item name="keyLabelMaxTextSize">18sp</item>
         <item name="android:layout_marginHorizontal">@dimen/button_small_horizontal_margin</item>
     </style>
 
+    <!--
+        Scientific-pad keys are deliberately a different shape from the digit keys: Google
+        Calculator v10 draws them as flat, low pills (radius ~10dp, height ~square pitch/2) in
+        the same peach, so the block reads as its own layer instead of repeating the big
+        rounded digit keys.
+    -->
+    <style name="PadButtonStyle.Scientific">
+        <!-- Same width as a digit key, but half as tall: without this the height clamp in
+             HapticButton would print the digits' 20 sp into a 48 dp pill. -->
+        <item name="keyLabelScale">@dimen/dimen_key_label_scale_scientific</item>
+        <item name="cornerRadius">@dimen/scientific_key_corner_radius</item>
+        <item name="android:layout_marginHorizontal">@dimen/scientific_key_horizontal_margin</item>
+        <item name="android:layout_marginTop">@dimen/scientific_key_vertical_margin</item>
+        <item name="android:layout_marginBottom">@dimen/scientific_key_vertical_margin</item>
+    </style>
+
+    <!-- The pads are now stacked inside one weighted block (activity_calculator.xml), so their
+         own vertical padding is gone: the gap between rows comes from each key's margin and the
+         block's edges come from the row weights. -->
     <style name="PadLayoutStyle">
-        <item name="android:paddingTop">@dimen/pads_intra_padding</item>
-        <item name="android:paddingBottom">@dimen/pads_vertical_edge_padding</item>
+        <item name="android:paddingTop">0dp</item>
+        <item name="android:paddingBottom">0dp</item>
         <item name="android:paddingStart">@dimen/pads_horizontal_edge_padding</item>
         <item name="android:paddingEnd">@dimen/pads_horizontal_edge_padding</item>
     </style>
 
     <style name="PadLayoutStyle.Advanced">
-        <item name="android:paddingTop">@dimen/pads_vertical_edge_padding</item>
-        <item name="android:paddingBottom">@dimen/pads_intra_padding</item>
+        <item name="android:paddingTop">0dp</item>
+        <item name="android:paddingBottom">0dp</item>
         <item name="android:paddingStart">@dimen/pads_horizontal_edge_padding</item>
         <item name="android:paddingEnd">@dimen/pads_horizontal_edge_padding</item>
     </style>
@@ -116,6 +147,26 @@
         <item name="android:background">?attr/selectableItemBackground</item>
         <item name="android:textAppearance">?attr/textAppearanceLabelMedium</item>
         <item name="android:gravity">center_vertical</item>
+    </style>
+
+    <!-- One segment of the 123 / fx / ⇄ mode control. The width is content-driven because the
+         three labels differ in width; the checked background comes from the drawable selector. -->
+    <style name="ModeSegment">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:minWidth">@dimen/mode_segment_min_width</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingStart">@dimen/mode_segment_padding</item>
+        <item name="android:paddingEnd">@dimen/mode_segment_padding</item>
+        <item name="android:background">@drawable/mode_segment_background</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <!-- Google's 123 / fx / ⇄ ink measures ~21 dp tall in a 43.4 dp pill. -->
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/mode_segment_text_states</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:includeFontPadding">false</item>
     </style>
 
     <!-- Borderless pill selectors used by the inline unit and currency controls. -->

@@ -259,7 +259,11 @@ public class Calculator extends AppCompatActivity
     private static final int UPPERCASE_MAX_LINES = 4;
     /** Fallback tool result size (sp) if no tool has asked for one. */
     private static final float DEFAULT_TOOL_RESULT_SP = 14f;
-    private TextView mScientificToggle;
+    /** 123 / fx / ⇄ segmented control hosted by the tool bar. */
+    private com.android.calculator2.tools.ui.ToolBarView mModeBar;
+    private TextView mSegmentBasicView;
+    private TextView mSegmentScientificView;
+    private TextView mSegmentConvertView;
     private boolean mScientificVisible;
     private float mResultTextSizeOriginalPx;
     // Original paddings of the formula/result views (saved in onCreate, restored on leaving tool mode).
@@ -1647,6 +1651,12 @@ public class Calculator extends AppCompatActivity
     }
 
     @Override
+    public boolean isScientificPadVisible() {
+        final View advanced = findViewById(R.id.advanced_pad);
+        return advanced != null && advanced.getVisibility() == View.VISIBLE;
+    }
+
+    @Override
     public void setExpandedDisplay(boolean expanded) {
         // Input-heavy tools want more display room: hide the scientific pad. The layout grows
         // the display automatically when it is gone. In calculator mode the user's toggle wins.
@@ -1807,21 +1817,30 @@ public class Calculator extends AppCompatActivity
         swap.setSelected(false);
     }
 
+    /**
+     * Refreshes the segmented control. All three segments stay visible in every mode (a mode
+     * switcher that hides its own entries strands the user); only their enabled state changes,
+     * and tools that own the display leave no segment selected.
+     */
     private void updateScientificToggleVisibility() {
-        if (mScientificToggle == null) {
+        if (mModeBar == null) {
             return;
         }
-        if (mToolManager == null || !mToolManager.isActive()) {
-            mScientificToggle.setVisibility(View.VISIBLE);
-            return;
+        final ToolMode active = mToolManager == null ? null : mToolManager.getActive();
+        final String activeId = active == null ? null : active.getId();
+        final boolean isCalculator = activeId == null || ToolId.CALCULATOR.equals(activeId);
+        final boolean isConverter = ToolId.UNIT.equals(activeId) || ToolId.CURRENCY.equals(activeId);
+        if (mSegmentBasicView != null) {
+            mSegmentBasicView.setEnabled(true);
         }
-        final String activeId = mToolManager.getActive().getId();
-        if (com.android.calculator2.tools.ToolId.CURRENCY.equals(activeId)
-                || com.android.calculator2.tools.ToolId.UNIT.equals(activeId)) {
-            mScientificToggle.setVisibility(View.VISIBLE);
-        } else {
-            mScientificToggle.setVisibility(View.GONE);
+        if (mSegmentScientificView != null) {
+            mSegmentScientificView.setEnabled(isCalculator || isConverter);
         }
+        if (mSegmentConvertView != null) {
+            mSegmentConvertView.setEnabled(true);
+        }
+        mModeBar.setModeSelection(isCalculator && !mScientificVisible,
+                isCalculator && mScientificVisible, isConverter);
     }
 
     // ==== Chinese uppercase numerals (中文大写数字) ====
@@ -1967,7 +1986,10 @@ public class Calculator extends AppCompatActivity
     }
 
     private void setupScientificToggle() {
-        mScientificToggle = findViewById(R.id.scientific_toggle);
+        mModeBar = findViewById(R.id.tool_bar);
+        mSegmentBasicView = findViewById(R.id.mode_segment_basic);
+        mSegmentScientificView = findViewById(R.id.mode_segment_scientific);
+        mSegmentConvertView = findViewById(R.id.mode_segment_convert);
         // Keep the first-run calculator focused on the standard keypad. The scientific pad is
         // still one tap away and the user's previous visibility choice remains persisted.
         mScientificVisible = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
@@ -1977,31 +1999,85 @@ public class Calculator extends AppCompatActivity
         updateScientificToggleVisibility();
     }
 
-    /** android:onClick handler for the scientific-pad toggle. */
-    public void onScientificToggleClick(View v) {
-        mScientificVisible = !mScientificVisible;
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .edit().putBoolean(PREF_SCIENTIFIC, mScientificVisible).apply();
+    /**
+     * {@code android:onClick} handler for the 123 / fx / ⇄ segments:
+     * 123 leaves any tool and shows the standard keypad, fx toggles the scientific pad, and
+     * ⇄ toggles between the unit and currency converters.
+     */
+    public void onModeSegmentClick(View v) {
+        final int id = v.getId();
+        if (id == R.id.mode_segment_basic) {
+            if (mToolManager != null && mToolManager.isActive()) {
+                mToolManager.activate(ToolId.CALCULATOR);
+            }
+            setScientificPadVisible(false, /* persist */ true);
+        } else if (id == R.id.mode_segment_scientific) {
+            if (mToolManager != null && mToolManager.isActive()) {
+                mToolManager.activate(ToolId.CALCULATOR);
+            }
+            setScientificPadVisible(!mScientificVisible, /* persist */ true);
+        } else if (id == R.id.mode_segment_convert) {
+            if (mToolManager != null) {
+                final ToolMode active = mToolManager.getActive();
+                final String activeId = active == null ? null : active.getId();
+                // ⇄ toggles between the two converters; otherwise start with units.
+                final String target = ToolId.UNIT.equals(activeId)
+                        ? ToolId.CURRENCY
+                        : ToolId.UNIT;
+                mToolManager.activate(target);
+            }
+        }
+    }
 
-        // If no tool is active, or if the active tool does not require an expanded display,
-        // we can apply the visibility change immediately.
+    /**
+     * Shows or hides the scientific pad, remembering the choice, and keeps the segmented control
+     * in sync. Tools that need the whole display (fields, date, kinship) opt out through
+     * {@link #setExpandedDisplay(boolean)}.
+     */
+    private void setScientificPadVisible(boolean visible, boolean persist) {
+        mScientificVisible = visible;
+        if (persist) {
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                    .edit().putBoolean(PREF_SCIENTIFIC, visible).apply();
+        }
         boolean forceExpanded = false;
         if (mToolManager != null && mToolManager.isActive()) {
-            com.android.calculator2.tools.ToolMode active = mToolManager.getActive();
+            ToolMode active = mToolManager.getActive();
             if (active != null && active.wantsExpandedDisplay()) {
                 forceExpanded = true;
             }
         }
         if (!forceExpanded) {
-            applyAdvancedPadVisibility(mScientificVisible);
+            applyAdvancedPadVisibility(visible);
         }
         updateScientificToggleLabel();
+        updateScientificToggleVisibility();
     }
 
+    /**
+     * Shows or hides the scientific pad. The pad block (@id/pad_stack) keeps its height, so the
+     * 123 / fx / ⇄ strip and the display above it do not move: hiding the pad simply hands its
+     * rows to the digit pad, which is what Google Calculator v10 does (5 tall rows on the standard
+     * keypad, 3 flat scientific rows plus 5 shorter digit rows when fx is on).
+     */
     private void applyAdvancedPadVisibility(boolean visible) {
         final View advanced = findViewById(R.id.advanced_pad);
+        final View input = findViewById(R.id.input_pad);
         if (advanced != null) {
             advanced.setVisibility(visible ? View.VISIBLE : View.GONE);
+        }
+        if (input != null) {
+            final ViewGroup.LayoutParams lp = input.getLayoutParams();
+            // Portrait only: the pads are stacked vertically there and share the block height, so
+            // hiding the scientific pad gives its rows to the digit pad. In landscape they sit
+            // side by side in a horizontal chain and keep separate fills.
+            if (lp instanceof LinearLayout.LayoutParams
+                    && ((LinearLayout.LayoutParams) lp).weight > 0) {
+                final LinearLayout.LayoutParams weight = (LinearLayout.LayoutParams) lp;
+                weight.weight = getResources().getInteger(visible
+                        ? R.integer.input_pad_weight : R.integer.scientific_off_input_pad_weight);
+                input.setLayoutParams(weight);
+            }
         }
         if (mMainCalculator != null) {
             final int visibility = visible ? View.VISIBLE : View.GONE;
@@ -2017,13 +2093,12 @@ public class Calculator extends AppCompatActivity
     }
 
     private void updateScientificToggleLabel() {
-        if (mScientificToggle == null) {
+        if (mSegmentScientificView == null) {
             return;
         }
-        final int labelRes = mScientificVisible
-                ? R.string.tool_scientific_hide : R.string.tool_scientific_show;
-        mScientificToggle.setText(labelRes);
-        mScientificToggle.setContentDescription(getString(labelRes));
+        // Toggling label: pressing fx again returns to the standard keypad.
+        mSegmentScientificView.setContentDescription(getString(mScientificVisible
+                ? R.string.desc_mode_basic : R.string.desc_mode_scientific));
     }
 
     /**

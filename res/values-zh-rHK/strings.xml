@@ -92,10 +92,12 @@
     <string name="tool_programmer">程式設計</string>
     <string name="tool_more">更多</string>
     <string name="tool_more_close">收合</string>
-    <string name="tool_scientific_show">科學</string>
+    <!-- 123 / fx / ⇄ 模式切换的辅助说明。 -->
+    <string name="desc_mode_basic">標準鍵盤</string>
+    <string name="desc_mode_scientific">科學鍵盤</string>
+    <string name="desc_mode_convert">換算工具</string>
     <string name="desc_uppercase_numbers_off">顯示中文大寫數字</string>
     <string name="desc_uppercase_numbers_on">關閉中文大寫數字</string>
-    <string name="tool_scientific_hide">隱藏</string>
     <string name="tool_panel_title">全部工具</string>
     <string name="tool_panel_empty">沒有其他工具</string>
     <string name="tool_coming_soon">「%1$s」即將推出</string>

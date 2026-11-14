@@ -36,8 +36,28 @@
 
     <!-- Buttons -->
     <dimen name="button_horizontal_margin">4dp</dimen>
+    <!-- Google Calculator v10 leaves ~4.3 dp between key rows. -->
+    <dimen name="button_vertical_margin">2dp</dimen>
     <dimen name="button_small_horizontal_margin">2dp</dimen>
     <dimen name="button_iconsize">24dp</dimen>
+
+    <!-- Label ink = key width x this scale, clamped to 0.42 x key height and to the max below.
+         Digit key (96 dp wide): 20.2 sp, versus Google 24.7 dp. Scientific key (same width,
+         48 dp tall): height clamp gives 20.2 sp as well, Google prints 15.3 dp, so the
+         scientific style carries its own smaller scale in PadButtonStyle.Scientific. -->
+    <item name="dimen_key_label_scale" format="float" type="dimen">0.21</item>
+    <dimen name="key_label_max_textsize">26sp</dimen>
+    <item name="dimen_key_label_scale_scientific" format="float" type="dimen">0.165</item>
+
+    <!-- Scientific pad: flat pills with a small gutter, as in Google Calculator v10. -->
+    <dimen name="scientific_key_corner_radius">10dp</dimen>
+    <dimen name="scientific_key_horizontal_margin">2dp</dimen>
+    <dimen name="scientific_key_vertical_margin">2dp</dimen>
+
+    <!-- 123 / fx / ⇄ segmented control. -->
+    <dimen name="mode_segment_height">44dp</dimen>
+    <dimen name="mode_segment_min_width">40dp</dimen>
+    <dimen name="mode_segment_padding">16dp</dimen>
 
     <!-- Tool bar -->
     <dimen name="tool_bar_horizontal_padding">4dp</dimen>

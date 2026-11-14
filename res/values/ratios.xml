@@ -4,13 +4,22 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-    <!-- Portrait: display + tool_bar + (advanced_pad + input_pad) = 1
-         tool_bar sits between the display and the pads. -->
-    <item type="dimen" format="float" name="layout_display_ratio">0.30</item>
+    <!-- Portrait: display + tool_bar + pad_stack = 1.
+
+         Derived from the measured v10.0 screenshot (1152 x 2560 px at 400 x 899 dp):
+             mode strip (123 / fx / ⇄)   44.4 dp, top edge at 400 dp
+             key block                   409 dp, 456-865 dp, 34 dp above the gesture bar
+             everything above the strip  ~400 dp (status bar, top action row, display)
+         Normalised over the 899 dp window that is 0.45 / 0.08 / 0.47: the pads sit below
+         half the window, the strip is a thin 8 % band between them, and the display owns the
+         rest. The pad_stack itself never changes height (see activity_calculator.xml), so
+         pressing fx re-divides rows inside it instead of pushing the display up. -->
+    <item type="dimen" format="float" name="layout_display_ratio">0.45</item>
     <item type="dimen" format="float" name="layout_tool_bar_ratio">0.08</item>
+    <!-- Height of the whole pad block (scientific rows + digit rows), weighted 3:5.
+         Kept for landscape and for the history motion scene. -->
+    <item type="dimen" format="float" name="layout_pads_ratio">0.47</item>
+    <!-- Only used by the landscape width split now; portrait uses the 3:5 row weights. -->
     <item type="dimen" format="float" name="layout_advanced_pad_ratio">0.17</item>
     <item type="dimen" format="float" name="layout_input_pad_ratio">0.45</item>
-    <!-- layout_pads_ratio = layout_advanced_pad_ratio + layout_input_pad_ratio
-         (used by animation_helper in the history motion scene). -->
-    <item type="dimen" format="float" name="layout_pads_ratio">0.62</item>
 </resources>

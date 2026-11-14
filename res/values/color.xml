@@ -25,6 +25,8 @@
     <color name="calculator_key_clear">#FFEEE8DF</color>
     <color name="calculator_key_equals">#FF506443</color>
     <color name="calculator_key_text">#FF29251E</color>
+    <!-- Disabled key labels (programmer A-F outside hex, emptied keys, ...). -->
+    <color name="calculator_key_text_disabled">#FF9A9184</color>
     <color name="calculator_key_text_on_accent">#FFFFFBF4</color>
 
     <!-- Filter/tool pills share the same checked state and warm ink. -->
@@ -35,5 +37,9 @@
     <color name="calculator_unit_selector_background">#FFF1E8DC</color>
     <color name="calculator_unit_selector_text">#FF4A4338</color>
     <color name="calculator_display_divider">#FFE4DACB</color>
+
+    <!-- 123 / fx / ⇄ segmented control: the track uses calculator_chip_background and the
+         checked segment uses calculator_chip_selected_background. -->
+    <color name="mode_segment_ripple">#33796849</color>
 
 </resources>

@@ -318,10 +318,20 @@
     <string name="tool_more">More</string>
     <!-- "More" button when the panel is expanded (acts as collapse). [CHAR_LIMIT=20] -->
     <string name="tool_more_close">Close</string>
-    <!-- Scientific-pad toggle: shown when the scientific pad is hidden (tap to reveal). [CHAR_LIMIT=12] -->
-    <string name="tool_scientific_show">Sci</string>
-    <!-- Scientific-pad toggle: shown when the scientific pad is visible (tap to hide). [CHAR_LIMIT=12] -->
-    <string name="tool_scientific_hide">Hide</string>
+    <!-- 123 / fx / ⇄ mode control (Google Calculator v10 layout). The labels are symbolic, so
+         they are the same in every locale; only the content descriptions are translated. -->
+    <!-- Standard numeric keypad segment. [CHAR_LIMIT=6] -->
+    <string name="mode_segment_basic" translatable="false">123</string>
+    <!-- Scientific keypad segment. [CHAR_LIMIT=6] -->
+    <string name="mode_segment_scientific" translatable="false">fx</string>
+    <!-- Converter segment (units / currency). [CHAR_LIMIT=6] -->
+    <string name="mode_segment_convert" translatable="false">⇄</string>
+    <!-- Content description: switch to the standard keypad. [CHAR_LIMIT=NONE] -->
+    <string name="desc_mode_basic">Standard keypad</string>
+    <!-- Content description: show the scientific keypad. [CHAR_LIMIT=NONE] -->
+    <string name="desc_mode_scientific">Scientific keypad</string>
+    <!-- Content description: open the converters. [CHAR_LIMIT=NONE] -->
+    <string name="desc_mode_convert">Converters</string>
 
     <!-- Labels of the Chinese-uppercase-numerals toggle in the display's top-left corner.
          Ordinary 1 means off; financial 壹 means on. They are the same in every locale. -->
