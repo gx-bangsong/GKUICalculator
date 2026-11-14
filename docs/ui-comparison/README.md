@@ -281,3 +281,17 @@ CAD, INR). Also:
 10. **Menu tidy-up** — remove `menu_history` from `res/menu/activity_calculator.xml` (it duplicates
    the toolbar navigation icon, which already opens history) and consider a `Choose theme`
    (light/dark/system) item to match Google.
+
+## Emulator captures
+
+`emulator/` holds unretouched frames from the `Android UI on emulator` job (Pixel 2 profile,
+API 34; the same PNGs ship in the job's `calculator-ui-screenshots` artifact):
+
+| Capture | State |
+|---|---|
+| [`emulator/pixel2-api34-calculator.png`](emulator/pixel2-api34-calculator.png) | standard keypad; one mode pill holding every tool segment |
+| [`emulator/pixel2-api34-units.png`](emulator/pixel2-api34-units.png) | unit converter active; the ⇄ segment selected inside the same pill |
+
+These exist so claims about the pill are checked against pixels: the track is a single stadium,
+every segment sits inside it, and nothing trails the last (relationship) segment — the old
+"more"/expand-menu button is gone from both the app and the pictures.
