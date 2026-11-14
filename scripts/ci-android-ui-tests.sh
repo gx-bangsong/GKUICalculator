@@ -47,7 +47,6 @@ if [[ "$display_size" =~ ^([0-9]+)x([0-9]+)$ ]]; then
 else
     echo "::warning title=Android emulator wakeup::Could not parse the display size '$display_size'; using Pixel 2 Wait coordinates."
 fi
-echo "::notice title=Android emulator wakeup::Display ${display_size:-unknown}; tapping the system dialog Wait position at $wait_x,$wait_y if present."
 for attempt in 1 2 3; do
     adb shell input tap "$wait_x" "$wait_y" || true
     sleep 2
@@ -275,9 +274,8 @@ make_review_preview() {
     if [[ ! -s "$preview" ]] && command -v sips >/dev/null 2>&1; then
         sips -s format jpeg -s formatOptions 38 -Z 360 "$image" --out "$preview" >/dev/null 2>&1 || true
     fi
-    if [[ ! -s "$preview" ]]; then
-        echo "::warning title=Review preview missing::no converter (magick/convert/ffmpeg/sips) produced $preview from $image"
-    fi
+    # Stay silent when no converter exists: the publish steps fall back to the raw PNG, and
+    # every annotation here spends part of the check run's 50-annotation budget.
 }
 
 make_review_preview build/ui-screenshots/calculator-default.png
