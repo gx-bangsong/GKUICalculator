@@ -17,7 +17,7 @@ jobs:
     name: Pixel-style emulator UI checks
     # Ubuntu's KVM-backed emulator is more reliable than the unaccelerated hosted macOS AVD.
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Check out source
