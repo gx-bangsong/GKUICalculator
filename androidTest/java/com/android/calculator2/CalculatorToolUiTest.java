@@ -30,6 +30,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.UiObject;
+import androidx.test.uiautomator.UiObjectNotFoundException;
 import androidx.test.uiautomator.UiSelector;
 
 import org.junit.After;
@@ -422,7 +423,7 @@ public class CalculatorToolUiTest {
             assertTrue("overflow item not shown: " + context.getString(titleRes),
                     item.waitForExists(5000));
             item.click();
-        } catch (IOException e) {
+        } catch (UiObjectNotFoundException e) {
             throw new AssertionError("could not drive the overflow menu", e);
         }
         device.waitForIdle();
