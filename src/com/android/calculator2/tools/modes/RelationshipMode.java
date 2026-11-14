@@ -80,6 +80,10 @@ public final class RelationshipMode implements ToolMode {
             Executors.newSingleThreadExecutor(runnable -> {
                 final Thread thread = new Thread(runnable, "relationship-warm-up");
                 thread.setDaemon(true);
+                // Yield to the UI while the tables expand: on a cold process this thread starts
+                // before the first frame, and at normal priority it can delay window focus on
+                // slow devices long enough to lose it entirely on a shared CI emulator.
+                thread.setPriority(Thread.MIN_PRIORITY);
                 return thread;
             });
 

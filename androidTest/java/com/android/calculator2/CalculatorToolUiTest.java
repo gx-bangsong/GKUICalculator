@@ -68,6 +68,25 @@ public class CalculatorToolUiTest {
             Log.w("CalculatorToolUiTest", "Unable to recover emulator window focus", exception);
         }
         mActivityScenario = ActivityScenario.launch(Calculator.class);
+        awaitWindowFocus();
+    }
+
+    /**
+     * The hosted emulator can leave a fresh activity without window focus for several seconds
+     * (System UI, IME and media scanner all settle at once), and Espresso's root picker gives up
+     * after ten. Waiting here keeps the first test of the run from losing that race.
+     */
+    private void awaitWindowFocus() {
+        final long deadline = SystemClock.uptimeMillis() + 30000;
+        while (SystemClock.uptimeMillis() < deadline) {
+            final boolean[] focused = new boolean[1];
+            mActivityScenario.onActivity(activity -> focused[0] = activity.hasWindowFocus());
+            if (focused[0]) {
+                return;
+            }
+            SystemClock.sleep(250);
+        }
+        Log.w("CalculatorToolUiTest", "Activity still without window focus after 30 s");
     }
 
     @After
