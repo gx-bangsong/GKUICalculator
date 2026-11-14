@@ -265,10 +265,18 @@ make_review_preview() {
     [[ -s "$image" ]] || return 0
     if command -v magick >/dev/null 2>&1; then
         magick "$image" -resize 360x -quality 38 "$preview" >/dev/null 2>&1 || true
-    elif command -v convert >/dev/null 2>&1; then
+    fi
+    if [[ ! -s "$preview" ]] && command -v convert >/dev/null 2>&1; then
         convert "$image" -resize 360x -quality 38 "$preview" >/dev/null 2>&1 || true
-    elif command -v sips >/dev/null 2>&1; then
+    fi
+    if [[ ! -s "$preview" ]] && command -v ffmpeg >/dev/null 2>&1; then
+        ffmpeg -v error -y -i "$image" -vf scale=360:-2 -q:v 8 "$preview" >/dev/null 2>&1 || true
+    fi
+    if [[ ! -s "$preview" ]] && command -v sips >/dev/null 2>&1; then
         sips -s format jpeg -s formatOptions 38 -Z 360 "$image" --out "$preview" >/dev/null 2>&1 || true
+    fi
+    if [[ ! -s "$preview" ]]; then
+        echo "::warning title=Review preview missing::no converter (magick/convert/ffmpeg/sips) produced $preview from $image"
     fi
 }
 

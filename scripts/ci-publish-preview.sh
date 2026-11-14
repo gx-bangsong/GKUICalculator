@@ -12,7 +12,7 @@ image="${1:?usage: ci-publish-preview.sh <image> <label>}"
 label="${2:?usage: ci-publish-preview.sh <image> <label>}"
 
 if [[ ! -s "$image" ]]; then
-    echo "::notice title=$label::no preview file at $image (see the calculator-ui-screenshots artifact)"
+    echo "::notice title=$label::no preview at $image; dir: $(ls -la "$(dirname "$image")" 2>&1 | tr '\n' ' ' | sed -e 's/%/%25/g')"
     exit 0
 fi
 
