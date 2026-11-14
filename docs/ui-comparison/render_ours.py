@@ -107,7 +107,6 @@ CHIP_SEL_INK = color('calculator_chip_selected_text')
 SEL_BG = color('calculator_unit_selector_background')
 SEL_INK = color('calculator_unit_selector_text')
 DIVIDER = color('calculator_display_divider')
-PANEL_BG = color('tool_panel_background_color')
 
 # ---------------------------------------------------------------- geometry
 SEG_H = dimen('mode_segment_height')
@@ -141,9 +140,12 @@ def integer(name):
 
 
 # Icon-only segments (programmer + the life-calculation tools). The renderer draws a stand-in
-# glyph; the app uses res/drawable/ic_tool_*.xml vectors.
+# glyph; the app uses res/drawable/ic_tool_*.xml vectors. `relationship` has no text stand-in on
+# purpose: the trigram glyph used before read as a "menu / expand" button in this exact trailing
+# position (where the removed "more" button used to sit), so it is drawn as the two-people glyph
+# the app's ic_tool_relationship.xml actually is.
 TOOL_ICONS = [('programmer', '</>'), ('bmi', '\u263a'), ('tax', '%'), ('mortgage', '\u2302'),
-              ('date', '\u25a6'), ('relationship', '\u2632')]
+              ('date', '\u25a6'), ('relationship', None)]
 
 SCI_WEIGHT = integer('advanced_pad_weight')
 DIGIT_WEIGHT = integer('input_pad_weight')
@@ -214,6 +216,16 @@ def toolbar(d):
     overflow(d)
 
 
+def people_icon(d, cx, cy, ink):
+    """Stand-in for res/drawable/ic_tool_relationship.xml (Material 'people': two figures)."""
+    # Back figure (right, a touch higher), then the front figure overlapping it. Domes are the
+    # upper half of each body circle (chord 180-360), heads are plain circles.
+    d.ellipse([px(cx + 1.0), px(cy - 5.6), px(cx + 4.8), px(cy - 1.8)], fill=ink)
+    d.chord([px(cx - 0.6), px(cy - 1.4), px(cx + 6.2), px(cy + 5.4)], 180, 360, fill=ink)
+    d.ellipse([px(cx - 4.6), px(cy - 5.0), px(cx - 0.2), px(cy - 0.6)], fill=ink)
+    d.chord([px(cx - 6.2), px(cy - 0.2), px(cx + 1.4), px(cy + 7.4)], 180, 360, fill=ink)
+
+
 def mode_strip(d, y, scientific=False, active=None):
     """res/layout/tool_bar.xml: ONE pill holding 123 / fx / (swap) then the tool icons."""
     band = R_TOOLBAR * H_DP
@@ -248,10 +260,13 @@ def mode_strip(d, y, scientific=False, active=None):
 
     # Tool icons continue inside the same pill, starting where the text segments end.
     for name, glyph in TOOL_ICONS:
+        ink = CHIP_SEL_INK if name == active else CHIP_INK
         if name == active:
             rrect(d, (cx, strip_top, cx + slot, strip_top + SEG_H), sel_radius, CHIP_SEL_BG)
-        txt(d, (cx + slot / 2, strip_top + SEG_H / 2), glyph, 15,
-            CHIP_SEL_INK if name == active else CHIP_INK, anchor='mm')
+        if glyph is None:
+            people_icon(d, cx + slot / 2, strip_top + SEG_H / 2, ink)
+        else:
+            txt(d, (cx + slot / 2, strip_top + SEG_H / 2), glyph, 15, ink, anchor='mm')
         cx += slot
 
 
@@ -418,30 +433,6 @@ def screen_history():
     return im
 
 
-def screen_overlay():
-    im, d = panel()
-    status_bar(d)
-    toolbar(d)
-    dh = display_height(False)
-    draw_display_values(d, dh)
-    mode_strip(d, dh, active=None)
-    ov = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-    ImageDraw.Draw(ov).rectangle([0, px(0.40 * H_DP), W, H], fill=(0, 0, 0, 70))
-    im = Image.alpha_composite(im.convert('RGBA'), ov).convert('RGB')
-    d = ImageDraw.Draw(im)
-    y0 = 0.40 * H_DP
-    rrect(d, (0, y0, W_DP, H_DP), 20, PANEL_BG)
-    txt(d, (20, y0 + 18), "More tools", 16, INK, bold=True)
-    tools = ["Units", "Currency", "Mortgage", "Income tax", "BMI", "Date", "Programmer",
-             "Relationship"]
-    gw = (W_DP - 16) / 4
-    for i, t in enumerate(tools):
-        cx = 8 + (i % 4) * gw + gw / 2
-        cy = y0 + 96 + (i // 4) * 96
-        txt(d, (cx, cy), t, 10.5, INK, anchor='mm')
-    return im
-
-
 if __name__ == "__main__":
     out_dir = os.path.join(HERE, 'ours')
     os.makedirs(out_dir, exist_ok=True)
@@ -451,7 +442,6 @@ if __name__ == "__main__":
         'units': 'o3-unit-conversion',
         'units_picker': 'o4-unit-picker',
         'history': 'o5-history',
-        'overlay': 'o6-more-menu',
         'currency': 'o7-currency',
     }
     out = {
@@ -460,7 +450,6 @@ if __name__ == "__main__":
         'units': screen_units(False),
         'units_picker': screen_units(True, picker=True),
         'history': screen_history(),
-        'overlay': screen_overlay(),
         'currency': screen_units(False, currency=True),
     }
     for k, v in out.items():

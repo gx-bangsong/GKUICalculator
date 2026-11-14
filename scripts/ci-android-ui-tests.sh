@@ -14,6 +14,22 @@ adb shell rm -f "$screenshot_dir/calculator-default.png" "$screenshot_dir/calcul
 adb shell wm size 720x1280 || true
 adb shell wm density 280 || true
 
+# Wait for the fresh AVD to finish booting before touching it: installing APKs into a half-booted
+# system server is a reliable way to provoke the ANR dialogs this script then has to fight, and
+# the instrumented test used to race the boot on slow hosted VMs.
+adb wait-for-device || true
+booted=""
+bootanim=""
+for _ in $(seq 1 90); do
+    booted=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+    bootanim=$(adb shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r')
+    if [[ "$booted" == "1" && "$bootanim" != "running" ]]; then
+        break
+    fi
+    sleep 2
+done
+echo "::notice title=Android boot state::sys.boot_completed=${booted:-unknown}, bootanim=${bootanim:-unknown}"
+
 # Keep the headless AVD awake and unlocked. Fresh emulator boots occasionally leave the
 # System UI "isn't responding" prompt over the launcher, which prevents Espresso from getting
 # window focus. Choose Wait if that dialog is present, then give System UI time to recover.
@@ -60,7 +76,10 @@ done
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent KEYCODE_WAKEUP || true
 
-if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorToolUiTest#captureCalculatorScreenshot --stacktrace --console=plain >"$log_file" 2>&1; then
+# Run the whole instrumented class, not just the screenshot method: the geometry and mode-pill
+# guards (pillShowsEveryToolWithoutScrolling, scientificPadDoesNotMoveDisplay, ...) only protect
+# the UI if they actually execute on the emulator.
+if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorToolUiTest --stacktrace --console=plain >"$log_file" 2>&1; then
     test_result=0
 else
     test_result=$?
@@ -216,42 +235,25 @@ if ((test_result == 0)) && [[ "$default_screenshot_is_from_test" != true ]]; the
     echo "::error title=Missing test-generated screenshot::The selected screenshot test passed without saving calculator-default.png."
 fi
 
-emit_review_preview() {
+# Compact JPEG twins of the screenshots, for the dedicated preview-publishing steps in
+# android-ui.yml. The base64 is NOT emitted here: GitHub caps workflow-command annotations per
+# step, and emitting the image from this (annotation-heavy) step truncated it mid-stream — every
+# review so far has been reading a half-decoded frame.
+make_review_preview() {
     local image="$1"
-    local label="$2"
     local preview="${image%.png}-review.jpg"
-    local payload="$image"
-    local format=png
-    local part=1
-    if [[ ! -f "$image" ]]; then
-        return 0
+    rm -f "$preview"
+    [[ -s "$image" ]] || return 0
+    if command -v magick >/dev/null 2>&1; then
+        magick "$image" -resize 360x -quality 38 "$preview" >/dev/null 2>&1 || true
+    elif command -v convert >/dev/null 2>&1; then
+        convert "$image" -resize 360x -quality 38 "$preview" >/dev/null 2>&1 || true
+    elif command -v sips >/dev/null 2>&1; then
+        sips -s format jpeg -s formatOptions 38 -Z 360 "$image" --out "$preview" >/dev/null 2>&1 || true
     fi
-
-    # Prefer a compact JPEG, but fall back to the PNG itself rather than failing the test job
-    # when the hosted runner has no image-conversion utility installed.
-    if command -v sips >/dev/null 2>&1 && \
-            sips -s format jpeg -s formatOptions 60 -Z 720 "$image" --out "$preview" >/dev/null 2>&1; then
-        payload="$preview"
-        format=jpeg
-    elif command -v magick >/dev/null 2>&1 && \
-            magick "$image" -resize 720x -quality 60 "$preview" >/dev/null 2>&1; then
-        payload="$preview"
-        format=jpeg
-    elif command -v convert >/dev/null 2>&1 && \
-            convert "$image" -resize 720x -quality 60 "$preview" >/dev/null 2>&1; then
-        payload="$preview"
-        format=jpeg
-    fi
-
-    echo "::notice title=$label preview format::$format"
-    while IFS= read -r chunk; do
-        echo "::notice title=$label $format part $part::$chunk"
-        part=$((part + 1))
-    done < <(base64 < "$payload" | tr -d '\n' | fold -w 3000)
 }
 
-# Keep original PNGs as artifacts; compact image data is also exposed in check annotations for review.
-emit_review_preview build/ui-screenshots/calculator-default.png "VM calculator screenshot"
-emit_review_preview build/ui-screenshots/calculator-units.png "VM unit-converter screenshot"
+make_review_preview build/ui-screenshots/calculator-default.png
+make_review_preview build/ui-screenshots/calculator-units.png
 
 exit "$test_result"

@@ -49,6 +49,17 @@ jobs:
             echo "::notice title=Android AVD free space::$(df -h "$HOME/.android/avd" | tail -n 1 | sed 's/%/%25/g')"
           script: bash scripts/ci-android-ui-tests.sh
 
+      # Each step gets its own check-annotation budget, so the base64 previews live in steps of
+      # their own: inside the test step they were silently truncated and every review read a
+      # half-decoded frame.
+      - name: Publish default-screen preview
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot"
+
+      - name: Publish converter-screen preview
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot"
+
       - name: Upload emulator screenshots
         if: always()
         uses: actions/upload-artifact@v6
@@ -56,6 +67,7 @@ jobs:
           name: calculator-ui-screenshots
           path: |
             build/ui-screenshots/*.png
+            build/ui-screenshots/*-review.jpg
             build/connected-debug-android-test.log
             build/install-debug-android-test.log
             build/outputs/androidTest-results/connected/debug/**

@@ -210,13 +210,74 @@ public class CalculatorToolUiTest {
     /** Capture the two key UI states so the emulator job can publish screenshots for review. */
     @Test
     public void captureCalculatorScreenshot() throws IOException {
-        final boolean[] keypadShown = new boolean[1];
-        mActivityScenario.onActivity(activity -> {
-            final View inputPad = activity.findViewById(R.id.input_pad);
-            keypadShown[0] = inputPad != null && inputPad.isShown();
-        });
-        assertTrue("Calculator keypad is not visible", keypadShown[0]);
+        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        boolean keypadShown = false;
+        String diagnostics = "";
+        for (int attempt = 1; attempt <= 3 && !keypadShown; attempt++) {
+            if (attempt > 1) {
+                // A stalled System UI or a missed first draw can leave the window unattached on
+                // the hosted emulator; give it a recovery pass before judging the layout again.
+                Log.w("CalculatorToolUiTest", "Keypad not shown on attempt " + (attempt - 1)
+                        + "; recovering emulator before retry");
+                try {
+                    device.wakeUp();
+                    device.executeShellCommand("wm dismiss-keyguard");
+                    recoverSystemUiPrompt(device, 1000);
+                    mActivityScenario.recreate();
+                } catch (Exception exception) {
+                    Log.w("CalculatorToolUiTest", "Emulator recovery pass failed", exception);
+                }
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            }
+            final boolean[] shown = new boolean[1];
+            final String[] detail = new String[1];
+            mActivityScenario.onActivity(activity -> {
+                final View inputPad = activity.findViewById(R.id.input_pad);
+                shown[0] = inputPad != null && inputPad.isShown();
+                detail[0] = describeViewChain(activity, inputPad);
+            });
+            keypadShown = shown[0];
+            diagnostics = detail[0];
+        }
+        assertTrue("Calculator keypad is not visible. " + diagnostics, keypadShown);
         saveScreenshot("calculator-default.png");
+    }
+
+    /** Human-readable state of a view and its ancestors, so a failure names the culprit. */
+    private static String describeViewChain(android.app.Activity activity, View view) {
+        final StringBuilder sb = new StringBuilder();
+        sb.append("activity(finishing=").append(activity.isFinishing())
+                .append(", destroyed=").append(activity.isDestroyed())
+                .append(", focused=").append(activity.hasWindowFocus()).append(')');
+        if (view == null) {
+            return sb.append(" input_pad=null").toString();
+        }
+        View current = view;
+        while (current != null) {
+            final String name = current.getId() == View.NO_ID
+                    ? current.getClass().getSimpleName()
+                    : current.getResources().getResourceEntryName(current.getId());
+            sb.append(" <- ").append(name)
+                    .append("(vis=").append(visibilityName(current))
+                    .append(", shown=").append(current.isShown())
+                    .append(", ").append(current.getWidth()).append('x')
+                    .append(current.getHeight()).append(')');
+            current = current.getParent() instanceof View ? (View) current.getParent() : null;
+        }
+        return sb.toString();
+    }
+
+    private static String visibilityName(View view) {
+        switch (view.getVisibility()) {
+            case View.VISIBLE:
+                return "VISIBLE";
+            case View.INVISIBLE:
+                return "INVISIBLE";
+            case View.GONE:
+                return "GONE";
+            default:
+                return Integer.toString(view.getVisibility());
+        }
     }
 
     @Test
