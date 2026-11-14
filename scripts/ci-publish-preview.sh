@@ -5,11 +5,15 @@
 # to be emitted from a step of its own (see android-ui.yml). Emitting it from the instrumented
 # test step truncated the image mid-stream and left every review staring at a half-decoded frame.
 #
-# usage: ci-publish-preview.sh <image> <label>
+# usage: ci-publish-preview.sh <image> <label> [skip-parts]
+#
+# A third argument skips the first N base64 parts so one image can be published across several
+# steps when it needs more parts than a single step may carry.
 set -euo pipefail
 
-image="${1:?usage: ci-publish-preview.sh <image> <label>}"
-label="${2:?usage: ci-publish-preview.sh <image> <label>}"
+image="${1:?usage: ci-publish-preview.sh <image> <label> [skip-parts]}"
+label="${2:?usage: ci-publish-preview.sh <image> <label> [skip-parts]}"
+skip="${3:-0}"
 
 # Prefer the compact JPEG twin, but fall back to the raw screenshot when the runner had no
 # image converter to produce the twin.
@@ -26,9 +30,9 @@ if [[ ! -s "$image" ]]; then
 fi
 
 # The hosted runner has no image converter at all (no magick/convert/ffmpeg/sips), so the compact
-# JPEG twin often does not exist and the raw PNG is the only frame to embed. Keep the payload
-# inside one step's annotation budget: 90000 bytes -> ~120000 base64 chars -> 9 folded parts of
-# 12000 chars (each well under the 64 KiB annotation message limit).
+# JPEG twin often does not exist and the raw PNG is the only frame to embed. Workflow-command
+# annotation messages are cut at 4096 characters, so fold just under that; a 70 KB frame then
+# needs ~24 parts, published across three steps via the skip-parts argument.
 size=$(stat -c %s "$image" 2>/dev/null || stat -f %z "$image")
 if ((size > 90000)); then
     echo "::notice title=$label::preview is $size bytes, too large to embed; see the calculator-ui-screenshots artifact"
@@ -37,6 +41,8 @@ fi
 
 part=1
 while IFS= read -r chunk; do
-    echo "::notice title=$label base64 part $part::$chunk"
+    if ((part > skip)); then
+        echo "::notice title=$label base64 part $part::$chunk"
+    fi
     part=$((part + 1))
-done < <(base64 < "$image" | tr -d '\n' | fold -w 12000)
+done < <(base64 < "$image" | tr -d '\n' | fold -w 4000)

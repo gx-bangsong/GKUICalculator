@@ -52,13 +52,25 @@ jobs:
       # Each step gets its own check-annotation budget, so the base64 previews live in steps of
       # their own: inside the test step they were silently truncated and every review read a
       # half-decoded frame.
-      - name: Publish default-screen preview
+      # Annotation messages are cut at 4096 chars, so one frame needs several steps of parts.
+      - name: Publish default-screen preview (parts 1-10)
         if: always()
-        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot"
-
-      - name: Publish converter-screen preview
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot" 0
+      - name: Publish default-screen preview (parts 11-20)
         if: always()
-        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot"
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot" 10
+      - name: Publish default-screen preview (parts 21+)
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot" 20
+      - name: Publish converter-screen preview (parts 1-10)
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot" 0
+      - name: Publish converter-screen preview (parts 11-20)
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot" 10
+      - name: Publish converter-screen preview (parts 21+)
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot" 20
 
       - name: Upload emulator screenshots
         if: always()
