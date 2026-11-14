@@ -83,7 +83,11 @@
         <item name="iconSize">@dimen/button_iconsize</item>
     </style>
 
-    <!-- Narrow keys in the scientific pad: label scaled from the smaller side, then capped. -->
+    <!--
+        Superseded by PadButtonStyle.Scientific below, which is what advanced_pad.xml (portrait
+        and landscape) uses now. Kept as harmless declarations; delete once nothing references
+        the old two-layer scientific look.
+    -->
     <style name="PadButtonStyle.SmallCaps">
         <item name="textAllCaps">true</item>
         <item name="android:textSize">13sp</item>

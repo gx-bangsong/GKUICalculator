@@ -139,13 +139,15 @@ def check_xml_refs(decl, ids):
                     warnings.append(f'{rel(path)}: @attr/{name} is not a local attr')
                 continue
             known = decl.get(kind, set())
-            base = name.split('.')[0] if kind == 'style' else name
             if kind == 'style':
                 # Library themes/styles (Material Components, AppCompat) are not declared here.
                 if name.startswith(('Widget.', 'Theme.', 'ThemeOverlay.', 'TextAppearance.',
                                     'Base.', 'Platform.')):
                     continue
-                if name not in known and base not in known:
+                # Exact match only. A dotted style name is NOT satisfied by its parent: AAPT
+                # resolves @style/PadButtonStyle.SmallText.Scientific to a resource of that exact
+                # name, so accepting the "PadButtonStyle" prefix hid a real build break.
+                if name not in known:
                     errors.append(f'{rel(path)}: unknown style @style/{name}')
             elif name not in known:
                 errors.append(f'{rel(path)}: unknown @{kind}/{name}')

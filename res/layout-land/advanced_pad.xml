@@ -2,6 +2,10 @@
 <!--
      SPDX-FileCopyrightText: The LineageOS Project
      SPDX-License-Identifier: Apache-2.0
+
+     Scientific keys (portrait and landscape) all use PadButtonStyle.Scientific: a flat 10 dp
+     corner radius and its own label scale, so they read as a separate keyboard layer rather than
+     as copies of the digit keys. Do not reintroduce PadButtonStyle.Small* here.
 -->
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -14,7 +18,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/toggle_mode"
-        style="@style/PadButtonStyle.SmallCaps.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_switch_deg"
         android:text="@string/mode_deg"
         android:theme="@style/Theme.Button.Advanced"
@@ -25,7 +29,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/op_sqrt"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_op_sqrt"
         android:text="@string/op_sqrt"
         android:theme="@style/Theme.Button.Advanced"
@@ -36,7 +40,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/op_sqr"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_op_sqr"
         android:fontFamily="sans-serif-medium"
         android:text="@string/op_sqr"
@@ -49,7 +53,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/const_pi"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_const_pi"
         android:text="@string/const_pi"
         android:theme="@style/Theme.Button.Advanced"
@@ -60,7 +64,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/op_pow"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_op_pow"
         android:text="@string/op_pow"
         android:theme="@style/Theme.Button.Advanced"
@@ -71,7 +75,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/op_fact"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_op_fact"
         android:text="@string/op_fact"
         android:theme="@style/Theme.Button.Advanced"
@@ -82,7 +86,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/fun_sin"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_fun_sin"
         android:text="@string/fun_sin"
         android:theme="@style/Theme.Button.Advanced"
@@ -93,7 +97,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/fun_arcsin"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_fun_arcsin"
         android:fontFamily="sans-serif-medium"
         android:text="@string/fun_arcsin"
@@ -106,7 +110,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/fun_cos"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_fun_cos"
         android:text="@string/fun_cos"
         android:theme="@style/Theme.Button.Advanced"
@@ -117,7 +121,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/fun_arccos"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_fun_arccos"
         android:fontFamily="sans-serif-medium"
         android:text="@string/fun_arccos"
@@ -130,7 +134,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/fun_tan"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_fun_tan"
         android:text="@string/fun_tan"
         android:theme="@style/Theme.Button.Advanced"
@@ -141,7 +145,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/fun_arctan"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_fun_arctan"
         android:fontFamily="sans-serif-medium"
         android:text="@string/fun_arctan"
@@ -154,7 +158,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/toggle_inv"
-        style="@style/PadButtonStyle.SmallCaps.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_inv_off"
         android:text="@string/inv"
         android:theme="@style/Theme.Button.Advanced"
@@ -165,7 +169,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/const_e"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_const_e"
         android:text="@string/const_e"
         android:theme="@style/Theme.Button.Advanced"
@@ -176,7 +180,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/fun_ln"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_fun_ln"
         android:text="@string/fun_ln"
         android:theme="@style/Theme.Button.Advanced"
@@ -187,7 +191,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/fun_exp"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_fun_exp"
         android:fontFamily="sans-serif-medium"
         android:text="@string/fun_exp"
@@ -200,7 +204,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/fun_log"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_fun_log"
         android:text="@string/fun_log"
         android:theme="@style/Theme.Button.Advanced"
@@ -211,7 +215,7 @@
 
     <com.android.calculator2.HapticButton
         android:id="@+id/fun_10pow"
-        style="@style/PadButtonStyle.SmallText.Scientific"
+        style="@style/PadButtonStyle.Scientific"
         android:contentDescription="@string/desc_fun_10pow"
         android:fontFamily="sans-serif-medium"
         android:text="@string/fun_10pow"
