@@ -153,6 +153,93 @@ def check_xml_refs(decl, ids):
                 errors.append(f'{rel(path)}: unknown @{kind}/{name}')
 
 
+_JAVA_KEYWORDS = {
+    'if', 'for', 'while', 'switch', 'catch', 'return', 'new', 'super', 'this', 'throw',
+    'synchronized', 'try', 'assert', 'do', 'else', 'case', 'instanceof', 'yield',
+}
+
+# A small, deliberately explicit list of framework methods this codebase calls unqualified on
+# `this` inside a View/Activity/Context subclass. Kept short so it is reviewable.
+_FRAMEWORK_METHODS = {
+    'getContext', 'getResources', 'findViewById', 'getMeasuredHeight', 'getMeasuredWidth',
+    'getWidth', 'getHeight', 'getPaddingStart', 'getPaddingEnd', 'getPaddingTop',
+    'getPaddingBottom', 'getPaddingLeft', 'getPaddingRight', 'getLayoutParams', 'getVisibility',
+    'getParent', 'getRootView', 'getTag', 'getAlpha', 'getTranslationY', 'getBaseline',
+    'getSharedPreferences', 'getApplicationContext', 'getSystemService', 'getWindow',
+    'getIntent', 'getSupportFragmentManager', 'getSupportActionBar', 'getMenuInflater',
+    'getLayoutInflater', 'getActivity', 'getArguments', 'getCurrentState', 'getConstraintSet',
+    'getLineHeight', 'getText', 'getTextSize', 'getPaint', 'getMinimumWidth',
+    'getMinimumHeight', 'getCompoundPaddingTop', 'getCompoundPaddingBottom',
+    'getTotalPaddingTop', 'getIcon', 'isFinishing', 'isDestroyed', 'isLaidOut', 'isEnabled',
+    'isSelected', 'isChecked', 'isShown', 'isActivated', 'isPressed', 'requestLayout',
+    'requestFocus', 'post', 'postDelayed', 'postInvalidateOnAnimation', 'invalidate',
+    'invalidateOptionsMenu', 'finish', 'runOnUiThread', 'startActivity',
+    'startActivityForResult', 'registerReceiver', 'unregisterReceiver', 'sendBroadcast',
+    'bindService', 'animate', 'performClick', 'performLongClick', 'performHapticFeedback',
+    'announceForAccessibility', 'moveTaskToBack', 'requireViewById', 'close',
+    'obtainStyledAttributes', 'obtain', 'recycle', 'transitionToEnd', 'transitionToStart',
+    'startActionMode', 'showContextMenu', 'onTouchEvent', 'getOnBackPressedDispatcher',
+    'getHighlightColor', 'length', 'reload', 'notifyDataSetChanged',
+    'bringPointIntoView', 'emptyList', 'getStatus', 'getTotalPaddingRight',
+    'getTotalPaddingBottom', 'isCancelled', 'setAccessibilityLiveRegion', 'setAlpha',
+    'setChildrenDrawingOrderEnabled', 'setContentDescription', 'setContentView',
+    'setCursorVisible', 'setHasStableIds', 'setIncludeFontPadding', 'setLongClickable',
+    'setMinimumHeight', 'setMinimumWidth', 'setOnCreateContextMenuListener',
+    'setOnLongClickListener', 'setOnTouchListener', 'setSupportActionBar', 'setText',
+    'setTranslationY', 'setVisibility',
+}
+
+
+def check_java_method_calls():
+    """Report an unqualified call to a method no repo class declares.
+
+    A block-replace once deleted Calculator#setScientificPadVisible while its call sites stayed;
+    javalang parses that and every resource check passes, so the first sign was a javac
+    ``cannot find symbol`` from CI. This catches the same shape locally: the name must appear
+    nowhere in ``src/`` (so it is not a repo helper or an inherited repo method) and it is not in
+    the framework list above.
+    """
+    try:
+        import javalang
+    except ImportError:
+        return
+    files = glob.glob(os.path.join(ROOT, 'src', '**', '*.java'), recursive=True)
+    repo_methods = set()
+    sources = {}
+    for path in files:
+        raw = open(path, encoding='utf-8').read()
+        sources[path] = raw
+        try:
+            tree = javalang.parse.parse(raw)
+        except Exception:
+            continue
+        for _, node in tree.filter(javalang.tree.MethodDeclaration):
+            repo_methods.add(node.name)
+    for path, raw in sources.items():
+        try:
+            tree = javalang.parse.parse(raw)
+        except Exception:
+            continue
+        declared = {n.name for _, n in tree.filter(javalang.tree.MethodDeclaration)}
+        declared |= {n.name for _, n in tree.filter(javalang.tree.ConstructorDeclaration)}
+        src = re.sub(r'/\*.*?\*/', '', raw, flags=re.S)
+        src = re.sub(r'//[^\n]*', '', src)
+        src = re.sub(r'"(?:\\.|[^"\\])*"', '""', src)
+        for m in re.finditer(r'(?<![\w.])([a-z][A-Za-z0-9_]*)\s*\(', src):
+            name = m.group(1)
+            if name in _JAVA_KEYWORDS or name in declared or name in _FRAMEWORK_METHODS:
+                continue
+            line_start = src.rfind('\n', 0, m.start()) + 1
+            prefix = src[line_start:m.start()]
+            if re.search(r'(void|int|long|boolean|float|double|String|char|View|Object)\s+$',
+                         prefix):
+                continue  # a declaration, not a call
+            if name in repo_methods:
+                continue  # declared by some repo class: assume inherited
+            errors.append(f'{rel(path)}:{src[:m.start()].count(chr(10)) + 1}: '
+                          f'call to {name}(), which no class declares')
+
+
 def check_java(decl, ids):
     import javalang
     for path in glob.glob(os.path.join(ROOT, 'src', '**', '*.java'), recursive=True):
@@ -199,6 +286,7 @@ def main():
     onclicks = collect_onclicks()
     check_onclick_handlers(onclicks)
     check_java(decl, ids)
+    check_java_method_calls()
     for w in warnings:
         print('WARN', w)
     for e in errors:
