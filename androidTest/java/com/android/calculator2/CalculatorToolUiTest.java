@@ -419,26 +419,52 @@ public class CalculatorToolUiTest {
     }
 
     /**
-     * Opens the overflow menu and taps an item through UiAutomator: the AppCompat popup does
-     * not give the activity window focus, so Espresso's root picker times out on it.
+     * Opens the overflow menu and taps one item. The overflow button itself is clicked through
+     * Espresso (the activity window still holds focus at that point); the popup that follows is
+     * driven through UiAutomator, because the AppCompat popup leaves the activity window
+     * unfocused and Espresso's root picker times out on it. If the item never appears, the
+     * assertion carries the tail of the window hierarchy so the next review sees why.
      */
     private static void clickOverflowItem(UiDevice device, Context context, int titleRes) {
+        final String title = context.getString(titleRes);
         try {
-            final UiObject overflow = device.findObject(new UiSelector().description("More options"));
-            if (overflow.waitForExists(5000)) {
-                overflow.click();
-            } else {
+            onView(withContentDescription(
+                    androidx.appcompat.R.string.abc_action_menu_overflow_description))
+                    .perform(click());
+        } catch (RuntimeException e) {
+            try {
                 device.pressMenu();
+            } catch (IOException ignored) {
+                // fall through to the item poll below
             }
-            final UiObject item = device.findObject(
-                    new UiSelector().text(context.getString(titleRes)));
-            assertTrue("overflow item not shown: " + context.getString(titleRes),
-                    item.waitForExists(5000));
-            item.click();
-        } catch (UiObjectNotFoundException e) {
-            throw new AssertionError("could not drive the overflow menu", e);
         }
-        device.waitForIdle();
+        final UiObject item = device.findObject(new UiSelector().text(title));
+        final long deadline = SystemClock.uptimeMillis() + 10000;
+        while (SystemClock.uptimeMillis() < deadline) {
+            try {
+                if (item.exists()) {
+                    item.click();
+                    device.waitForIdle();
+                    return;
+                }
+            } catch (UiObjectNotFoundException ignored) {
+                // keep polling
+            }
+            SystemClock.sleep(250);
+        }
+        String hierarchy = "";
+        try {
+            final java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            device.dumpWindowHierarchy(bos);
+            hierarchy = bos.toString("UTF-8");
+        } catch (IOException ignored) {
+            // hierarchy stays empty
+        }
+        if (hierarchy.length() > 1800) {
+            hierarchy = hierarchy.substring(hierarchy.length() - 1800);
+        }
+        throw new AssertionError("overflow item not shown: " + title
+                + " | window hierarchy tail: " + hierarchy);
     }
 
     private void resetTestPreferences() {
