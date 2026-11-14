@@ -220,34 +220,37 @@ emit_review_preview() {
     local image="$1"
     local label="$2"
     local preview="${image%.png}-review.jpg"
+    local payload="$image"
+    local format=png
     local part=1
     if [[ ! -f "$image" ]]; then
-        return
+        return 0
     fi
-    if command -v sips >/dev/null; then
-        sips -s format jpeg -s formatOptions 60 -Z 720 "$image" --out "$preview" >/dev/null 2>&1 || return
-    elif command -v magick >/dev/null; then
-        magick "$image" -resize 720x -quality 60 "$preview" >/dev/null 2>&1 || return
-    elif command -v convert >/dev/null; then
-        convert "$image" -resize 720x -quality 60 "$preview" >/dev/null 2>&1 || return
-    elif python3 -c 'from PIL import Image' >/dev/null 2>&1; then
-        python3 - "$image" "$preview" <<'PY'
-from PIL import Image
-import sys
-with Image.open(sys.argv[1]) as image:
-    image.thumbnail((720, 720))
-    image.convert("RGB").save(sys.argv[2], "JPEG", quality=60)
-PY
-    else
-        return
+
+    # Prefer a compact JPEG, but fall back to the PNG itself rather than failing the test job
+    # when the hosted runner has no image-conversion utility installed.
+    if command -v sips >/dev/null 2>&1 && \
+            sips -s format jpeg -s formatOptions 60 -Z 720 "$image" --out "$preview" >/dev/null 2>&1; then
+        payload="$preview"
+        format=jpeg
+    elif command -v magick >/dev/null 2>&1 && \
+            magick "$image" -resize 720x -quality 60 "$preview" >/dev/null 2>&1; then
+        payload="$preview"
+        format=jpeg
+    elif command -v convert >/dev/null 2>&1 && \
+            convert "$image" -resize 720x -quality 60 "$preview" >/dev/null 2>&1; then
+        payload="$preview"
+        format=jpeg
     fi
+
+    echo "::notice title=$label preview format::$format"
     while IFS= read -r chunk; do
-        echo "::notice title=$label part $part::$chunk"
+        echo "::notice title=$label $format part $part::$chunk"
         part=$((part + 1))
-    done < <(base64 < "$preview" | tr -d '\n' | fold -w 3000)
+    done < <(base64 < "$payload" | tr -d '\n' | fold -w 6000)
 }
 
-# Keep original PNGs as artifacts; small JPEG previews are carried in check annotations for review.
+# Keep original PNGs as artifacts; compact image data is also exposed in check annotations for review.
 emit_review_preview build/ui-screenshots/calculator-default.png "VM calculator screenshot"
 emit_review_preview build/ui-screenshots/calculator-units.png "VM unit-converter screenshot"
 
