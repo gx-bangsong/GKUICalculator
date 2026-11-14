@@ -3,10 +3,11 @@
      SPDX-FileCopyrightText: 2026 The GKUICalculator Project
      SPDX-License-Identifier: Apache-2.0
 
-     One generated icon-only segment for a life-calculation tool (BMI, income tax, mortgage,
-     date, relatives). Same track, radius and selected-state treatment as the fixed
-     123 / fx / programmer / two-way-arrow segments in tool_bar.xml; the icon is supplied by
-     ToolMode.getIconRes() and the content description by ToolMode.getNameRes().
+     One generated icon-only segment for a tool (programmer, BMI, income tax, mortgage, date,
+     relatives). It is inflated directly into the pill in tool_bar.xml, after the declared
+     123 / fx / (two-way arrow) segments, so it shares their track, radius and selected-state
+     treatment. The icon comes from ToolMode.getIconRes() and the content description from
+     ToolMode.getNameRes().
 -->
 <TextView xmlns:android="http://schemas.android.com/apk/res/android"
     style="@style/ModeSegment.Icon"

@@ -28,8 +28,7 @@ import java.util.List;
 /**
  * The persistent mode strip shown between the display and the pads (collapsed state).
  * <p>
- * Unlike the earlier chip-only bar, the calculator is no longer one chip among many. The bar is
- * led by a segmented control modelled on Google Calculator v10:
+ * The control is a single pill modelled on Google Calculator v10, led by three text segments:
  * <ul>
  *   <li>{@code 123} — the standard keypad (and the calculator itself)</li>
  *   <li>{@code fx} — the scientific pad, without leaving the calculator</li>
