@@ -306,8 +306,7 @@ public class CalculatorToolUiTest {
      */
     private void clickPercentMenuOption() {
         mActivityScenario.onActivity(activity -> {
-            final androidx.appcompat.view.MenuBuilder menu =
-                    new androidx.appcompat.view.MenuBuilder(activity);
+            final android.view.Menu menu = newOptionsMenuBar(activity);
             activity.onCreateOptionsMenu(menu);
             activity.onPrepareOptionsMenu(menu);
             final MenuItem item = menu.findItem(R.id.menu_percent_of_value);
@@ -316,6 +315,27 @@ public class CalculatorToolUiTest {
             assertTrue("percent option handler refused the click",
                     activity.onOptionsItemSelected(item));
         });
+    }
+
+    /**
+     * AppCompat's MenuBuilder implementation, built through reflection: its package moved
+     * between appcompat releases, and the test module must compile against whichever the
+     * material dependency resolves.
+     */
+    private static android.view.Menu newOptionsMenuBar(Context context) {
+        final String[] candidates = {
+                "androidx.appcompat.view.MenuBuilder",
+                "androidx.appcompat.view.menu.MenuBuilder",
+        };
+        for (String name : candidates) {
+            try {
+                return (android.view.Menu) Class.forName(name)
+                        .getConstructor(Context.class).newInstance(context);
+            } catch (ReflectiveOperationException ignored) {
+                // try the next known location
+            }
+        }
+        throw new AssertionError("no appcompat MenuBuilder implementation on the classpath");
     }
 
     private boolean readPercentOfValuePref() {
