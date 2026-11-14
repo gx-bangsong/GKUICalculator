@@ -3,9 +3,9 @@
      SPDX-FileCopyrightText: 2014 The Android Open Source Project
      SPDX-License-Identifier: Apache-2.0
 
-     Root is a plain FrameLayout so the tool overlay is a SIBLING of the MotionLayout (not a
-     child). This keeps the overlay's visibility under normal ViewGroup control — MotionLayout
-     was forcing the overlay visible / ignoring setVisibility when it was its child.
+     Root is a plain FrameLayout hosting the MotionLayout. The mode pill inside the MotionLayout
+     is the only tool switcher; the old "more" overlay panel (and the button that opened it) is
+     gone, so nothing floats above the pads anymore.
 -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -95,13 +95,5 @@
             app:layout_constraintTop_toBottomOf="parent" />
 
     </com.android.calculator2.DisplayMotionLayout>
-
-    <!-- Tool overlay: sibling of the MotionLayout (topmost Z). Starts GONE. -->
-    <include
-        android:id="@+id/tool_panel_overlay"
-        layout="@layout/tool_panel_overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone" />
 
 </FrameLayout>

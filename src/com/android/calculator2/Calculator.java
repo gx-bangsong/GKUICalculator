@@ -429,9 +429,6 @@ public class Calculator extends AppCompatActivity
         mMainCalculator.setTransitionListener(new MotionLayout.TransitionListener() {
             @Override
             public void onTransitionStarted(MotionLayout motionLayout, int startId, int endId) {
-                if (mToolManager != null) {
-                    mToolManager.collapsePanel();
-                }
                 if (startId == R.id.start_state) {
                     showHistoryFragment();
                 }
@@ -462,10 +459,8 @@ public class Calculator extends AppCompatActivity
         mFormulaText.addTextChangedListener(mFormulaTextWatcher);
         mDeleteButton.setOnLongClickListener(this);
 
-        // Life-calculation tool bar (Stage 1): persistent bar + overlay "more" panel.
-        mToolManager = new ToolManager(this, this,
-                findViewById(R.id.tool_bar),
-                findViewById(R.id.tool_panel_overlay));
+        // Life-calculation tool bar: the mode pill is the only tool switcher.
+        mToolManager = new ToolManager(this, this, findViewById(R.id.tool_bar));
         mToolManager.register(new CalculatorMode());
         mToolManager.register(new UnitConverterMode());
         mToolManager.register(new CurrencyConverterMode());
@@ -476,14 +471,6 @@ public class Calculator extends AppCompatActivity
         mToolManager.register(new ProgrammerMode());
         mToolManager.register(new RelationshipMode());
         mToolManager.init();
-        // DEBUG: record the overlay's initial visibility to diagnose "expanded at launch".
-        final View overlay = findViewById(R.id.tool_panel_overlay);
-        Log.d("ToolDebug", "onCreate: after init, overlay="
-                + (overlay == null ? "null" : ("vis=" + overlay.getVisibility()
-                        + "(" + (overlay.getVisibility() == View.GONE ? "GONE"
-                                : overlay.getVisibility() == View.VISIBLE ? "VISIBLE" : "INVISIBLE")
-                        + ")"))
-                + " panelExpanded=" + (mToolManager != null && mToolManager.isPanelExpanded()));
 
         if (savedInstanceState != null) {
             restoreInstanceState(savedInstanceState);
@@ -622,9 +609,6 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void onBackPressed() {
-        if (mToolManager != null && mToolManager.onBackPressed()) {
-            return;
-        }
         if (!stopActionModeOrContextMenu()) {
             final HistoryFragment historyFragment = getHistoryFragment();
             if (mMainCalculator.getCurrentState() == R.id.end_state

@@ -85,12 +85,4 @@
 
     </com.android.calculator2.DisplayMotionLayout>
 
-    <!-- Tool overlay: sibling of the MotionLayout (topmost Z). Starts GONE. -->
-    <include
-        android:id="@+id/tool_panel_overlay"
-        layout="@layout/tool_panel_overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone" />
-
 </FrameLayout>

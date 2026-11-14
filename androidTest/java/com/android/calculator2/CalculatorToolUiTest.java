@@ -75,13 +75,6 @@ public class CalculatorToolUiTest {
         }
     }
 
-    /** The "more" overlay must be collapsed (not displayed) when the app launches. */
-    @Test
-    public void overlayStartsCollapsed() {
-        onView(withId(R.id.tool_panel_overlay))
-                .check(matches(org.hamcrest.Matchers.not(isDisplayed())));
-    }
-
     /** A first-run install opens on the standard keypad, with 123 selected in the mode control. */
     @Test
     public void firstRunUsesStandardKeypad() {
