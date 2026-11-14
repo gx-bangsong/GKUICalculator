@@ -114,6 +114,9 @@ gone. The mode strip is now one continuous control in which **every tool is a se
 | next icon | Date interval | `ic_tool_date` (Material *date_range*) |
 | next icon | Relatives (亲戚称呼) | `ic_tool_relationship` (Material *people*) |
 
+`mode-pill-before-after.png` shows the structural change: the tool icons used to sit in a second
+track beside the `123 / ƒx / ⇄` pill, and now they are the right-hand end of that same pill.
+
 Design notes:
 
 * **Icon only**, per the v10 language: the `123 / ƒx / ⇄` segments are symbols, so the tools are
