@@ -67,26 +67,59 @@ public class CalculatorToolUiTest {
         } catch (Exception exception) {
             Log.w("CalculatorToolUiTest", "Unable to recover emulator window focus", exception);
         }
-        mActivityScenario = ActivityScenario.launch(Calculator.class);
-        awaitWindowFocus();
+        launchWithWindowFocus(device);
     }
 
     /**
-     * The hosted emulator can leave a fresh activity without window focus for several seconds
-     * (System UI, IME and media scanner all settle at once), and Espresso's root picker gives up
-     * after ten. Waiting here keeps the first test of the run from losing that race.
+     * The very first launch after the emulator boots can end up with a window that never gains
+     * focus (System UI, IME and the media scanner all settle at once, and Espresso's root picker
+     * gives up after ten seconds of that). Relaunching once the system has settled has always
+     * worked, so each test gets up to three launches, each with its own focus wait.
      */
-    private void awaitWindowFocus() {
+    private void launchWithWindowFocus(UiDevice device) {
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            mActivityScenario = ActivityScenario.launch(Calculator.class);
+            if (awaitWindowFocus(device)) {
+                return;
+            }
+            Log.w("CalculatorToolUiTest", "Calculator window unfocused after launch " + attempt
+                    + ", relaunching");
+            try {
+                mActivityScenario.close();
+            } catch (RuntimeException ignored) {
+                // a half-started scenario still needs the next launch to replace it
+            }
+        }
+        throw new AssertionError(
+                "Calculator window never gained focus after three launches; the emulator never settled");
+    }
+
+    /**
+     * Waits for the launched activity to hold window focus, dismissing any System UI recovery
+     * prompt that shows up while waiting (those dialogs steal focus and never go away on their
+     * own). Returns false after 30 seconds without focus.
+     */
+    private boolean awaitWindowFocus(UiDevice device) {
         final long deadline = SystemClock.uptimeMillis() + 30000;
+        long nextPromptCheck = 0;
         while (SystemClock.uptimeMillis() < deadline) {
             final boolean[] focused = new boolean[1];
-            mActivityScenario.onActivity(activity -> focused[0] = activity.hasWindowFocus());
+            try {
+                mActivityScenario.onActivity(activity -> focused[0] = activity.hasWindowFocus());
+            } catch (IllegalStateException ignored) {
+                return false;   // scenario already dead; let the caller relaunch
+            }
             if (focused[0]) {
-                return;
+                return true;
+            }
+            final long now = SystemClock.uptimeMillis();
+            if (now >= nextPromptCheck) {
+                recoverSystemUiPrompt(device, 250);
+                nextPromptCheck = now + 2000;
             }
             SystemClock.sleep(250);
         }
-        Log.w("CalculatorToolUiTest", "Activity still without window focus after 30 s");
+        return false;
     }
 
     @After
