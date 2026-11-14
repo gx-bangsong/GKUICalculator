@@ -8,12 +8,12 @@ package com.android.calculator2;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.matcher.ViewMatchers.isCompletelyDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.isSelected;
 import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
-import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertEquals;
@@ -177,6 +177,26 @@ public class CalculatorToolUiTest {
         onView(withId(R.id.mode_segment_basic)).check(matches(isSelected()));
     }
 
+    /**
+     * The pill is the only tool switcher, so on a fresh install every tool must already be a
+     * segment inside it and fully on screen: none hidden behind a menu or scrolled out of view.
+     */
+    @Test
+    public void pillShowsEveryToolWithoutScrolling() {
+        resetTestPreferences();
+        final int[] tools = {R.string.tool_programmer, R.string.tool_bmi, R.string.tool_tax,
+                R.string.tool_mortgage, R.string.tool_date, R.string.tool_relationship};
+        for (int tool : tools) {
+            onView(withContentDescription(tool)).check(matches(isCompletelyDisplayed()));
+        }
+        mActivityScenario.onActivity(activity -> {
+            final View pill = activity.findViewById(R.id.mode_segments_scroll);
+            final View row = activity.findViewById(R.id.mode_segments);
+            assertEquals("segments must fill the pill exactly", pill.getWidth(), row.getWidth());
+            assertEquals(9, ((android.view.ViewGroup) row).getChildCount());
+        });
+    }
+
     /** Unit categories stay as inline pills, rather than opening a full-screen unit chooser. */
     @Test
     public void unitCategoriesRemainInlinePills() {
@@ -207,22 +227,6 @@ public class CalculatorToolUiTest {
         saveScreenshot("calculator-units.png");
     }
 
-    /** Tapping the "more" button must expand the overlay. */
-    @Test
-    public void moreButtonExpandsOverlay() {
-        onView(withId(R.id.tool_more_button)).perform(click());
-        onView(withId(R.id.tool_panel_overlay)).check(matches(isDisplayed()));
-    }
-
-    /** Tapping "more" again must collapse the overlay. */
-    @Test
-    public void moreButtonCollapsesOverlay() {
-        onView(withId(R.id.tool_more_button)).perform(click());   // expand
-        onView(withId(R.id.tool_more_button)).perform(click());   // collapse
-        onView(withId(R.id.tool_panel_overlay))
-                .check(matches(org.hamcrest.Matchers.not(isDisplayed())));
-    }
-
     /** A pending instant result from the calculator must not overwrite a newly opened tool. */
     @Test
     public void pendingCalculatorResultDoesNotReplaceMortgageResult() {
@@ -232,9 +236,7 @@ public class CalculatorToolUiTest {
         onView(withId(R.id.digit_9)).perform(click());
         // Do not press equals: this leaves the calculator's instant evaluation active, matching
         // the regression where its result was redrawn after the mortgage display was mounted.
-        onView(withId(R.id.tool_more_button)).perform(click());
-        onView(allOf(withId(R.id.tool_panel_item_text),
-                withText(R.string.tool_mortgage), isDisplayed())).perform(click());
+        onView(withContentDescription(R.string.tool_mortgage)).perform(click());
 
         final Context context = ApplicationProvider.getApplicationContext();
         onView(withId(R.id.result)).check(matches(withText(containsString(
@@ -244,9 +246,7 @@ public class CalculatorToolUiTest {
     /** 中文大写 applies to the primary mortgage result (月供/首月), not only its totals. */
     @Test
     public void uppercaseNumbersIncludePrimaryMortgagePayment() {
-        onView(withId(R.id.tool_more_button)).perform(click());
-        onView(allOf(withId(R.id.tool_panel_item_text),
-                withText(R.string.tool_mortgage), isDisplayed())).perform(click());
+        onView(withContentDescription(R.string.tool_mortgage)).perform(click());
         // The off state must remain obvious and tappable; after tapping, the glyph itself previews
         // the Arabic-to-financial conversion.
         onView(withId(R.id.uppercase_toggle))
@@ -262,9 +262,7 @@ public class CalculatorToolUiTest {
     /** Unit conversion accepts +, −, ×, ÷ and equals from the calculator pad. */
     @Test
     public void unitConverterAcceptsArithmetic() {
-        onView(withId(R.id.tool_more_button)).perform(click());
-        onView(allOf(withId(R.id.tool_panel_item_text),
-                withText(R.string.tool_unit), isDisplayed())).perform(click());
+        onView(withId(R.id.mode_segment_convert)).perform(click());
         onView(withId(R.id.clr)).perform(click());
         onView(withId(R.id.digit_2)).perform(click());
         onView(withId(R.id.op_add)).perform(click());
@@ -279,9 +277,9 @@ public class CalculatorToolUiTest {
     /** Currency replaces the existing value column with 大写 and accepts arithmetic input. */
     @Test
     public void currencyConverterUsesValueColumnForUppercaseAndAcceptsArithmetic() {
-        onView(withId(R.id.tool_more_button)).perform(click());
-        onView(allOf(withId(R.id.tool_panel_item_text),
-                withText(R.string.tool_currency), isDisplayed())).perform(click());
+        // The convert segment opens units first; a second tap switches to currency.
+        onView(withId(R.id.mode_segment_convert)).perform(click());
+        onView(withId(R.id.mode_segment_convert)).perform(click());
         onView(withId(R.id.clr)).perform(click());
         onView(withId(R.id.digit_8)).perform(click());
         onView(withId(R.id.op_div)).perform(click());
@@ -304,9 +302,7 @@ public class CalculatorToolUiTest {
     }
 
     private void openUnitConverter() {
-        onView(withId(R.id.tool_more_button)).perform(click());
-        onView(allOf(withId(R.id.tool_panel_item_text),
-                withText(R.string.tool_unit), isDisplayed())).perform(click());
+        onView(withId(R.id.mode_segment_convert)).perform(click());
     }
 
     private void saveScreenshot(String name) throws IOException {

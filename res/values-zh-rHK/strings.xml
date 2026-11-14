@@ -90,8 +90,6 @@
     <string name="tool_bmi" translatable="false">BMI</string>
     <string name="tool_date">日期</string>
     <string name="tool_programmer">程式設計</string>
-    <string name="tool_more">更多</string>
-    <string name="tool_more_close">收合</string>
     <!-- 123 / fx / ⇄ 模式切换的辅助说明。 -->
     <string name="desc_mode_basic">標準鍵盤</string>
     <string name="desc_mode_scientific">科學鍵盤</string>

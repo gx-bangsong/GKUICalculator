@@ -9,8 +9,9 @@
      treatment. The icon comes from ToolMode.getIconRes() and the content description from
      ToolMode.getNameRes().
 -->
-<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
     style="@style/ModeSegment.Icon"
+    android:scaleType="center"
     android:clickable="true"
     android:focusable="true"
     android:importantForAccessibility="yes" />

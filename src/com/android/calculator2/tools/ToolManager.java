@@ -6,7 +6,6 @@
 package com.android.calculator2.tools;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -18,11 +17,8 @@ import com.android.calculator2.tools.ui.ToolBarView;
 import com.android.calculator2.tools.ui.ToolPanelOverlay;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Registry and controller for tool modes.
@@ -39,14 +35,10 @@ import java.util.Map;
  */
 public class ToolManager {
 
-    private static final String PREFS_NAME = "calc_tools";
-    private static final String FREQ_PREFIX = "freq_";
-
     private final Context mAppContext;
     private final ToolHost mHost;
     private final ToolBarView mToolBar;
     private final ToolPanelOverlay mOverlay;
-    private final SharedPreferences mPrefs;
 
     private final LinkedHashMap<String, ToolMode> mModes = new LinkedHashMap<>();
     @Nullable
@@ -59,18 +51,12 @@ public class ToolManager {
         mHost = host;
         mToolBar = toolBar;
         mOverlay = overlay;
-        mPrefs = mAppContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
 
         if (mToolBar != null) {
             mToolBar.setListener(new ToolBarView.Listener() {
                 @Override
                 public void onToolChipClicked(@NonNull String toolId) {
                     activate(toolId);
-                }
-
-                @Override
-                public void onMoreClicked() {
-                    togglePanel();
                 }
             });
         }
@@ -116,71 +102,13 @@ public class ToolManager {
         return result;
     }
 
-    /** Ordered toolbar items: calculator first, then the pinned (top-frequency) tools. */
+    /**
+     * Mode-pill items: the calculator, then every registered tool in registration order. The
+     * pill is the only tool switcher, so nothing is left out and the order never changes.
+     */
     @NonNull
     public List<ToolMode> getToolbarItems() {
-        List<ToolMode> items = new ArrayList<>();
-        final ToolMode calc = mModes.get(ToolId.CALCULATOR);
-        if (calc != null) {
-            items.add(calc);
-        }
-        items.addAll(getPinned());
-        return items;
-    }
-
-    private List<ToolMode> getPinned() {
-        final Map<String, Integer> freq = readFrequencies();
-        List<ToolMode> tools = getMoreItems();
-        Collections.sort(tools, new Comparator<ToolMode>() {
-            @Override
-            public int compare(ToolMode a, ToolMode b) {
-                return Integer.compare(score(b.getId(), freq), score(a.getId(), freq));
-            }
-        });
-        return tools.subList(0, Math.min(pinnedLimit(), tools.size()));
-    }
-
-    /**
-     * How many non-calculator tools to pin on the bar. 0 (or negative) means every
-     * registered tool — used on tablets and unfolded foldables where the bar is wide.
-     */
-    private int pinnedLimit() {
-        // Use the host (activity) resources so fold/unfold and multi-window pick up
-        // the current window's sw/w qualifiers, not the application default.
-        final Context ctx = mHost.getContext();
-        final int configured = ctx.getResources()
-                .getInteger(R.integer.tool_bar_pinned_count);
-        return configured <= 0 ? Integer.MAX_VALUE : configured;
-    }
-
-    private int score(@NonNull String id, @NonNull Map<String, Integer> freq) {
-        final int recorded = freq.containsKey(id) ? freq.get(id) : defaultFrequency(id);
-        return recorded;
-    }
-
-    /** First-run seed so the bar is not empty before the user has used any tool. */
-    private int defaultFrequency(@NonNull String id) {
-        if (ToolId.UNIT.equals(id) || ToolId.CURRENCY.equals(id)) {
-            return 1;
-        }
-        return 0;
-    }
-
-    private Map<String, Integer> readFrequencies() {
-        final Map<String, Integer> freq = new LinkedHashMap<>();
-        final Map<String, ?> all = mPrefs.getAll();
-        for (Map.Entry<String, ?> entry : all.entrySet()) {
-            final String key = entry.getKey();
-            if (key.startsWith(FREQ_PREFIX) && entry.getValue() instanceof Integer) {
-                freq.put(key.substring(FREQ_PREFIX.length()), (Integer) entry.getValue());
-            }
-        }
-        return freq;
-    }
-
-    private void recordUse(@NonNull String id) {
-        final int next = mPrefs.getInt(FREQ_PREFIX + id, defaultFrequency(id)) + 1;
-        mPrefs.edit().putInt(FREQ_PREFIX + id, next).apply();
+        return new ArrayList<>(mModes.values());
     }
 
     /** Switch to the given tool, carrying a value from the calculator display when applicable. */
@@ -219,8 +147,6 @@ public class ToolManager {
 
         if (toCalc) {
             mHost.restoreCalculatorDisplay();
-        } else {
-            recordUse(id);
         }
 
         mHost.refreshOptionsMenu();
@@ -320,7 +246,7 @@ public class ToolManager {
     private void refresh() {
         final String activeId = mActive == null ? null : mActive.getId();
         if (mToolBar != null) {
-            mToolBar.render(getToolbarItems(), activeId, mPanelExpanded);
+            mToolBar.render(getToolbarItems(), activeId);
         }
         if (mOverlay != null) {
             mOverlay.render(getMoreItems());

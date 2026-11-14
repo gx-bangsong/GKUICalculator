@@ -34,7 +34,7 @@ pickers, precision, currency coverage):
 
 | | Google v10 | GKUICalculator |
 |---|---|---|
-| Mode control | **Segmented pill** `123 │ ƒx │ ⇄`: a 135 × 44 dp track, dark selected segment, *below* the display and above the keypad. Only the calculator's own surfaces live here — Google's other tools are in the overflow. | **Same segmented control, extended to every tool**: 44 dp track with a dark selected segment for `123 / fx / ⇄`, then a second 44 dp track of **icon-only segments** — programmer, BMI, income tax, mortgage, date, relatives — that scrolls when the row is full. No tool is reachable *only* from a menu. |
+| Mode control | **Segmented pill** `123 │ ƒx │ ⇄`: a 135 × 44 dp track, dark selected segment, *below* the display and above the keypad. Only the calculator's own surfaces live here — Google's other tools are in the overflow. | **Same segmented control, extended to every tool**: 44 dp track with a dark selected segment for `123 / fx / ⇄`, followed in the **same pill** by **icon-only segments** — programmer, BMI, income tax, mortgage, date, relatives. The pill spans the strip and holds every tool; there is no tool menu. |
 | Scientific pad | **3 flat pills** (95 × 47.6 dp, r ≈ 24 dp, 15–17 dp labels) inside one fixed 409 dp key block, so the display never moves | **3 flat pills** (10 dp radius, 0.165 label scale) inside the fixed `pad_stack` block; pressing `fx` re-divides the rows and **does not move the display** |
 | Unit categories | Inline chips **below** the two rows, right above the keypad (`Currency Length Weight …`) **plus** a full-screen `Choose a category` picker with search | Inline chips **above** the from-row at the top of the control slot; the `Choose a category` screen does not exist, the *unit* picker is an anchored `PopupMenu` |
 | Currency | **130+ currencies**, flag + name + ISO code, `Loading exchange rates…`, EUR/USD pill labels | **12 curated currencies**, `symbol ISO · name` text rows, `Loading rates…`, `Offline rates` fallback |
@@ -80,7 +80,8 @@ horizontal gutter, which is 8 dp against Google's 4.5 dp. Both are cosmetic foll
 * Ours (implemented, `res/layout/tool_bar.xml` + `res/values/styles.xml`): one 44 dp pill — a
   `HorizontalScrollView` carrying `mode_segment_track_background` (radius 22 dp, matching the
   selected segment so `clipToOutline` never flattens its stadium) around a single `LinearLayout`.
-  The first three segments are 40 dp-minimum `TextView`s selected with `setSelected()`:
+  The pill fills the strip and its nine segments are weighted equally (36 dp minimum), so all of
+  them are visible at once. The first three are `TextView`s selected with `setSelected()`:
   `Calculator.onModeSegmentClick()` routes `123` → calculator, `ƒx` → toggle the scientific pad,
   `⇄` → Units (and from Units → Currency). The six tool icons follow them inside the same pill, so
   the control is one track and not two. `fx` is disabled only for tools that cannot use it, and
@@ -114,28 +115,23 @@ gone. The mode strip is now one continuous control in which **every tool is a se
 | next icon | Date interval | `ic_tool_date` (Material *date_range*) |
 | next icon | Relatives (亲戚称呼) | `ic_tool_relationship` (Material *people*) |
 
-`mode-pill-before-after.png` shows the structural change: the tool icons used to sit in a second
-track beside the `123 / ƒx / ⇄` pill, and now they are the right-hand end of that same pill.
-
 Design notes:
 
 * **Icon only**, per the v10 language: the `123 / ƒx / ⇄` segments are symbols, so the tools are
-  symbols too. Each carries its tool name as a content description for TalkBack, and the name is
-  still shown as text in the full tool panel behind the overflow button.
+  symbols too. Each carries its tool name as a content description for TalkBack.
 * **One pill, not two.** All eight segments sit in a single track: `123 / fx / ⇄` are declared in
   `tool_bar.xml` and `ToolBarView.render()` *appends* the tool icons to that same LinearLayout, so
-  the pill's background and rounded outline wrap the whole control and every segment scrolls
-  together. There is no second container next to the pill. The only element outside it is the
-  overflow button, because that opens a menu rather than selecting a mode.
+  the pill's background and rounded outline wrap the whole control. Nothing sits next to the
+  pill: the former "more" button is gone, and `ToolManager.getToolbarItems()` returns every
+  registered tool in a fixed order instead of only the three most-used ones.
 * Adding a tool now means adding one drawable and returning it from `getIconRes()` — `render()`
   picks it up automatically.
 * Icons are `24 dp` vectors tinted from `@color/mode_segment_text_states`, so the selected tool's
   glyph turns cream exactly like the selected text segments.
-* **Width budget** is why the pill scrolls rather than wraps: three text segments plus six 40 dp
-  icons plus the overflow button total ~479 dp, against 400 dp on a Pixel-width screen and 360 dp
-  on a narrower one. Scrolling keeps every icon at a full-size touch target instead of shrinking
-  it, and `ToolBarView` scrolls the selected segment into view so an active mode off the right
-  edge still shows as active.
+* **Width budget.** Nine equal segments need 9 × 36 dp = 324 dp at minimum, which fits a 360 dp
+  phone; wider screens give each segment more room. Horizontal scrolling remains only as a
+  fallback for narrower windows (split-screen), where `ToolBarView` scrolls the selected
+  segment into view.
 
 ## 4. Unit conversion
 
@@ -200,10 +196,8 @@ CAD, INR). Also:
   has **no theme switch** — we inherit `Theme.Material3Expressive.DayNight` only, so there is no
   light/dark/system override like Google's `Choose theme`.
 * **Tools surface.** Google has no tool grid: its extras are the AI "Ask math" button in the top bar
-  and the `fx` segment (saved formulas). We have a `tool_more_button` opening `tool_panel_overlay`
-  (a card from 40 % height with an 8-item grid). This is our product differentiator, not a parity
-  gap — but it means the top bar has *two* affordances (`»` and the overflow `⋮`) where Google has
-  one. Also, `R.menu.activity_calculator` is always inflated and still contains `menu_history`
+  and the `fx` segment (saved formulas). Ours puts every tool in the mode pill as an icon
+  segment, so there is no separate tool menu. Separately, `R.menu.activity_calculator` is always inflated and still contains `menu_history`
   (handled in `onItemSelected`), so **History appears twice**: as the toolbar navigation icon and
   as an overflow row, both calling `mMainCalculator.transitionToEnd()`.
 

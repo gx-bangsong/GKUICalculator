@@ -3,18 +3,13 @@
     Mode strip immediately above the keypad, modelled on Google Calculator v10 and extended
     to every tool this app ships.
 
-    There is exactly ONE pill: a single scrolling track that opens with 123 / fx / ⇄ and then
-    continues with one icon-only segment per tool. The tool icons are not a second control
-    sitting next to the pill — they are the right-hand end of the same pill, so the whole thing
-    reads as one long segmented control that happens to be too wide for a phone and therefore
-    scrolls horizontally as a unit.
-
-    The track is the single place a surface is selected. The trailing button opens the full tool
-    panel and is deliberately outside the pill, because it is a menu, not a mode.
+    The strip is exactly ONE pill and nothing else: 123 / fx / ⇄ followed by one icon-only
+    segment per tool. The pill spans the full width of the strip and its segments share that
+    width equally, so every mode is visible inside the pill at once, with both rounded ends on
+    screen. There is no trailing button: every tool is already a segment.
 -->
 <com.android.calculator2.tools.ui.ToolBarView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/tool_bar"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -28,24 +23,18 @@
 
     <!--
         The one pill. The scroll view carries the track background and the rounded-corner
-        clipping, and it is sized to its content up to the space available: a narrow phone
-        scrolls the whole pill, a wide screen shows it whole. Because the background lives on
-        the scroller rather than on the inner LinearLayout, the pill's outline stays fixed while
-        its contents scroll through it.
-
-        wrap_content rather than a weighted 0dp on purpose: the pill should stop where its
-        segments stop, so a tablet shows a compact control that is anchored to the start instead
-        of a track stretched across unused space. The overflow button after it is not weighted
-        either, so the pair stays left-aligned.
+        clipping. It fills the strip, and fillViewport stretches the segment row to the same
+        width, so the weighted segments divide the whole pill between them. Scrolling is only a
+        fallback for a window too narrow to fit every segment at its minimum width.
     -->
     <HorizontalScrollView
         android:id="@+id/mode_segments_scroll"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="@dimen/mode_segment_height"
         android:background="@drawable/mode_segment_track_background"
         android:clipToOutline="true"
         android:clipToPadding="false"
-        android:fillViewport="false"
+        android:fillViewport="true"
         android:overScrollMode="never"
         android:scrollbars="none">
 
@@ -84,19 +73,5 @@
         </LinearLayout>
 
     </HorizontalScrollView>
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/tool_more_button"
-        style="@style/Widget.Material3.Button.IconButton"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_marginStart="4dp"
-        android:contentDescription="@string/tool_more"
-        android:layout_gravity="center_vertical"
-        android:minWidth="0dp"
-        android:minHeight="0dp"
-        app:backgroundTint="@color/display_background_color"
-        app:icon="@drawable/ic_tool_more"
-        app:iconTint="@color/calculator_key_text" />
 
 </com.android.calculator2.tools.ui.ToolBarView>

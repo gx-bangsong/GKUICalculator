@@ -153,10 +153,12 @@
         <item name="android:gravity">center_vertical</item>
     </style>
 
-    <!-- One segment of the 123 / fx / ⇄ mode control. The width is content-driven because the
-         three labels differ in width; the checked background comes from the drawable selector. -->
+    <!-- One segment of the mode pill. Segments are weighted equally, so together they always
+         fill the pill exactly; minWidth is what the row falls back to (and scrolls at) on a
+         window too narrow for that. The checked background comes from the drawable selector. -->
     <style name="ModeSegment">
-        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_weight">1</item>
         <item name="android:layout_height">match_parent</item>
         <item name="android:minWidth">@dimen/mode_segment_min_width</item>
         <item name="android:gravity">center</item>
@@ -175,21 +177,15 @@
 
     <!--
         An icon-only segment in the same track (programmer calculator, and one per
-        life-calculation tool). Square rather than text-sized, so a row of icons reads as a
-        peer group with the 123 / fx / ⇄ segments instead of as taller pills.
+        life-calculation tool). An ImageView with scaleType=center, so the 24 dp glyph stays
+        centred however wide the weighted slot turns out to be.
     -->
     <style name="ModeSegment.Icon" parent="ModeSegment">
-        <item name="android:layout_width">@dimen/mode_segment_icon_size</item>
-        <!-- Icons are vector drawables tinted from the same selector as the labels, so a
-             selected tool's glyph turns cream exactly like the selected text segments. -->
-        <item name="android:drawableTint">@color/mode_segment_text_states</item>
-        <item name="android:drawableTintMode">src_in</item>
-        <item name="android:layout_height">match_parent</item>
-        <item name="android:minWidth">0dp</item>
+        <!-- Tinted from the same selector as the labels, so a selected tool's glyph turns
+             cream exactly like the selected text segments. -->
+        <item name="android:tint">@color/mode_segment_text_states</item>
         <item name="android:paddingStart">0dp</item>
         <item name="android:paddingEnd">0dp</item>
-        <item name="android:gravity">center</item>
-        <item name="android:drawablePadding">0dp</item>
     </style>
 
     <!-- Borderless pill selectors used by the inline unit and currency controls. -->

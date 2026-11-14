@@ -4,9 +4,6 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-    <!-- How many non-calculator tools to pin on the bar. 0 = pin every registered tool. -->
-    <integer name="tool_bar_pinned_count">3</integer>
-
     <!-- Row-count weights for the shared pad block (see activity_calculator.xml).
          Google Calculator v10 keeps the block the same height in both modes and re-divides the
          rows inside it: 3 flat scientific rows + 5 digit rows when fx is on (8 rows), or simply

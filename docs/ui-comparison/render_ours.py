@@ -140,7 +140,6 @@ def integer(name):
     raise KeyError(name)
 
 
-ICON_SEG_W = dimen('mode_segment_icon_size')
 # Icon-only segments (programmer + the life-calculation tools). The renderer draws a stand-in
 # glyph; the app uses res/drawable/ic_tool_*.xml vectors.
 TOOL_ICONS = [('programmer', '</>'), ('bmi', '\u263a'), ('tax', '%'), ('mortgage', '\u2302'),
@@ -194,7 +193,6 @@ def status_bar(d, clock='12:35'):
         d.rectangle([px(342 + i * 5), px(10), px(346 + i * 5), px(17)], fill=INK)
 
 
-MORE_W = W_DP - 386  # the trailing 44 dp button's right edge sits at the sheet edge
 
 
 def overflow(d, x=386, y=30):
@@ -228,40 +226,33 @@ def mode_strip(d, y, scientific=False, active=None):
     gap = 4
     labels = [string('mode_segment_basic'), string('mode_segment_scientific'),
               string('mode_segment_convert')]
-    widths = [max(SEG_MIN_W, 2 * SEG_PAD + 7.4 * len(t)) for t in labels]
-
-    # How much room the overflow button leaves for the pill.
+    # The pill fills the strip (tool_bar_horizontal_padding on each side) and its nine
+    # segments are weighted equally, so every mode is inside it and both ends are on screen.
     x = gap
-    avail = W_DP - x - MORE_W - gap
-    core_w = sum(widths)
-    tool_slot = ICON_SEG_W
-    # The pill shows as many tool icons as fit after the three text segments; the rest scroll.
-    visible = max(int((avail - core_w) // tool_slot), 1)
-    shown = TOOL_ICONS[:visible]
-    pill_w = min(core_w + len(shown) * tool_slot, avail)
+    pill_w = W_DP - 2 * gap
+    slot = pill_w / (len(labels) + len(TOOL_ICONS))
 
     # A single track background behind everything: that is what makes it one pill.
     rrect(d, (x, strip_top, x + pill_w, strip_top + SEG_H), radius, CHIP_BG)
 
     cx = x
-    for i, (label, w) in enumerate(zip(labels, widths)):
-        selected = (i == 1 and scientific) or (i == 2 and active in ('unit', 'currency'))
+    for i, label in enumerate(labels):
+        selected = ((i == 0 and not scientific and active is None)
+                    or (i == 1 and scientific)
+                    or (i == 2 and active in ('unit', 'currency')))
         if selected:
-            rrect(d, (cx, strip_top, cx + w, strip_top + SEG_H), sel_radius, CHIP_SEL_BG)
-        txt(d, (cx + w / 2, strip_top + SEG_H / 2), label, 15,
+            rrect(d, (cx, strip_top, cx + slot, strip_top + SEG_H), sel_radius, CHIP_SEL_BG)
+        txt(d, (cx + slot / 2, strip_top + SEG_H / 2), label, 15,
             CHIP_SEL_INK if selected else CHIP_INK, anchor='mm')
-        cx += w
+        cx += slot
 
     # Tool icons continue inside the same pill, starting where the text segments end.
-    for name, glyph in shown:
-        if cx + tool_slot > x + pill_w + 0.01:
-            break
+    for name, glyph in TOOL_ICONS:
         if name == active:
-            rrect(d, (cx, strip_top, cx + tool_slot, strip_top + SEG_H), sel_radius, CHIP_SEL_BG)
-        txt(d, (cx + tool_slot / 2, strip_top + SEG_H / 2), glyph, 15,
+            rrect(d, (cx, strip_top, cx + slot, strip_top + SEG_H), sel_radius, CHIP_SEL_BG)
+        txt(d, (cx + slot / 2, strip_top + SEG_H / 2), glyph, 15,
             CHIP_SEL_INK if name == active else CHIP_INK, anchor='mm')
-        cx += tool_slot
-    overflow(d)
+        cx += slot
 
 
 # ---------------------------------------------------------------- pads

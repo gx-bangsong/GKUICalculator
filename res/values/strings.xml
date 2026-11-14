@@ -313,11 +313,6 @@
     <string name="tool_date">Date</string>
     <!-- Tool mode: signed 64-bit programmer calculator. [CHAR_LIMIT=20] -->
     <string name="tool_programmer">Programmer</string>
-
-    <!-- "More" button to expand the tool overlay panel. [CHAR_LIMIT=20] -->
-    <string name="tool_more">More</string>
-    <!-- "More" button when the panel is expanded (acts as collapse). [CHAR_LIMIT=20] -->
-    <string name="tool_more_close">Close</string>
     <!-- 123 / fx / ⇄ mode control (Google Calculator v10 layout). The labels are symbolic, so
          they are the same in every locale; only the content descriptions are translated. -->
     <!-- Standard numeric keypad segment. [CHAR_LIMIT=6] -->
