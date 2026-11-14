@@ -1690,8 +1690,9 @@ public class Calculator extends AppCompatActivity
                 // A-F are valid only in hexadecimal; bitwise keys are always available.
                 key.setEnabled(i >= 6 || radix == 16);
             }
+            // Visible text only: a content description duplicating it would double TalkBack's
+            // reading and clash with the mode-pill segment's description in UI tests.
             mModeView.setText(R.string.tool_programmer);
-            mModeView.setContentDescription(getString(R.string.tool_programmer));
         } else {
             restoreScientificPadLabels();
             onModeChanged(mEvaluator.getDegreeMode(Evaluator.MAIN_INDEX));
@@ -1759,8 +1760,8 @@ public class Calculator extends AppCompatActivity
             swap.setCheckable(true);
             swap.setChecked(reverse);
             swap.setSelected(reverse);
+            // Visible text only; the pill segment owns the tool's content description.
             mModeView.setText(R.string.tool_relationship);
-            mModeView.setContentDescription(getString(R.string.tool_relationship));
         } else {
             restoreNumericPadLabels();
             onModeChanged(mEvaluator.getDegreeMode(Evaluator.MAIN_INDEX));
