@@ -205,7 +205,10 @@ public class CalculatorToolUiTest {
         onView(withId(R.id.digit_8)).perform(click());   // 母 -> 爸爸的妈妈
         final String preparing = context.getString(R.string.relationship_preparing);
         final String unknown = context.getString(R.string.relationship_unknown);
-        final long deadline = SystemClock.uptimeMillis() + 15000;
+        // The table build runs on interpreted ART the first time: seconds on a device, and
+        // past fifteen on the shared CI emulator. The contract under test is "the answer
+        // arrives on its own", not a wall-clock budget.
+        final long deadline = SystemClock.uptimeMillis() + 90000;
         String text = "";
         while (SystemClock.uptimeMillis() < deadline) {
             final String[] current = new String[1];
@@ -216,7 +219,7 @@ public class CalculatorToolUiTest {
             if (!text.isEmpty() && !text.equals(preparing) && !text.equals(unknown)) {
                 break;
             }
-            SystemClock.sleep(200);
+            SystemClock.sleep(250);
         }
         assertTrue("kinship answer never arrived on its own, last result: " + text,
                 !text.isEmpty() && !text.equals(preparing) && !text.equals(unknown));
@@ -236,12 +239,10 @@ public class CalculatorToolUiTest {
         onView(withId(R.id.op_pct)).perform(click());
         onView(withId(R.id.result)).check(matches(withText("110")));
 
-        openOverflowMenu();
-        onView(withText(R.string.menu_percent_of_value)).perform(click());
+        clickOverflowItem(R.string.menu_percent_of_value);
         onView(withId(R.id.result)).check(matches(withText("100.1")));
 
-        openOverflowMenu();
-        onView(withText(R.string.menu_percent_of_value)).perform(click());
+        clickOverflowItem(R.string.menu_percent_of_value);
         onView(withId(R.id.result)).check(matches(withText("110")));
     }
 
@@ -402,10 +403,29 @@ public class CalculatorToolUiTest {
         onView(withId(R.id.result)).check(matches(withText("")));
     }
 
-    /** Espresso 3.5 has no openOptionsMenu(); the activity's own API opens the overflow popup. */
-    private void openOverflowMenu() {
-        mActivityScenario.onActivity(activity -> activity.openOptionsMenu());
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+    /**
+     * Opens the overflow menu and taps an item through UiAutomator: the AppCompat popup does
+     * not give the activity window focus, so Espresso's root picker times out on it.
+     */
+    private void clickOverflowItem(int titleRes) {
+        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        try {
+            final UiObject overflow = device.findObject(new UiSelector().description("More options"));
+            if (overflow.waitForExists(5000)) {
+                overflow.click();
+            } else {
+                device.pressMenu();
+            }
+            final UiObject item = device.findObject(
+                    new UiSelector().text(context.getString(titleRes)));
+            assertTrue("overflow item not shown: " + context.getString(titleRes),
+                    item.waitForExists(5000));
+            item.click();
+        } catch (IOException e) {
+            throw new AssertionError("could not drive the overflow menu", e);
+        }
+        device.waitForIdle();
     }
 
     private void resetTestPreferences() {
