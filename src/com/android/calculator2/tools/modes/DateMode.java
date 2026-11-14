@@ -57,7 +57,7 @@ public class DateMode implements ToolMode {
 
     @Override
     public int getIconRes() {
-        return 0;
+        return R.drawable.ic_tool_date;
     }
 
     @Override

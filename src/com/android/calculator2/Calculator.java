@@ -2030,31 +2030,6 @@ public class Calculator extends AppCompatActivity
     }
 
     /**
-     * Shows or hides the scientific pad, remembering the choice, and keeps the segmented control
-     * in sync. Tools that need the whole display (fields, date, kinship) opt out through
-     * {@link #setExpandedDisplay(boolean)}.
-     */
-    private void setScientificPadVisible(boolean visible, boolean persist) {
-        mScientificVisible = visible;
-        if (persist) {
-            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                    .edit().putBoolean(PREF_SCIENTIFIC, visible).apply();
-        }
-        boolean forceExpanded = false;
-        if (mToolManager != null && mToolManager.isActive()) {
-            ToolMode active = mToolManager.getActive();
-            if (active != null && active.wantsExpandedDisplay()) {
-                forceExpanded = true;
-            }
-        }
-        if (!forceExpanded) {
-            applyAdvancedPadVisibility(visible);
-        }
-        updateScientificToggleLabel();
-        updateScientificToggleVisibility();
-    }
-
-    /**
      * Shows or hides the scientific pad. The pad block (@id/pad_stack) keeps its height, so the
      * 123 / fx / ⇄ strip and the display above it do not move: hiding the pad simply hands its
      * rows to the digit pad, which is what Google Calculator v10 does (5 tall rows on the standard

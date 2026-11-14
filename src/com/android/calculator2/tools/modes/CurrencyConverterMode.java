@@ -110,7 +110,7 @@ public class CurrencyConverterMode implements ToolMode {
 
     @Override
     public int getIconRes() {
-        return 0;
+        return R.drawable.ic_tool_currency;
     }
 
     @Override

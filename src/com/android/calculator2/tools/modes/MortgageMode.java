@@ -43,7 +43,7 @@ public class MortgageMode extends FieldToolMode {
 
     @Override
     public int getIconRes() {
-        return 0;
+        return R.drawable.ic_tool_mortgage;
     }
 
     @Override

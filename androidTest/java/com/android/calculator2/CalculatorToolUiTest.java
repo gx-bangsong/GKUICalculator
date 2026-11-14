@@ -10,6 +10,7 @@ import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.isSelected;
+import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
@@ -154,6 +155,26 @@ public class CalculatorToolUiTest {
         onView(withId(R.id.mode_segment_basic)).perform(click());
         onView(withId(R.id.mode_segment_basic)).check(matches(isSelected()));
         onView(withId(R.id.input_pad)).check(matches(isDisplayed()));
+    }
+
+    /**
+     * Every tool is reachable from the mode control itself: the programmer calculator and the
+     * life-calculation tools (BMI, income tax, mortgage, date, relatives) are icon-only segments
+     * built by ToolBarView.render(), so they are identified by content description.
+     */
+    @Test
+    public void everyToolHasAModeSegment() {
+        resetTestPreferences();
+        onView(withContentDescription(R.string.tool_programmer)).perform(click());
+        onView(withContentDescription(R.string.tool_programmer)).check(matches(isSelected()));
+        onView(withId(R.id.mode_segment_basic)).check(matches(not(isSelected())));
+
+        onView(withContentDescription(R.string.tool_bmi)).perform(click());
+        onView(withContentDescription(R.string.tool_bmi)).check(matches(isSelected()));
+        onView(withContentDescription(R.string.tool_programmer)).check(matches(not(isSelected())));
+
+        onView(withId(R.id.mode_segment_basic)).perform(click());
+        onView(withId(R.id.mode_segment_basic)).check(matches(isSelected()));
     }
 
     /** Unit categories stay as inline pills, rather than opening a full-screen unit chooser. */

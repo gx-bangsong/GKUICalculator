@@ -10,7 +10,6 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -22,7 +21,6 @@ import com.android.calculator2.tools.ToolId;
 import com.android.calculator2.tools.ToolMode;
 
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.chip.Chip;
 
 import java.util.List;
 
@@ -53,12 +51,11 @@ public class ToolBarView extends LinearLayout {
         void onMoreClicked();
     }
 
-    private LinearLayout mChipsContainer;
-    private ViewGroup mChipsScroll;
     private MaterialButton mMoreButton;
     private TextView mSegmentBasic;
     private TextView mSegmentScientific;
     private TextView mSegmentConvert;
+    private LinearLayout mToolSegments;
 
     @Nullable
     private Listener mListener;
@@ -79,8 +76,7 @@ public class ToolBarView extends LinearLayout {
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        mChipsContainer = findViewById(R.id.tool_chips_container);
-        mChipsScroll = findViewById(R.id.tool_chips_scroll);
+        mToolSegments = findViewById(R.id.tool_segments_container);
         mMoreButton = findViewById(R.id.tool_more_button);
         mMoreButton.setOnClickListener(v -> {
             Log.d("ToolDebug", "more button clicked");
@@ -99,11 +95,17 @@ public class ToolBarView extends LinearLayout {
     }
 
     /**
-     * Rebuild the tool pills from the supplied list and reflect the panel state. Pills are only
-     * inflated for real tools: in calculator mode Google shows no pills at all, and the
-     * calculator itself is the {@code 123} segment rather than a pill.
+     * Rebuild the tool segments and the trailing button state.
+     * <p>
+     * Every registered tool becomes an <em>icon-only</em> segment in the same strip as
+     * {@code 123 / fx / ⇄}, mirroring how Google Calculator v10 keeps one mode control for the
+     * whole app instead of a separate chip row. The three core segments are declared in
+     * {@code tool_bar.xml}; everything else — the programmer calculator and the life-calculation
+     * tools (BMI, income tax, mortgage, date, relatives) — is built here from
+     * {@link ToolMode#getIconRes()}. {@code Units} and {@code Currency} are the {@code ⇄}
+     * segment, so they are not repeated.
      *
-     * @param items         pinned tools (may include the calculator, which is skipped)
+     * @param items         registered tools (the calculator is skipped — it *is* the 123 segment)
      * @param activeId      id of the active tool, or null in calculator mode
      * @param panelExpanded whether the "more" panel is open
      */
@@ -113,32 +115,43 @@ public class ToolBarView extends LinearLayout {
         updateMoreButton(/* animate */ true);
 
         final Context context = getContext();
-        mChipsContainer.removeAllViews();
-        final boolean toolActive = activeId != null && !ToolId.CALCULATOR.equals(activeId);
-        mChipsScroll.setVisibility(toolActive ? VISIBLE : GONE);
-        final int spacing = context.getResources()
-                .getDimensionPixelOffset(R.dimen.tool_chip_spacing);
+        mToolSegments.removeAllViews();
         for (ToolMode mode : items) {
-            if (ToolId.CALCULATOR.equals(mode.getId())) {
-                // The calculator is the 123 segment, never a pill.
+            final String id = mode.getId();
+            if (ToolId.CALCULATOR.equals(id) || ToolId.UNIT.equals(id)
+                    || ToolId.CURRENCY.equals(id)) {
+                // The 123, fx and two-way-arrow segments already stand for these.
                 continue;
             }
-            Chip chip = (Chip) LayoutInflater.from(context)
-                    .inflate(R.layout.tool_chip, mChipsContainer, false);
-            chip.setText(context.getString(mode.getNameRes()));
-            chip.setChecked(mode.getId().equals(activeId));
-            chip.setOnClickListener(v -> {
-                Log.d("ToolDebug", "chip clicked: " + mode.getId());
+            final int iconRes = mode.getIconRes();
+            final TextView segment = (TextView) LayoutInflater.from(context)
+                    .inflate(R.layout.tool_segment, mToolSegments, false);
+            segment.setText("");
+            segment.setContentDescription(context.getString(mode.getNameRes()));
+            if (iconRes != 0) {
+                segment.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                        iconRes, 0, 0, 0);
+                // compound drawables are centred by gravity; size them like the fixed segments
+                final int inset = context.getResources()
+                        .getDimensionPixelSize(R.dimen.mode_segment_icon_inset);
+                segment.setCompoundDrawablePadding(0);
+                segment.setPadding(inset, inset, inset, inset);
+            }
+            segment.setSelected(id.equals(activeId));
+            final String toolId = id;
+            segment.setOnClickListener(v -> {
+                Log.d("ToolDebug", "tool segment clicked: " + toolId);
                 if (mListener != null) {
-                    mListener.onToolChipClicked(mode.getId());
+                    mListener.onToolChipClicked(toolId);
                 }
             });
-            LinearLayout.LayoutParams lp =
-                    (LinearLayout.LayoutParams) chip.getLayoutParams();
-            lp.setMarginStart(spacing);
-            lp.setMarginEnd(spacing);
-            chip.setLayoutParams(lp);
-            mChipsContainer.addView(chip);
+            mToolSegments.addView(segment);
+        }
+
+        // Hide the whole group (and the gap it would leave) when there is nothing to show.
+        final View scroll = findViewById(R.id.tool_segments_scroll);
+        if (scroll != null) {
+            scroll.setVisibility(mToolSegments.getChildCount() > 0 ? VISIBLE : GONE);
         }
     }
 

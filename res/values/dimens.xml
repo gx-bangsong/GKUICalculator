@@ -58,6 +58,9 @@
     <dimen name="mode_segment_height">44dp</dimen>
     <dimen name="mode_segment_min_width">40dp</dimen>
     <dimen name="mode_segment_padding">16dp</dimen>
+    <!-- Icon-only segments in the same track: a 24 dp glyph centred in a square slot. -->
+    <dimen name="mode_segment_icon_size">40dp</dimen>
+    <dimen name="mode_segment_icon_inset">8dp</dimen>
 
     <!-- Tool bar -->
     <dimen name="tool_bar_horizontal_padding">4dp</dimen>

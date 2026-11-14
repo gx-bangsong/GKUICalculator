@@ -123,7 +123,7 @@ public final class RelationshipMode implements ToolMode {
 
     @Override
     public int getIconRes() {
-        return 0;
+        return R.drawable.ic_tool_relationship;
     }
 
     @Override

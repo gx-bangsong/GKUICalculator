@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Compact mode strip immediately above the keypad, modelled on Google Calculator v10:
-    a single segmented control (123 / fx / ⇄) that both selects the active surface
-    (calculator / scientific pad / converters) and shows it, followed by the tool pills
-    only while a life-calculation tool is active, and the overflow button.
+    Mode strip immediately above the keypad, modelled on Google Calculator v10 and extended
+    to every tool this app ships: one segmented track holding 123 / fx / programmer / a
+    two-way-arrow converter segment, then one icon-only segment per life-calculation tool.
+    The track is the single place a surface is selected; the trailing button opens the full
+    tool panel.
 -->
 <com.android.calculator2.tools.ui.ToolBarView
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -19,7 +20,11 @@
     android:paddingTop="@dimen/tool_bar_vertical_padding"
     android:paddingBottom="@dimen/tool_bar_vertical_padding">
 
-    <!-- Segmented control: 123 (standard keypad) / fx (scientific) / ⇄ (converters). -->
+    <!--
+        Core segmented control: 123 (standard keypad) / fx (scientific) / ⇄ (converters).
+        Programmer and the life-calculation tools follow in the scrolling group below, all in the
+        same visual language.
+    -->
     <LinearLayout
         android:id="@+id/mode_segments"
         android:layout_width="wrap_content"
@@ -42,31 +47,41 @@
             android:contentDescription="@string/desc_mode_scientific"
             android:onClick="onModeSegmentClick"
             android:text="@string/mode_segment_scientific" />
-
         <TextView
             android:id="@+id/mode_segment_convert"
             style="@style/ModeSegment"
             android:contentDescription="@string/desc_mode_convert"
             android:onClick="onModeSegmentClick"
             android:text="@string/mode_segment_convert" />
-
     </LinearLayout>
 
+    <!--
+        Tool segments. Every registered tool becomes an icon-only segment in the same strip as
+        123 / fx / ⇄, so the mode control is the single place a surface is chosen: Units and
+        Currency behind ⇄, the programmer calculator as its own icon, and BMI / income tax /
+        mortgage / date / relatives as the icons built by ToolBarView.render().
+
+        The group scrolls: seven icons plus the fixed segments need more width than a 360 dp phone
+        has. Scrolling keeps every tool directly reachable instead of shrinking the icons or
+        hiding tools behind the overflow button.
+    -->
     <HorizontalScrollView
-        android:id="@+id/tool_chips_scroll"
+        android:id="@+id/tool_segments_scroll"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="6dp"
         android:layout_weight="1"
+        android:clipToPadding="false"
         android:fillViewport="false"
         android:overScrollMode="never"
-        android:scrollbars="none"
-        android:visibility="gone">
+        android:scrollbars="none">
 
         <LinearLayout
-            android:id="@+id/tool_chips_container"
+            android:id="@+id/tool_segments_container"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="@dimen/mode_segment_height"
+            android:background="@drawable/mode_segment_group_background"
+            android:clipToOutline="true"
             android:gravity="center_vertical"
             android:orientation="horizontal" />
 

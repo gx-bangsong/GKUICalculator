@@ -56,7 +56,7 @@ public final class ProgrammerMode implements ToolMode {
 
     @Override
     public int getIconRes() {
-        return 0;
+        return R.drawable.ic_tool_programmer;
     }
 
     @Override

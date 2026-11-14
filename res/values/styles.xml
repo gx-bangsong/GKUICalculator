@@ -173,6 +173,25 @@
         <item name="android:includeFontPadding">false</item>
     </style>
 
+    <!--
+        An icon-only segment in the same track (programmer calculator, and one per
+        life-calculation tool). Square rather than text-sized, so a row of icons reads as a
+        peer group with the 123 / fx / ⇄ segments instead of as taller pills.
+    -->
+    <style name="ModeSegment.Icon" parent="ModeSegment">
+        <item name="android:layout_width">@dimen/mode_segment_icon_size</item>
+        <!-- Icons are vector drawables tinted from the same selector as the labels, so a
+             selected tool's glyph turns cream exactly like the selected text segments. -->
+        <item name="android:drawableTint">@color/mode_segment_text_states</item>
+        <item name="android:drawableTintMode">src_in</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:paddingStart">0dp</item>
+        <item name="android:paddingEnd">0dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:drawablePadding">0dp</item>
+    </style>
+
     <!-- Borderless pill selectors used by the inline unit and currency controls. -->
     <style name="ToolUnitButtonStyle">
         <item name="android:layout_width">wrap_content</item>

@@ -36,7 +36,7 @@ public class BmiMode extends FieldToolMode {
 
     @Override
     public int getIconRes() {
-        return 0;
+        return R.drawable.ic_tool_bmi;
     }
 
     @Override

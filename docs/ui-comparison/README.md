@@ -34,7 +34,7 @@ pickers, precision, currency coverage):
 
 | | Google v10 | GKUICalculator |
 |---|---|---|
-| Mode control | **Segmented pill** `123 │ ƒx │ ⇄`: a 135 × 44 dp track, dark selected segment, *below* the display and above the keypad | **Same segmented control**, 44 dp track with a dark selected segment (`tool_bar.xml`); tool pills appear beside it only while a tool is active |
+| Mode control | **Segmented pill** `123 │ ƒx │ ⇄`: a 135 × 44 dp track, dark selected segment, *below* the display and above the keypad. Only the calculator's own surfaces live here — Google's other tools are in the overflow. | **Same segmented control, extended to every tool**: 44 dp track with a dark selected segment for `123 / fx / ⇄`, then a second 44 dp track of **icon-only segments** — programmer, BMI, income tax, mortgage, date, relatives — that scrolls when the row is full. No tool is reachable *only* from a menu. |
 | Scientific pad | **3 flat pills** (95 × 47.6 dp, r ≈ 24 dp, 15–17 dp labels) inside one fixed 409 dp key block, so the display never moves | **3 flat pills** (10 dp radius, 0.165 label scale) inside the fixed `pad_stack` block; pressing `fx` re-divides the rows and **does not move the display** |
 | Unit categories | Inline chips **below** the two rows, right above the keypad (`Currency Length Weight …`) **plus** a full-screen `Choose a category` picker with search | Inline chips **above** the from-row at the top of the control slot; the `Choose a category` screen does not exist, the *unit* picker is an anchored `PopupMenu` |
 | Currency | **130+ currencies**, flag + name + ISO code, `Loading exchange rates…`, EUR/USD pill labels | **12 curated currencies**, `symbol ISO · name` text rows, `Loading rates…`, `Offline rates` fallback |
@@ -93,6 +93,40 @@ horizontal gutter, which is 8 dp against Google's 4.5 dp. Both are cosmetic foll
 * Google's scientific rows are **contextual**: `Rad`/`Deg`, `Inv`, `sin/cos/tan` are toggles-stateful;
   GKUI matches the function set (Rad/Inv/sin/cos/tan/e/ln/log/π/√/^/!) — the set is right, the
   presentation differs.
+
+## 3b. Every tool is a mode segment (implemented after the first comparison)
+
+The v10 video only exercises the calculator's own surfaces, so the first pass above stopped at
+`123 / ƒx / ⇄` and left the eight life-calculation tools in a scrolling text-chip row. That row is
+gone. The mode strip is now one continuous control in which **every tool is a segment**:
+
+| Segment | Opens | Icon |
+|---|---|---|
+| `123` | standard keypad / calculator | text |
+| `fx` | scientific pad | text |
+| `⇄` | Units, and Currency on a second press | text |
+| next icon | Programmer (base + bitwise) | `ic_tool_programmer` (Material *code*) |
+| next icon | BMI | `ic_tool_bmi` (Material *person*) |
+| next icon | Income tax | `ic_tool_tax` (Material *percent*) |
+| next icon | Mortgage | `ic_tool_mortgage` (Material *home*) |
+| next icon | Date interval | `ic_tool_date` (Material *date_range*) |
+| next icon | Relatives (亲戚称呼) | `ic_tool_relationship` (Material *people*) |
+
+Design notes:
+
+* **Icon only**, per the v10 language: the `123 / ƒx / ⇄` segments are symbols, so the tools are
+  symbols too. Each carries its tool name as a content description for TalkBack, and the name is
+  still shown as text in the full tool panel behind the overflow button.
+* The generated segments live in `tool_segments_container` inside a `HorizontalScrollView`; the
+  fixed segments are declared in `tool_bar.xml` and the rest are built by `ToolBarView.render()`
+  from `ToolMode.getIconRes()`. Adding a tool now means adding one drawable and returning it from
+  `getIconRes()` — the strip picks it up automatically.
+* Icons are `24 dp` vectors tinted from `@color/mode_segment_text_states`, so the selected tool's
+  glyph turns cream exactly like the selected text segments.
+* **Width budget** drove the scrolling container: the fixed segments plus the overflow button take
+  ~199 dp of a 400 dp screen, leaving ~201 dp. Six tool icons at a 40 dp slot need 280 dp, so a
+  non-scrolling row would have clipped tools (and a 360 dp phone would have clipped more). Scrolling
+  keeps each icon at a full-size target instead of shrinking it.
 
 ## 4. Unit conversion
 
@@ -207,17 +241,20 @@ CAD, INR). Also:
 
 ## 9. Status and next steps
 
-### Implemented in this change
+### Implemented
 
 1. ~~**Replace the chip row with a segmented control**~~ — done. `123 / fx / ⇄` is a 44 dp
-   stadium track with a dark selected segment, driven by `Calculator.onModeSegmentClick()`;
-   tool chips only appear while a real tool is active, and the calculator is never a chip.
+   stadium track with a dark selected segment; the calculator is never a chip. The old text-chip
+   row was then deleted entirely — see item 3.
 2. ~~**Stop the display from shrinking when the scientific pad opens**~~ — done. The pads are one
    fixed `@id/pad_stack` block (0.47 H portrait) weighted 3:5; hiding `advanced_pad` hands its
    three rows to `input_pad` (weight 8) instead of changing the block's height, so the strip and
    the display stay put. `scientificPadDoesNotMoveDisplay` in
    `androidTest/java/com/android/calculator2/CalculatorToolUiTest.java` locks this in.
-3. ~~**Key label size**~~ — done. `HapticButton.onSizeChanged()` sizes labels from the key
+3. ~~**Every tool as a mode segment**~~ — done, see [§3b](#3b-every-tool-is-a-mode-segment-implemented-after-the-first-comparison).
+   The old text-chip row is deleted; programmer and the five life-calculation tools are now
+   icon-only segments that scroll inside the strip, and each `ToolMode` supplies its own drawable.
+4. ~~**Key label size**~~ — done. `HapticButton.onSizeChanged()` sizes labels from the key
    *width* (0.21 × w, clamped to 0.42 × h and 26 sp); `PadButtonStyle.Scientific` carries its own
    0.165 scale so the flat pills get ~15.9 sp instead of the digits' 20.2 sp. The pad bands were
    re-derived from the measured frame (display 0.45 H, strip 0.08 H, pads 0.47 H) and
@@ -225,19 +262,19 @@ CAD, INR). Also:
 
 ### Still open, ordered by visual impact
 
-4. **Key shape** — move from `cornerRadius 32dp` to a stadium (radius = h/2, ~38 dp on a 76 dp
+5. **Key shape** — move from `cornerRadius 32dp` to a stadium (radius = h/2, ~38 dp on a 76 dp
    key) and narrow the keys by halving `button_horizontal_margin` to 2 dp, which also brings the
    outer padding down from 12 dp to ~6 dp (Google: 3.5 dp).
-5. **`Choose a category` parity** — an optional full-screen picker with search for the unit
+6. **`Choose a category` parity** — an optional full-screen picker with search for the unit
    converter (the `Choose a unit` popup can stay for the fast path), so unit names can be shown in
    full (`Celsius (°C)` instead of `°C`) without widening the selector pill.
-6. **Restore inline category chips below the rows** (per `tool_unit_control.xml`'s stated design)
+7. **Restore inline category chips below the rows** (per `tool_unit_control.xml`'s stated design)
    and keep the row stack above them.
-7. **Number formatting** — keep the trailing-zero trimming we already do, but drop `DISPLAY_MC`
+8. **Number formatting** — keep the trailing-zero trimming we already do, but drop `DISPLAY_MC`
    from 12 to ~8 significant digits so converted values read like Google's (`424.39652429` →
    `424.3965`) and the result line stops overflowing with long decimals.
-8. **Currency coverage + error copy** — grow past 12 codes if offline data allows, and add a
+9. **Currency coverage + error copy** — grow past 12 codes if offline data allows, and add a
    "can't update rates, try again later" string next to `currency_offline`.
-9. **Menu tidy-up** — remove `menu_history` from `res/menu/activity_calculator.xml` (it duplicates
+10. **Menu tidy-up** — remove `menu_history` from `res/menu/activity_calculator.xml` (it duplicates
    the toolbar navigation icon, which already opens history) and consider a `Choose theme`
    (light/dark/system) item to match Google.

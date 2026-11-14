@@ -42,7 +42,7 @@ public class TaxMode extends FieldToolMode {
 
     @Override
     public int getIconRes() {
-        return 0;
+        return R.drawable.ic_tool_tax;
     }
 
     @Override

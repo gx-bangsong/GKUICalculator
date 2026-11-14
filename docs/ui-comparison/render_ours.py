@@ -140,6 +140,12 @@ def integer(name):
     raise KeyError(name)
 
 
+ICON_SEG_W = dimen('mode_segment_icon_size')
+# Icon-only segments (programmer + the life-calculation tools). The renderer draws a stand-in
+# glyph; the app uses res/drawable/ic_tool_*.xml vectors.
+TOOL_ICONS = [('programmer', '</>'), ('bmi', '\u263a'), ('tax', '%'), ('mortgage', '\u2302'),
+              ('date', '\u25a6'), ('relationship', '\u2632')]
+
 SCI_WEIGHT = integer('advanced_pad_weight')
 DIGIT_WEIGHT = integer('input_pad_weight')
 
@@ -208,14 +214,14 @@ def toolbar(d):
 
 
 def mode_strip(d, y, scientific=False, active=None):
-    """res/layout/tool_bar.xml: 123 / fx / ⇄ segment group, tool pills, overflow."""
+    """res/layout/tool_bar.xml: 123 / fx / (two-way arrow) track, then the tool icon track."""
     band = R_TOOLBAR * H_DP
     strip_top = y + (band - SEG_H) / 2
+    radius = SEG_H / 2
     labels = [string('mode_segment_basic'), string('mode_segment_scientific'),
               string('mode_segment_convert')]
     widths = [max(SEG_MIN_W, 2 * SEG_PAD + 7.4 * len(t)) for t in labels]
     group_w = sum(widths)
-    radius = SEG_H / 2
     rrect(d, (4, strip_top, 4 + group_w, strip_top + SEG_H), radius, CHIP_BG)
     x = 4
     for i, (label, w) in enumerate(zip(labels, widths)):
@@ -225,14 +231,22 @@ def mode_strip(d, y, scientific=False, active=None):
         txt(d, (x + w / 2, strip_top + SEG_H / 2), label, 15,
             CHIP_SEL_INK if selected else CHIP_INK, anchor='mm')
         x += w
+
+    # Tool icons: programmer, then the life-calculation tools, in their own scrolling track.
     x += 6
-    if active not in (None, 'calculator'):
-        # Only real tools show pills, in Google's language.
-        for name in [n for n in ('Units', 'Currency') if n.lower() != active]:
-            w = 18 + 6.9 * len(name)
-            rrect(d, (x, strip_top, x + w, strip_top + SEG_H), radius, CHIP_BG)
-            txt(d, (x + w / 2, strip_top + SEG_H / 2), name, 14, CHIP_INK, anchor='mm')
-            x += w + 4
+    tool_slot = ICON_SEG_W
+    icons = TOOL_ICONS
+    visible = int((W_DP - x - 44 - 4) // tool_slot)
+    shown = icons[:max(visible, 1)]
+    track_w = len(shown) * tool_slot
+    rrect(d, (x, strip_top, x + track_w, strip_top + SEG_H), radius, CHIP_BG)
+    for name, glyph in shown:
+        cx = x + tool_slot / 2
+        if name == active:
+            rrect(d, (x, strip_top, x + tool_slot, strip_top + SEG_H), radius, CHIP_SEL_BG)
+        txt(d, (cx, strip_top + SEG_H / 2), glyph, 15,
+            CHIP_SEL_INK if name == active else CHIP_INK, anchor='mm')
+        x += tool_slot
     overflow(d)
 
 
