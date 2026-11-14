@@ -432,11 +432,7 @@ public class CalculatorToolUiTest {
                     androidx.appcompat.R.string.abc_action_menu_overflow_description))
                     .perform(click());
         } catch (RuntimeException e) {
-            try {
-                device.pressMenu();
-            } catch (IOException ignored) {
-                // fall through to the item poll below
-            }
+            device.pressMenu();
         }
         final UiObject item = device.findObject(new UiSelector().text(title));
         final long deadline = SystemClock.uptimeMillis() + 10000;
