@@ -247,7 +247,7 @@ emit_review_preview() {
     while IFS= read -r chunk; do
         echo "::notice title=$label $format part $part::$chunk"
         part=$((part + 1))
-    done < <(base64 < "$payload" | tr -d '\n' | fold -w 6000)
+    done < <(base64 < "$payload" | tr -d '\n' | fold -w 3000)
 }
 
 # Keep original PNGs as artifacts; compact image data is also exposed in check annotations for review.
