@@ -115,6 +115,19 @@ public final class RelationshipEngine {
         return get(data, null);
     }
 
+    /**
+     * The cached engine for one region, or {@code null} when nobody has built it yet. Never
+     * waits for a build in progress, which is what lets the UI draw a "preparing" state instead
+     * of freezing behind the warm-up thread.
+     */
+    @Nullable
+    public static RelationshipEngine peek(@NonNull RelationshipData data,
+            @Nullable String locale) {
+        synchronized (CACHE) {
+            return CACHE.get(locale == null ? "" : locale);
+        }
+    }
+
     /** Engine for one region, or the common wording when {@code locale} is null or unknown. */
     @Nullable
     public static RelationshipEngine get(@NonNull RelationshipData data,
@@ -125,15 +138,24 @@ public final class RelationshipEngine {
             if (cached != null) {
                 return cached;
             }
-            try {
-                final RelationshipEngine engine = locale == null
-                        ? new RelationshipEngine(data)
-                        : new RelationshipEngine(data, locale);
+        }
+        // Build OUTSIDE the cache monitor. Construction rewrites every table key — tens of
+        // thousands of rule applications — and holding the lock across it made any concurrent
+        // reader, including the UI thread on the first kinship press, wait out the whole build.
+        try {
+            final RelationshipEngine engine = locale == null
+                    ? new RelationshipEngine(data)
+                    : new RelationshipEngine(data, locale);
+            synchronized (CACHE) {
+                final RelationshipEngine winner = CACHE.get(key);
+                if (winner != null) {
+                    return winner;
+                }
                 CACHE.put(key, engine);
-                return engine;
-            } catch (RuntimeException e) {
-                return null;
             }
+            return engine;
+        } catch (RuntimeException e) {
+            return null;
         }
     }
 

@@ -7,6 +7,8 @@ package com.android.calculator2.tools.modes;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Chinese kinship tool (亲戚称呼): the pad turns into a wall of relationship nouns, the formula
@@ -72,7 +75,7 @@ public final class RelationshipMode implements ToolMode {
 
     private static final Map<Integer, Key> PAD_KEYS = padMapping();
 
-    /** One daemon thread for table warm-up; never touches views. */
+    /** One daemon thread for table load + warm-up; never touches views. */
     private static final ExecutorService WARM_UP =
             Executors.newSingleThreadExecutor(runnable -> {
                 final Thread thread = new Thread(runnable, "relationship-warm-up");
@@ -80,8 +83,20 @@ public final class RelationshipMode implements ToolMode {
                 return thread;
             });
 
+    private static final Handler MAIN = new Handler(Looper.getMainLooper());
+
+    /** One prepare task at a time; the idle preload and the tool open share it. */
+    private static final AtomicBoolean sPrepareRunning = new AtomicBoolean();
+
     @Nullable
-    private static RelationshipData sData;
+    private static volatile RelationshipData sData;
+
+    /** Set when the bundled tables could not be read, so the UI stops saying "preparing". */
+    private static volatile boolean sLoadFailed;
+
+    /** The visible instance, so the background prepare can push a re-draw when it finishes. */
+    @Nullable
+    private static volatile RelationshipMode sLive;
 
     private final List<Step> mChain = new ArrayList<>();
     private boolean mReverse;
@@ -93,6 +108,7 @@ public final class RelationshipMode implements ToolMode {
     private View mControlRoot;
     @Nullable
     private TextView mHintView;
+    private boolean mPendingAnswer;
 
     /**
      * Pad key id to relationship key. The activity uses the same map (in this order) to relabel
@@ -167,8 +183,8 @@ public final class RelationshipMode implements ToolMode {
         mChain.clear();
         mReverse = false;
         mDialect = readDialect(host.getContext());
-        loadData(host.getContext());
-        warmUpOffMainThread();
+        sLive = this;
+        prepareAsync(host.getContext());
         host.setRelationshipPadMode(true, false);
         host.setToolResultTextSizeSp(32f);
         mountControls(host);
@@ -177,6 +193,10 @@ public final class RelationshipMode implements ToolMode {
 
     @Override
     public void onDeactivate(@NonNull ToolHost host) {
+        if (sLive == this) {
+            sLive = null;
+        }
+        mPendingAnswer = false;
         host.setRelationshipPadMode(false, false);
         final ViewGroup slot = host.getToolControlSlot();
         if (slot != null) {
@@ -276,14 +296,25 @@ public final class RelationshipMode implements ToolMode {
             setHint("");
             return;
         }
-        final Answer answer =
-                RelationshipCalculator.resolve(sData, mChain, mDialect, mReverse);
         final String chain = mChain.size() >= COMPACT_FROM_STEPS
                 ? RelationshipCalculator.compactText(mChain)
                 : RelationshipCalculator.chainText(mChain);
         host.setToolFormula(mReverse
                 ? context.getString(R.string.relationship_reverse_formula, chain)
                 : chain);
+        // Never block the press on the table build: draw the chain now with a preparing line,
+        // and the background prepare posts another redisplay once the engine is cached.
+        Answer answer = RelationshipCalculator.resolveNow(sData, mChain, mDialect, mReverse);
+        if (answer == null && !sLoadFailed) {
+            mPendingAnswer = true;
+            host.setToolResult(context.getString(R.string.relationship_preparing));
+            setHint("");
+            return;
+        }
+        mPendingAnswer = false;
+        if (answer == null) {
+            answer = RelationshipCalculator.resolve(sData, mChain, mDialect, mReverse);
+        }
         if (answer.terms.isEmpty()) {
             host.setToolResult(context.getString(R.string.relationship_unknown));
             setHint(context.getString(R.string.relationship_unknown_note));
@@ -314,35 +345,59 @@ public final class RelationshipMode implements ToolMode {
     }
 
     /**
-     * Expands the relation tables on a background thread as soon as the tool opens.
+     * Loads the relation tables and expands both dialect engines off the main thread.
      * <p>
-     * The engine is built lazily on the first look-up, which is the first key press — and that
-     * first press used to stall the pad while every table key was rewritten. Warming the cache
-     * here means the press finds it ready. A press that still beats the warm-up simply blocks on
-     * the same lock and gets the same result, so this can only improve the latency.
+     * The mode pill puts this tool one tap away, so nothing between "cold start" and "first
+     * kinship key" is long enough to hide the table build: reading the asset, compiling the rule
+     * patterns and rewriting ~30k table keys per dialect used to land either on the tap that
+     * opened the tool (load + parse) or on the first key press (blocking on the engine cache
+     * lock while the warm-up built). Both now happen here, before or beside the UI, and a press
+     * that beats the prepare draws a preparing line instead of freezing.
      */
-    private void warmUpOffMainThread() {
-        final RelationshipData data = sData;
-        if (data == null) {
+    public static void preload(@NonNull Context context) {
+        prepareAsync(context);
+    }
+
+    private static void prepareAsync(@NonNull Context context) {
+        if (!sPrepareRunning.compareAndSet(false, true)) {
             return;
         }
-        // Warm both wordings: switching the dialect rebuilds the table, and paying for that on
-        // the tap that switched it would trade one stall for another.
+        final Context app = context.getApplicationContext();
         WARM_UP.execute(() -> {
-            for (Dialect dialect : Dialect.values()) {
-                RelationshipCalculator.warmUp(data, dialect);
+            try {
+                loadData(app);
+                final RelationshipData data = sData;
+                if (data != null) {
+                    // Warm both wordings: switching the dialect rebuilds the table, and paying
+                    // for that on the tap that switched it would trade one stall for another.
+                    for (Dialect dialect : Dialect.values()) {
+                        RelationshipCalculator.warmUp(data, dialect);
+                    }
+                }
+            } finally {
+                sPrepareRunning.set(false);
             }
+            MAIN.post(() -> {
+                final RelationshipMode live = sLive;
+                if (live != null && live.mPendingAnswer) {
+                    live.redisplay();
+                }
+            });
         });
     }
 
     private static void loadData(@NonNull Context context) {
-        if (sData != null) {
-            return;
-        }
-        try {
-            sData = RelationshipData.load(context.getApplicationContext());
-        } catch (IOException e) {
-            sData = null;
+        synchronized (RelationshipMode.class) {
+            if (sData != null) {
+                return;
+            }
+            try {
+                sData = RelationshipData.load(context);
+                sLoadFailed = sData == null;
+            } catch (IOException e) {
+                sData = null;
+                sLoadFailed = true;
+            }
         }
     }
 

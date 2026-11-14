@@ -30,6 +30,13 @@
         android:checkable="true"
         android:visible="false" />
 
+    <!-- Calculator setting: read a+b% as b percent of a (checked) or as the plain b/100.
+         Only shown while the calculator itself is active. -->
+    <item android:id="@+id/menu_percent_of_value"
+        android:title="@string/menu_percent_of_value"
+        android:checkable="true"
+        android:visible="false" />
+
     <!-- Regional vocabulary for the kinship tool; only shown while that tool is active. -->
     <item android:id="@+id/menu_relationship_north"
         android:title="@string/menu_relationship_north"

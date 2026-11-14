@@ -6,6 +6,7 @@
 package com.android.calculator2;
 
 import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.Espresso.openOptionsMenu;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isCompletelyDisplayed;
@@ -20,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 
@@ -188,6 +190,60 @@ public class CalculatorToolUiTest {
             assertEquals("segments must fill the pill exactly", pill.getWidth(), row.getWidth());
             assertEquals(9, ((android.view.ViewGroup) row).getChildCount());
         });
+    }
+
+    /**
+     * The first kinship press after a cold start must resolve on its own: the tables load and
+     * expand off the main thread now, so the pad may briefly show the preparing line, but the
+     * answer has to arrive without a second tap (the regression this guards froze the press).
+     */
+    @Test
+    public void firstKinshipPressResolvesWithoutAnotherTap() {
+        resetTestPreferences();
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        onView(withContentDescription(R.string.tool_relationship)).perform(click());
+        onView(withId(R.id.digit_7)).perform(click());   // 父
+        onView(withId(R.id.digit_8)).perform(click());   // 母 -> 爸爸的妈妈
+        final String preparing = context.getString(R.string.relationship_preparing);
+        final String unknown = context.getString(R.string.relationship_unknown);
+        final long deadline = SystemClock.uptimeMillis() + 15000;
+        String text = "";
+        while (SystemClock.uptimeMillis() < deadline) {
+            final String[] current = new String[1];
+            mActivityScenario.onActivity(activity -> current[0] =
+                    ((android.widget.TextView) activity.findViewById(R.id.result))
+                            .getText().toString());
+            text = current[0];
+            if (!text.isEmpty() && !text.equals(preparing) && !text.equals(unknown)) {
+                break;
+            }
+            SystemClock.sleep(200);
+        }
+        assertTrue("kinship answer never arrived on its own, last result: " + text,
+                !text.isEmpty() && !text.equals(preparing) && !text.equals(unknown));
+    }
+
+    /** The overflow percent option flips 100+10% between 110 (of the value) and 100.1 (ratio). */
+    @Test
+    public void percentModeOptionSwitchesAdditiveSemantics() {
+        resetTestPreferences();
+        onView(withId(R.id.clr)).perform(click());
+        onView(withId(R.id.digit_1)).perform(click());
+        onView(withId(R.id.digit_0)).perform(click());
+        onView(withId(R.id.digit_0)).perform(click());
+        onView(withId(R.id.op_add)).perform(click());
+        onView(withId(R.id.digit_1)).perform(click());
+        onView(withId(R.id.digit_0)).perform(click());
+        onView(withId(R.id.op_pct)).perform(click());
+        onView(withId(R.id.result)).check(matches(withText("110")));
+
+        openOptionsMenu();
+        onView(withText(R.string.menu_percent_of_value)).perform(click());
+        onView(withId(R.id.result)).check(matches(withText("100.1")));
+
+        openOptionsMenu();
+        onView(withText(R.string.menu_percent_of_value)).perform(click());
+        onView(withId(R.id.result)).check(matches(withText("110")));
     }
 
     /** Unit categories stay as inline pills, rather than opening a full-screen unit chooser. */

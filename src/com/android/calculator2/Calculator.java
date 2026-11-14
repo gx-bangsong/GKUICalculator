@@ -26,6 +26,7 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Looper;
 import android.text.Editable;
 import android.text.Layout;
 import android.text.SpannableStringBuilder;
@@ -254,6 +255,7 @@ public class Calculator extends AppCompatActivity
     // the layout grows the display automatically when the scientific pad is hidden).
     private static final String PREFS_NAME = "calc_tools";
     private static final String PREF_SCIENTIFIC = "scientific_pad_visible";
+    private static final String PREF_PERCENT_OF_VALUE = "percent_of_value";
 
     /** Most lines a Chinese-uppercase result may wrap onto before it starts shrinking. */
     private static final int UPPERCASE_MAX_LINES = 4;
@@ -471,6 +473,17 @@ public class Calculator extends AppCompatActivity
         mToolManager.register(new ProgrammerMode());
         mToolManager.register(new RelationshipMode());
         mToolManager.init();
+        // The kinship tables expand once per process (~30k rule applications per dialect). Start
+        // that at the first idle moment after launch: the mode pill puts the tool one tap away,
+        // so warming only when it opens let the first key press race the table build.
+        Looper.myQueue().addIdleHandler(() -> {
+            RelationshipMode.preload(this);
+            return false;
+        });
+
+        // Percent reading survives restarts; apply it before any restored expression evaluates.
+        CalculatorExpr.setPercentOfValue(getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getBoolean(PREF_PERCENT_OF_VALUE, true));
 
         if (savedInstanceState != null) {
             restoreInstanceState(savedInstanceState);
@@ -1252,6 +1265,13 @@ public class Calculator extends AppCompatActivity
                     && activeTool.isSecondaryOutputEnabled());
         }
 
+        // Percent semantics belong to the calculator itself; tools consume the % key themselves.
+        final MenuItem percentOfValue = menu.findItem(R.id.menu_percent_of_value);
+        if (percentOfValue != null) {
+            percentOfValue.setVisible(activeTool == null);
+            percentOfValue.setChecked(CalculatorExpr.isPercentOfValue());
+        }
+
         // The kinship tool speaks either North or South Chinese; pick exactly one.
         final RelationshipMode kinship = activeTool instanceof RelationshipMode
                 ? (RelationshipMode) activeTool : null;
@@ -1282,6 +1302,18 @@ public class Calculator extends AppCompatActivity
             return true;
         } else if (itemId == R.id.menu_fraction) {
             displayFraction();
+            return true;
+        } else if (itemId == R.id.menu_percent_of_value) {
+            final boolean ofValue = !CalculatorExpr.isPercentOfValue();
+            CalculatorExpr.setPercentOfValue(ofValue);
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                    .edit().putBoolean(PREF_PERCENT_OF_VALUE, ofValue).apply();
+            item.setChecked(ofValue);
+            // Re-read what is on screen under the new semantics instead of waiting for a key.
+            if (mEvaluator.getExpr(Evaluator.MAIN_INDEX).hasInterestingOps()) {
+                mEvaluator.touch();
+                mEvaluator.evaluateAndNotify(Evaluator.MAIN_INDEX, this, mResultText);
+            }
             return true;
         } else if (itemId == R.id.menu_licenses) {
             startActivity(new Intent(this, Licenses.class));

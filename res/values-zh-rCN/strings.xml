@@ -230,6 +230,8 @@
     <string name="relationship_unknown">没有这个亲戚</string>
     <string name="relationship_unknown_note">这个关系链不存在</string>
     <string name="relationship_multiple_note">以上称呼都有可能</string>
+    <string name="relationship_preparing">正在准备称谓表…</string>
     <string name="menu_relationship_north">北方版</string>
     <string name="menu_relationship_south">南方版</string>
+    <string name="menu_percent_of_value">百分比按原值计算</string>
 </resources>
