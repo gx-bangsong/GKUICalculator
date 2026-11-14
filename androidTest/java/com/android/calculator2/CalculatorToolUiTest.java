@@ -6,7 +6,6 @@
 package com.android.calculator2;
 
 import static androidx.test.espresso.Espresso.onView;
-import static androidx.test.espresso.Espresso.openOptionsMenu;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isCompletelyDisplayed;
@@ -237,11 +236,11 @@ public class CalculatorToolUiTest {
         onView(withId(R.id.op_pct)).perform(click());
         onView(withId(R.id.result)).check(matches(withText("110")));
 
-        openOptionsMenu();
+        openOverflowMenu();
         onView(withText(R.string.menu_percent_of_value)).perform(click());
         onView(withId(R.id.result)).check(matches(withText("100.1")));
 
-        openOptionsMenu();
+        openOverflowMenu();
         onView(withText(R.string.menu_percent_of_value)).perform(click());
         onView(withId(R.id.result)).check(matches(withText("110")));
     }
@@ -401,6 +400,12 @@ public class CalculatorToolUiTest {
         // The same circled amount view now shows 大写; no duplicate reading is drawn below.
         onView(withId(R.id.currency_input_text)).check(matches(withText("肆")));
         onView(withId(R.id.result)).check(matches(withText("")));
+    }
+
+    /** Espresso 3.5 has no openOptionsMenu(); the activity's own API opens the overflow popup. */
+    private void openOverflowMenu() {
+        mActivityScenario.onActivity(activity -> activity.openOptionsMenu());
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
     private void resetTestPreferences() {
