@@ -503,12 +503,8 @@ public class CalculatorToolUiTest {
             // pressBack with no popup would finish the activity instead.
             final UiObject popupList = device.findObject(new UiSelector()
                     .className("androidx.appcompat.view.menu.ExpandedMenuView"));
-            try {
-                if (popupList.exists()) {
-                    device.pressBack();
-                }
-            } catch (UiObjectNotFoundException ignored) {
-                // no popup to dismiss
+            if (popupList.exists()) {
+                device.pressBack();
             }
         }
         String relevant = "";
