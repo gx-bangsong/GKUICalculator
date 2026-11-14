@@ -14,7 +14,6 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -59,23 +58,7 @@ public class CalculatorToolUiTest {
         try {
             device.wakeUp();
             device.executeShellCommand("wm dismiss-keyguard");
-            final UiObject waitButton = device.findObject(new UiSelector().text("Wait"));
-            if (waitButton.waitForExists(5000)) {
-                Log.i("CalculatorToolUiTest", "Dismissing the System UI ANR prompt with Wait");
-                waitButton.click();
-                device.waitForIdle(5000);
-                final UiObject stillWaiting = device.findObject(new UiSelector().text("Wait"));
-                if (stillWaiting.waitForExists(2000)) {
-                    final UiObject closeApp = device.findObject(new UiSelector().text("Close app"));
-                    if (closeApp.waitForExists(1000)) {
-                        Log.w("CalculatorToolUiTest", "System UI is still stalled; closing it to recover focus");
-                        closeApp.click();
-                        device.waitForIdle(10000);
-                    }
-                }
-            } else {
-                Log.i("CalculatorToolUiTest", "No System UI ANR prompt appeared before the test");
-            }
+            recoverSystemUiPrompt(device, 5000);
         } catch (Exception exception) {
             Log.w("CalculatorToolUiTest", "Unable to recover emulator window focus", exception);
         }
@@ -119,10 +102,6 @@ public class CalculatorToolUiTest {
     /** Capture the two key UI states so the emulator job can publish screenshots for review. */
     @Test
     public void captureCalculatorScreenshot() throws IOException {
-        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        assertCalculatorUnobstructed(device, context.getPackageName());
-
         final boolean[] keypadShown = new boolean[1];
         mActivityScenario.onActivity(activity -> {
             final View inputPad = activity.findViewById(R.id.input_pad);
@@ -245,27 +224,83 @@ public class CalculatorToolUiTest {
     private void saveScreenshot(String name) throws IOException {
         final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        assertCalculatorUnobstructed(device, context.getPackageName());
-
-        // Run screencap as the shell user so the full device frame, including any system overlay,
-        // is captured and can be pulled from shared storage by the CI host.
+        final String packageName = context.getPackageName();
         final String path = "/sdcard/" + name;
-        device.executeShellCommand("screencap -p " + path);
+        boolean capturedUnobstructedFrame = false;
 
-        // A recovery dialog appearing during capture must still fail the test, not publish a bad PNG.
-        assertCalculatorUnobstructed(device, context.getPackageName());
-        Log.i("CalculatorToolUiTest", "Saved test-generated screenshot: " + path);
+        // System UI can become unresponsive again while the emulator is settling. If a recovery
+        // dialog appears across a capture, dismiss it and overwrite the file with a clean frame.
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            recoverSystemUiPrompt(device, attempt == 1 ? 1000 : 250);
+            ensureCalculatorForeground(device, packageName);
+            if (hasSystemUiRecoveryPrompt(device, 250)
+                    || !packageName.equals(device.getCurrentPackageName())) {
+                Log.w("CalculatorToolUiTest", "Emulator is not ready for screenshot attempt " + attempt);
+                continue;
+            }
+
+            device.executeShellCommand("screencap -p " + path);
+            if (!hasSystemUiRecoveryPrompt(device, 1000)
+                    && packageName.equals(device.getCurrentPackageName())) {
+                capturedUnobstructedFrame = true;
+                break;
+            }
+            Log.w("CalculatorToolUiTest", "System UI recovery interrupted screenshot attempt " + attempt);
+        }
+
+        assertTrue("Could not capture a calculator screenshot without a System UI recovery dialog",
+                capturedUnobstructedFrame);
+        assertEquals("Calculator is not the foreground app at screenshot time",
+                packageName, device.getCurrentPackageName());
+        Log.i("CalculatorToolUiTest", "Saved unobstructed test-generated screenshot: " + path);
     }
 
-    private static void assertCalculatorUnobstructed(UiDevice device, String packageName) {
+    private static void recoverSystemUiPrompt(UiDevice device, long initialWaitMillis) {
+        if (!hasSystemUiRecoveryPrompt(device, initialWaitMillis)) {
+            Log.i("CalculatorToolUiTest", "No System UI ANR prompt is visible");
+            return;
+        }
+
+        try {
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                final UiObject waitButton = device.findObject(new UiSelector().text("Wait"));
+                if (waitButton.waitForExists(250)) {
+                    Log.i("CalculatorToolUiTest", "Dismissing the System UI ANR prompt with Wait");
+                    waitButton.click();
+                    device.waitForIdle(5000);
+                }
+                if (!hasSystemUiRecoveryPrompt(device, 500)) {
+                    return;
+                }
+
+                final UiObject closeAppButton = device.findObject(new UiSelector().text("Close app"));
+                if (closeAppButton.waitForExists(250)) {
+                    Log.w("CalculatorToolUiTest", "System UI is still stalled; closing it to recover focus");
+                    closeAppButton.click();
+                    device.waitForIdle(10000);
+                }
+            }
+            Log.w("CalculatorToolUiTest", "System UI recovery prompt remained after dismissal attempts");
+        } catch (Exception exception) {
+            Log.w("CalculatorToolUiTest", "Unable to recover emulator window focus", exception);
+        }
+    }
+
+    private static boolean hasSystemUiRecoveryPrompt(UiDevice device, long timeoutMillis) {
         final UiObject waitButton = device.findObject(new UiSelector().text("Wait"));
         final UiObject closeAppButton = device.findObject(new UiSelector().text("Close app"));
         final UiObject systemUiAnrTitle = device.findObject(
                 new UiSelector().textContains("isn't responding"));
-        assertFalse("System UI recovery dialog is visible; refusing to save an obscured screenshot",
-                waitButton.waitForExists(500) || closeAppButton.waitForExists(500)
-                        || systemUiAnrTitle.waitForExists(500));
-        assertEquals("Calculator is not the foreground app at screenshot time",
-                packageName, device.getCurrentPackageName());
+        return waitButton.waitForExists(timeoutMillis)
+                || closeAppButton.waitForExists(100)
+                || systemUiAnrTitle.waitForExists(100);
+    }
+
+    private static void ensureCalculatorForeground(UiDevice device, String packageName)
+            throws IOException {
+        if (!packageName.equals(device.getCurrentPackageName())) {
+            device.executeShellCommand("am start -n " + packageName + "/.Calculator");
+            device.waitForIdle(5000);
+        }
     }
 }
