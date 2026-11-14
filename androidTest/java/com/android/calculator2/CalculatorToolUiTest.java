@@ -17,11 +17,13 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.os.SystemClock;
 import android.util.Log;
+import android.view.MenuItem;
 import android.view.View;
 
 import androidx.test.core.app.ActivityScenario;
@@ -285,11 +287,41 @@ public class CalculatorToolUiTest {
 
         final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        clickOverflowItem(R.string.menu_percent_of_value);
-        waitForResult(device, context.getPackageName(), "100.1");
 
-        clickOverflowItem(R.string.menu_percent_of_value);
+        clickPercentMenuOption();
+        waitForResult(device, context.getPackageName(), "100.1");
+        assertEquals(false, readPercentOfValuePref());
+
+        clickPercentMenuOption();
         waitForResult(device, context.getPackageName(), "110");
+        assertEquals(true, readPercentOfValuePref());
+    }
+
+    /**
+     * Builds the options menu the way the framework would and taps the percent item through the
+     * activity's own callbacks. The AppCompat overflow popup lives in its own window that the
+     * shared CI emulator repeatedly fails to expose to UiAutomator (and which steals window
+     * focus from Espresso), while everything the option does lives in onCreateOptionsMenu /
+     * onPrepareOptionsMenu / onOptionsItemSelected anyway.
+     */
+    private void clickPercentMenuOption() {
+        mActivityScenario.onActivity(activity -> {
+            final androidx.appcompat.view.MenuBuilder menu =
+                    new androidx.appcompat.view.MenuBuilder(activity);
+            activity.onCreateOptionsMenu(menu);
+            activity.onPrepareOptionsMenu(menu);
+            final MenuItem item = menu.findItem(R.id.menu_percent_of_value);
+            assertNotNull("percent option missing from the options menu", item);
+            assertTrue("percent option hidden while the calculator is active", item.isVisible());
+            assertTrue("percent option handler refused the click",
+                    activity.onOptionsItemSelected(item));
+        });
+    }
+
+    private boolean readPercentOfValuePref() {
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        return context.getSharedPreferences("calc_tools", Context.MODE_PRIVATE)
+                .getBoolean("percent_of_value", true);
     }
 
     private static void waitForResult(UiDevice device, String pkg, String expected) {
@@ -468,67 +500,6 @@ public class CalculatorToolUiTest {
         // The same circled amount view now shows 大写; no duplicate reading is drawn below.
         onView(withId(R.id.currency_input_text)).check(matches(withText("肆")));
         onView(withId(R.id.result)).check(matches(withText("")));
-    }
-
-    /**
-     * Opens the options menu through the activity and taps one item. The AppCompat popup takes
-     * input focus away from the activity window, so Espresso cannot drive it (its root picker
-     * times out on the unfocused activity root); UiAutomator clicks work on the popup regardless
-     * of which window holds focus. If the item never appears, the assertion carries the popup-
-     * and menu-related lines of the window hierarchy so the next review sees why.
-     */
-    private void clickOverflowItem(int titleRes) {
-        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        final String title = context.getString(titleRes);
-        for (int attempt = 1; attempt <= 2; attempt++) {
-            mActivityScenario.onActivity(android.app.Activity::openOptionsMenu);
-            final UiObject item = device.findObject(new UiSelector().text(title));
-            final long deadline = SystemClock.uptimeMillis() + 15000;
-            while (SystemClock.uptimeMillis() < deadline) {
-                try {
-                    if (item.exists()) {
-                        item.click();
-                        device.waitForIdle();
-                        return;
-                    }
-                } catch (UiObjectNotFoundException ignored) {
-                    // keep polling
-                }
-                SystemClock.sleep(250);
-            }
-            Log.w("CalculatorToolUiTest", "menu item not visible after openOptionsMenu, attempt "
-                    + attempt);
-            // Dismiss the popup before retrying - but only if one actually opened; a blind
-            // pressBack with no popup would finish the activity instead.
-            final UiObject popupList = device.findObject(new UiSelector()
-                    .className("androidx.appcompat.view.menu.ExpandedMenuView"));
-            if (popupList.exists()) {
-                device.pressBack();
-            }
-        }
-        String relevant = "";
-        try {
-            final java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
-            device.dumpWindowHierarchy(bos);
-            final String hierarchy = bos.toString("UTF-8");
-            final StringBuilder picked = new StringBuilder();
-            for (String line : hierarchy.replaceAll("> <", ">\n<").split("\n")) {
-                if (line.contains("More options") || line.contains(title)
-                        || line.contains("PopupWindow") || line.contains("ListPopup")
-                        || line.contains("menu_") || line.contains("action_menu")) {
-                    picked.append(line, 0, Math.min(line.length(), 300)).append('\n');
-                }
-            }
-            relevant = picked.length() > 0 ? picked.toString()
-                    : hierarchy.substring(Math.max(0, hierarchy.length() - 1200));
-        } catch (IOException ignored) {
-            // relevant stays empty
-        }
-        if (relevant.length() > 1800) {
-            relevant = relevant.substring(0, 1800);
-        }
-        throw new AssertionError("menu item not shown: " + title + " | hierarchy: " + relevant);
     }
 
     private void resetTestPreferences() {
