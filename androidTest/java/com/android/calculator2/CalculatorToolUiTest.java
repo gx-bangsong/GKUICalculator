@@ -285,10 +285,10 @@ public class CalculatorToolUiTest {
 
         final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        clickOverflowItem(device, context, R.string.menu_percent_of_value);
+        clickOverflowItem(R.string.menu_percent_of_value);
         waitForResult(device, context.getPackageName(), "100.1");
 
-        clickOverflowItem(device, context, R.string.menu_percent_of_value);
+        clickOverflowItem(R.string.menu_percent_of_value);
         waitForResult(device, context.getPackageName(), "110");
     }
 
@@ -471,48 +471,68 @@ public class CalculatorToolUiTest {
     }
 
     /**
-     * Opens the overflow menu and taps one item. The overflow button itself is clicked through
-     * Espresso (the activity window still holds focus at that point); the popup that follows is
-     * driven through UiAutomator, because the AppCompat popup leaves the activity window
-     * unfocused and Espresso's root picker times out on it. If the item never appears, the
-     * assertion carries the tail of the window hierarchy so the next review sees why.
+     * Opens the options menu through the activity and taps one item. The AppCompat popup takes
+     * input focus away from the activity window, so Espresso cannot drive it (its root picker
+     * times out on the unfocused activity root); UiAutomator clicks work on the popup regardless
+     * of which window holds focus. If the item never appears, the assertion carries the popup-
+     * and menu-related lines of the window hierarchy so the next review sees why.
      */
-    private static void clickOverflowItem(UiDevice device, Context context, int titleRes) {
+    private void clickOverflowItem(int titleRes) {
+        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         final String title = context.getString(titleRes);
-        try {
-            onView(withContentDescription(
-                    androidx.appcompat.R.string.abc_action_menu_overflow_description))
-                    .perform(click());
-        } catch (RuntimeException e) {
-            device.pressMenu();
-        }
-        final UiObject item = device.findObject(new UiSelector().text(title));
-        final long deadline = SystemClock.uptimeMillis() + 10000;
-        while (SystemClock.uptimeMillis() < deadline) {
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            mActivityScenario.onActivity(android.app.Activity::openOptionsMenu);
+            final UiObject item = device.findObject(new UiSelector().text(title));
+            final long deadline = SystemClock.uptimeMillis() + 15000;
+            while (SystemClock.uptimeMillis() < deadline) {
+                try {
+                    if (item.exists()) {
+                        item.click();
+                        device.waitForIdle();
+                        return;
+                    }
+                } catch (UiObjectNotFoundException ignored) {
+                    // keep polling
+                }
+                SystemClock.sleep(250);
+            }
+            Log.w("CalculatorToolUiTest", "menu item not visible after openOptionsMenu, attempt "
+                    + attempt);
+            // Dismiss the popup before retrying - but only if one actually opened; a blind
+            // pressBack with no popup would finish the activity instead.
+            final UiObject popupList = device.findObject(new UiSelector()
+                    .className("androidx.appcompat.view.menu.ExpandedMenuView"));
             try {
-                if (item.exists()) {
-                    item.click();
-                    device.waitForIdle();
-                    return;
+                if (popupList.exists()) {
+                    device.pressBack();
                 }
             } catch (UiObjectNotFoundException ignored) {
-                // keep polling
+                // no popup to dismiss
             }
-            SystemClock.sleep(250);
         }
-        String hierarchy = "";
+        String relevant = "";
         try {
             final java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
             device.dumpWindowHierarchy(bos);
-            hierarchy = bos.toString("UTF-8");
+            final String hierarchy = bos.toString("UTF-8");
+            final StringBuilder picked = new StringBuilder();
+            for (String line : hierarchy.replaceAll("> <", ">\n<").split("\n")) {
+                if (line.contains("More options") || line.contains(title)
+                        || line.contains("PopupWindow") || line.contains("ListPopup")
+                        || line.contains("menu_") || line.contains("action_menu")) {
+                    picked.append(line, 0, Math.min(line.length(), 300)).append('\n');
+                }
+            }
+            relevant = picked.length() > 0 ? picked.toString()
+                    : hierarchy.substring(Math.max(0, hierarchy.length() - 1200));
         } catch (IOException ignored) {
-            // hierarchy stays empty
+            // relevant stays empty
         }
-        if (hierarchy.length() > 1800) {
-            hierarchy = hierarchy.substring(hierarchy.length() - 1800);
+        if (relevant.length() > 1800) {
+            relevant = relevant.substring(0, 1800);
         }
-        throw new AssertionError("overflow item not shown: " + title
-                + " | window hierarchy tail: " + hierarchy);
+        throw new AssertionError("menu item not shown: " + title + " | hierarchy: " + relevant);
     }
 
     private void resetTestPreferences() {
