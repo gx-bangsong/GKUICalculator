@@ -226,25 +226,65 @@ public class CalculatorToolUiTest {
                 !text.isEmpty() && !text.equals(preparing) && !text.equals(unknown));
     }
 
-    /** The overflow percent option flips 100+10% between 110 (of the value) and 100.1 (ratio). */
+    /**
+     * The overflow percent option flips 100+10% between 110 (of the value) and 100.1 (ratio).
+     * Driven entirely through UiAutomator: the AppCompat overflow popup and this emulator's
+     * window-focus transitions make Espresso's root picker time out, while UiAutomator clicks
+     * by resource id regardless of which window holds focus.
+     */
     @Test
     public void percentModeOptionSwitchesAdditiveSemantics() {
         resetTestPreferences();
-        onView(withId(R.id.clr)).perform(click());
-        onView(withId(R.id.digit_1)).perform(click());
-        onView(withId(R.id.digit_0)).perform(click());
-        onView(withId(R.id.digit_0)).perform(click());
-        onView(withId(R.id.op_add)).perform(click());
-        onView(withId(R.id.digit_1)).perform(click());
-        onView(withId(R.id.digit_0)).perform(click());
-        onView(withId(R.id.op_pct)).perform(click());
-        onView(withId(R.id.result)).check(matches(withText("110")));
+        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        final String pkg = context.getPackageName();
+        tapKey(device, pkg, "clr");
+        tapKey(device, pkg, "digit_1");
+        tapKey(device, pkg, "digit_0");
+        tapKey(device, pkg, "digit_0");
+        tapKey(device, pkg, "op_add");
+        tapKey(device, pkg, "digit_1");
+        tapKey(device, pkg, "digit_0");
+        tapKey(device, pkg, "op_pct");
+        waitForResult(device, pkg, "110");
 
         clickOverflowItem(R.string.menu_percent_of_value);
-        onView(withId(R.id.result)).check(matches(withText("100.1")));
+        waitForResult(device, pkg, "100.1");
 
         clickOverflowItem(R.string.menu_percent_of_value);
-        onView(withId(R.id.result)).check(matches(withText("110")));
+        waitForResult(device, pkg, "110");
+    }
+
+    private static void tapKey(UiDevice device, String pkg, String id) {
+        try {
+            final UiObject key = device.findObject(
+                    new UiSelector().resourceId(pkg + ":id/" + id));
+            assertTrue("key never appeared: " + id, key.waitForExists(5000));
+            key.click();
+        } catch (UiObjectNotFoundException e) {
+            throw new AssertionError("could not tap " + id, e);
+        }
+    }
+
+    private static void waitForResult(UiDevice device, String pkg, String expected) {
+        final long deadline = SystemClock.uptimeMillis() + 10000;
+        String text = "";
+        while (SystemClock.uptimeMillis() < deadline) {
+            try {
+                final UiObject result = device.findObject(
+                        new UiSelector().resourceId(pkg + ":id/result"));
+                if (result.exists()) {
+                    text = result.getText();
+                    if (expected.equals(text)) {
+                        return;
+                    }
+                }
+            } catch (UiObjectNotFoundException e) {
+                // keep polling until the deadline
+            }
+            SystemClock.sleep(200);
+        }
+        throw new AssertionError("result never became " + expected + ", last: " + text);
     }
 
     /** Unit categories stay as inline pills, rather than opening a full-screen unit chooser. */
