@@ -31,6 +31,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Chinese kinship tool (亲戚称呼): the pad turns into a wall of relationship nouns, the formula
@@ -69,6 +71,14 @@ public final class RelationshipMode implements ToolMode {
     };
 
     private static final Map<Integer, Key> PAD_KEYS = padMapping();
+
+    /** One daemon thread for table warm-up; never touches views. */
+    private static final ExecutorService WARM_UP =
+            Executors.newSingleThreadExecutor(runnable -> {
+                final Thread thread = new Thread(runnable, "relationship-warm-up");
+                thread.setDaemon(true);
+                return thread;
+            });
 
     @Nullable
     private static RelationshipData sData;
@@ -158,6 +168,7 @@ public final class RelationshipMode implements ToolMode {
         mReverse = false;
         mDialect = readDialect(host.getContext());
         loadData(host.getContext());
+        warmUpOffMainThread();
         host.setRelationshipPadMode(true, false);
         host.setToolResultTextSizeSp(32f);
         mountControls(host);
@@ -300,6 +311,28 @@ public final class RelationshipMode implements ToolMode {
         slot.removeAllViews();
         slot.addView(mControlRoot);
         slot.setVisibility(View.VISIBLE);
+    }
+
+    /**
+     * Expands the relation tables on a background thread as soon as the tool opens.
+     * <p>
+     * The engine is built lazily on the first look-up, which is the first key press — and that
+     * first press used to stall the pad while every table key was rewritten. Warming the cache
+     * here means the press finds it ready. A press that still beats the warm-up simply blocks on
+     * the same lock and gets the same result, so this can only improve the latency.
+     */
+    private void warmUpOffMainThread() {
+        final RelationshipData data = sData;
+        if (data == null) {
+            return;
+        }
+        // Warm both wordings: switching the dialect rebuilds the table, and paying for that on
+        // the tap that switched it would trade one stall for another.
+        WARM_UP.execute(() -> {
+            for (Dialect dialect : Dialect.values()) {
+                RelationshipCalculator.warmUp(data, dialect);
+            }
+        });
     }
 
     private static void loadData(@NonNull Context context) {

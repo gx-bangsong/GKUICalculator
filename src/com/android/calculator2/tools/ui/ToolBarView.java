@@ -10,6 +10,7 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -34,11 +35,15 @@ import java.util.List;
  *   <li>{@code fx} — the scientific pad, without leaving the calculator</li>
  *   <li>{@code ⇄} — the converters (units / currency)</li>
  * </ul>
- * The tool pills are only inflated while a life-calculation tool is active, so the calculator
- * state shows a single control instead of a scrolling list, and the trailing "more" button opens
- * the grid of remaining tools.
+ * The tool icons are appended to that same pill at runtime, inside the same scrolling track, so
+ * the control a user sees is one long segmented strip rather than a core pill plus a second
+ * strip beside it. The trailing "more" button sits outside the pill: it opens the grid of
+ * remaining tools, which is a menu rather than a mode.
  */
 public class ToolBarView extends LinearLayout {
+
+    /** 123 / fx / ⇄ are declared in the layout; generated tool segments follow them. */
+    private static final int CORE_SEGMENT_COUNT = 3;
 
     /**
      * Callbacks fired by user interaction with the bar. The 123 / fx / ⇄ segments are wired with
@@ -55,7 +60,8 @@ public class ToolBarView extends LinearLayout {
     private TextView mSegmentBasic;
     private TextView mSegmentScientific;
     private TextView mSegmentConvert;
-    private LinearLayout mToolSegments;
+    private LinearLayout mModeSegments;
+    private HorizontalScrollView mModeSegmentsScroll;
 
     @Nullable
     private Listener mListener;
@@ -76,7 +82,8 @@ public class ToolBarView extends LinearLayout {
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        mToolSegments = findViewById(R.id.tool_segments_container);
+        mModeSegments = findViewById(R.id.mode_segments);
+        mModeSegmentsScroll = findViewById(R.id.mode_segments_scroll);
         mMoreButton = findViewById(R.id.tool_more_button);
         mMoreButton.setOnClickListener(v -> {
             Log.d("ToolDebug", "more button clicked");
@@ -97,12 +104,12 @@ public class ToolBarView extends LinearLayout {
     /**
      * Rebuild the tool segments and the trailing button state.
      * <p>
-     * Every registered tool becomes an <em>icon-only</em> segment in the same strip as
-     * {@code 123 / fx / ⇄}, mirroring how Google Calculator v10 keeps one mode control for the
-     * whole app instead of a separate chip row. The three core segments are declared in
+     * Every registered tool becomes an <em>icon-only</em> segment appended to the one pill that
+     * already holds {@code 123 / fx / ⇄}. The three core segments are declared in
      * {@code tool_bar.xml}; everything else — the programmer calculator and the life-calculation
      * tools (BMI, income tax, mortgage, date, relatives) — is built here from
-     * {@link ToolMode#getIconRes()}. {@code Units} and {@code Currency} are the {@code ⇄}
+     * {@link ToolMode#getIconRes()} and appended to the same {@code LinearLayout}, so all eight
+     * modes live in a single track. {@code Units} and {@code Currency} are the {@code ⇄}
      * segment, so they are not repeated.
      *
      * @param items         registered tools (the calculator is skipped — it *is* the 123 segment)
@@ -115,7 +122,11 @@ public class ToolBarView extends LinearLayout {
         updateMoreButton(/* animate */ true);
 
         final Context context = getContext();
-        mToolSegments.removeAllViews();
+        // Drop only the generated segments; the declared 123 / fx / ⇄ children stay put. They
+        // are the first three children, so remove everything after them.
+        while (mModeSegments.getChildCount() > CORE_SEGMENT_COUNT) {
+            mModeSegments.removeViewAt(mModeSegments.getChildCount() - 1);
+        }
         for (ToolMode mode : items) {
             final String id = mode.getId();
             if (ToolId.CALCULATOR.equals(id) || ToolId.UNIT.equals(id)
@@ -125,7 +136,7 @@ public class ToolBarView extends LinearLayout {
             }
             final int iconRes = mode.getIconRes();
             final TextView segment = (TextView) LayoutInflater.from(context)
-                    .inflate(R.layout.tool_segment, mToolSegments, false);
+                    .inflate(R.layout.tool_segment, mModeSegments, false);
             segment.setText("");
             segment.setContentDescription(context.getString(mode.getNameRes()));
             if (iconRes != 0) {
@@ -145,14 +156,53 @@ public class ToolBarView extends LinearLayout {
                     mListener.onToolChipClicked(toolId);
                 }
             });
-            mToolSegments.addView(segment);
+            mModeSegments.addView(segment);
         }
+        // Bring the selected segment into view after a mode change, so switching to a tool that
+        // scrolls off the right-hand edge still shows which one is active.
+        scrollSelectionIntoView();
+    }
 
-        // Hide the whole group (and the gap it would leave) when there is nothing to show.
-        final View scroll = findViewById(R.id.tool_segments_scroll);
-        if (scroll != null) {
-            scroll.setVisibility(mToolSegments.getChildCount() > 0 ? VISIBLE : GONE);
+    /**
+     * Scrolls the pill so the selected segment is fully visible. Cheap and idempotent: the scroll
+     * only moves when the selection is actually outside the viewport.
+     */
+    private void scrollSelectionIntoView() {
+        if (mModeSegmentsScroll == null) {
+            return;
         }
+        final View selected = findSelectedSegment();
+        if (selected == null) {
+            return;
+        }
+        mModeSegmentsScroll.post(() -> {
+            final int left = selected.getLeft();
+            final int right = selected.getRight();
+            final int viewport = mModeSegmentsScroll.getWidth()
+                    - mModeSegmentsScroll.getPaddingStart()
+                    - mModeSegmentsScroll.getPaddingEnd();
+            if (viewport <= 0 || right - left > viewport) {
+                return;
+            }
+            final int visibleLeft = mModeSegmentsScroll.getScrollX();
+            final int visibleRight = visibleLeft + viewport;
+            if (left < visibleLeft) {
+                mModeSegmentsScroll.smoothScrollTo(left, 0);
+            } else if (right > visibleRight) {
+                mModeSegmentsScroll.smoothScrollTo(right - viewport, 0);
+            }
+        });
+    }
+
+    @Nullable
+    private View findSelectedSegment() {
+        for (int i = 0; i < mModeSegments.getChildCount(); i++) {
+            final View child = mModeSegments.getChildAt(i);
+            if (child.isSelected()) {
+                return child;
+            }
+        }
+        return null;
     }
 
     /**
@@ -163,6 +213,7 @@ public class ToolBarView extends LinearLayout {
         setSegmentSelected(mSegmentBasic, basic);
         setSegmentSelected(mSegmentScientific, scientific);
         setSegmentSelected(mSegmentConvert, convert);
+        scrollSelectionIntoView();
     }
 
     /** Selection drives both the segment background and its label colour. */

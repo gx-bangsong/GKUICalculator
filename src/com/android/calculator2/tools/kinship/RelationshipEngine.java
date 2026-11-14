@@ -355,8 +355,7 @@ public final class RelationshipEngine {
         while (true) {
             final String before = current;
             for (RelationshipData.Rule rule : mData.rules) {
-                final Pattern pattern = Pattern.compile(rule.exp);
-                final Matcher matcher = pattern.matcher(current);
+                final Matcher matcher = rule.pattern.matcher(current);
                 current = rule.global
                         ? matcher.replaceAll(rule.str)
                         : matcher.replaceFirst(rule.str);

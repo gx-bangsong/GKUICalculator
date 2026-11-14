@@ -194,6 +194,9 @@ def status_bar(d, clock='12:35'):
         d.rectangle([px(342 + i * 5), px(10), px(346 + i * 5), px(17)], fill=INK)
 
 
+MORE_W = W_DP - 386  # the trailing 44 dp button's right edge sits at the sheet edge
+
+
 def overflow(d, x=386, y=30):
     for dy in (-5, 0, 5):
         r = px(1.6)
@@ -214,39 +217,50 @@ def toolbar(d):
 
 
 def mode_strip(d, y, scientific=False, active=None):
-    """res/layout/tool_bar.xml: 123 / fx / (two-way arrow) track, then the tool icon track."""
+    """res/layout/tool_bar.xml: ONE pill holding 123 / fx / (swap) then the tool icons."""
     band = R_TOOLBAR * H_DP
     strip_top = y + (band - SEG_H) / 2
     radius = SEG_H / 2
+    # Selected segments are drawn with the resource's 22dp corner, not a full stadium: that is
+    # what mode_segment_background paints, and at 44dp tall the difference is visible next to
+    # Google's circle.
+    sel_radius = 22
+    gap = 4
     labels = [string('mode_segment_basic'), string('mode_segment_scientific'),
               string('mode_segment_convert')]
     widths = [max(SEG_MIN_W, 2 * SEG_PAD + 7.4 * len(t)) for t in labels]
-    group_w = sum(widths)
-    rrect(d, (4, strip_top, 4 + group_w, strip_top + SEG_H), radius, CHIP_BG)
-    x = 4
+
+    # How much room the overflow button leaves for the pill.
+    x = gap
+    avail = W_DP - x - MORE_W - gap
+    core_w = sum(widths)
+    tool_slot = ICON_SEG_W
+    # The pill shows as many tool icons as fit after the three text segments; the rest scroll.
+    visible = max(int((avail - core_w) // tool_slot), 1)
+    shown = TOOL_ICONS[:visible]
+    pill_w = min(core_w + len(shown) * tool_slot, avail)
+
+    # A single track background behind everything: that is what makes it one pill.
+    rrect(d, (x, strip_top, x + pill_w, strip_top + SEG_H), radius, CHIP_BG)
+
+    cx = x
     for i, (label, w) in enumerate(zip(labels, widths)):
         selected = (i == 1 and scientific) or (i == 2 and active in ('unit', 'currency'))
         if selected:
-            rrect(d, (x, strip_top, x + w, strip_top + SEG_H), radius, CHIP_SEL_BG)
-        txt(d, (x + w / 2, strip_top + SEG_H / 2), label, 15,
+            rrect(d, (cx, strip_top, cx + w, strip_top + SEG_H), sel_radius, CHIP_SEL_BG)
+        txt(d, (cx + w / 2, strip_top + SEG_H / 2), label, 15,
             CHIP_SEL_INK if selected else CHIP_INK, anchor='mm')
-        x += w
+        cx += w
 
-    # Tool icons: programmer, then the life-calculation tools, in their own scrolling track.
-    x += 6
-    tool_slot = ICON_SEG_W
-    icons = TOOL_ICONS
-    visible = int((W_DP - x - 44 - 4) // tool_slot)
-    shown = icons[:max(visible, 1)]
-    track_w = len(shown) * tool_slot
-    rrect(d, (x, strip_top, x + track_w, strip_top + SEG_H), radius, CHIP_BG)
+    # Tool icons continue inside the same pill, starting where the text segments end.
     for name, glyph in shown:
-        cx = x + tool_slot / 2
+        if cx + tool_slot > x + pill_w + 0.01:
+            break
         if name == active:
-            rrect(d, (x, strip_top, x + tool_slot, strip_top + SEG_H), radius, CHIP_SEL_BG)
-        txt(d, (cx, strip_top + SEG_H / 2), glyph, 15,
+            rrect(d, (cx, strip_top, cx + tool_slot, strip_top + SEG_H), sel_radius, CHIP_SEL_BG)
+        txt(d, (cx + tool_slot / 2, strip_top + SEG_H / 2), glyph, 15,
             CHIP_SEL_INK if name == active else CHIP_INK, anchor='mm')
-        x += tool_slot
+        cx += tool_slot
     overflow(d)
 
 

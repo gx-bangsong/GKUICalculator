@@ -77,13 +77,15 @@ horizontal gutter, which is 8 dp against Google's 4.5 dp. Both are cosmetic foll
   covering roughly a third of the track (`123` ≈ 47 dp, `ƒx` ≈ 52 dp, `⇄` ≈ 36 dp) with ~21 dp
   cream ink. It sits below the display and directly above the pad, and in a converter the third
   segment *becomes* the active category (`⑄ Temperature`).
-* Ours (implemented, `res/layout/tool_bar.xml` + `res/values/styles.xml`): one 44 dp
-  `LinearLayout` track (`mode_segment_group_background`, radius 22 dp) holding three 40 dp-minimum
-  `TextView` segments that are selected with `setSelected()` — `Calculator.onModeSegmentClick()`
-  routes `123` → calculator, `ƒx` → toggle the scientific pad, `⇄` → Units (and from Units →
-  Currency). The calculator is no longer a pill, `fx` is disabled only for tools that cannot use
-  it, and `ToolBarView.setModeSelection(basic, scientific, convert)` is the single place that
-  paints the selection.
+* Ours (implemented, `res/layout/tool_bar.xml` + `res/values/styles.xml`): one 44 dp pill — a
+  `HorizontalScrollView` carrying `mode_segment_track_background` (radius 22 dp, matching the
+  selected segment so `clipToOutline` never flattens its stadium) around a single `LinearLayout`.
+  The first three segments are 40 dp-minimum `TextView`s selected with `setSelected()`:
+  `Calculator.onModeSegmentClick()` routes `123` → calculator, `ƒx` → toggle the scientific pad,
+  `⇄` → Units (and from Units → Currency). The six tool icons follow them inside the same pill, so
+  the control is one track and not two. `fx` is disabled only for tools that cannot use it, and
+  `ToolBarView.setModeSelection(basic, scientific, convert)` is the single place that paints the
+  selection.
 * Scientific keys: Google draws **flat stadium pills, 95.1 × 47.6 dp**, 4.2 dp gutter, radius ≈
   23.8 dp (half the height), labels **14.6–17.7 dp** — all four columns are as wide as a digit
   key, and the third and fourth rows of the block are still the digit rows. Ours now does the same:
@@ -117,16 +119,20 @@ Design notes:
 * **Icon only**, per the v10 language: the `123 / ƒx / ⇄` segments are symbols, so the tools are
   symbols too. Each carries its tool name as a content description for TalkBack, and the name is
   still shown as text in the full tool panel behind the overflow button.
-* The generated segments live in `tool_segments_container` inside a `HorizontalScrollView`; the
-  fixed segments are declared in `tool_bar.xml` and the rest are built by `ToolBarView.render()`
-  from `ToolMode.getIconRes()`. Adding a tool now means adding one drawable and returning it from
-  `getIconRes()` — the strip picks it up automatically.
+* **One pill, not two.** All eight segments sit in a single track: `123 / fx / ⇄` are declared in
+  `tool_bar.xml` and `ToolBarView.render()` *appends* the tool icons to that same LinearLayout, so
+  the pill's background and rounded outline wrap the whole control and every segment scrolls
+  together. There is no second container next to the pill. The only element outside it is the
+  overflow button, because that opens a menu rather than selecting a mode.
+* Adding a tool now means adding one drawable and returning it from `getIconRes()` — `render()`
+  picks it up automatically.
 * Icons are `24 dp` vectors tinted from `@color/mode_segment_text_states`, so the selected tool's
   glyph turns cream exactly like the selected text segments.
-* **Width budget** drove the scrolling container: the fixed segments plus the overflow button take
-  ~199 dp of a 400 dp screen, leaving ~201 dp. Six tool icons at a 40 dp slot need 280 dp, so a
-  non-scrolling row would have clipped tools (and a 360 dp phone would have clipped more). Scrolling
-  keeps each icon at a full-size target instead of shrinking it.
+* **Width budget** is why the pill scrolls rather than wraps: three text segments plus six 40 dp
+  icons plus the overflow button total ~479 dp, against 400 dp on a Pixel-width screen and 360 dp
+  on a narrower one. Scrolling keeps every icon at a full-size touch target instead of shrinking
+  it, and `ToolBarView` scrolls the selected segment into view so an active mode off the right
+  edge still shows as active.
 
 ## 4. Unit conversion
 

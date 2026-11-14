@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /** Parsed form of {@code assets/tools/relationship.json}. */
 public final class RelationshipData {
@@ -41,11 +42,19 @@ public final class RelationshipData {
         @NonNull
         final String str;
         final boolean global;
+        /**
+         * The rule compiled once, at parse time. Building the relation table runs every rule
+         * against every table key — the first tap on a kinship key does tens of thousands of
+         * applications — so compiling inside that loop is what made that tap lag.
+         */
+        @NonNull
+        final Pattern pattern;
 
         Rule(@NonNull String exp, @NonNull String str, boolean global) {
             this.exp = exp;
             this.str = str;
             this.global = global;
+            this.pattern = Pattern.compile(exp);
         }
     }
 

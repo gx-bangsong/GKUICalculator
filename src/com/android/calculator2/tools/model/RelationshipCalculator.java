@@ -175,6 +175,22 @@ public final class RelationshipCalculator {
     }
 
     /**
+     * Build the resolver for {@code dialect} ahead of the first look-up.
+     * <p>
+     * The engine expands the relation tables on construction — roughly thirty thousand rule
+     * applications for the common wording — and that used to happen inside the first
+     * {@link #resolve}, i.e. on the very first key press in the kinship pad. Warming the cache
+     * when the tool opens moves that cost off the tap. Safe to call from any thread; the caller
+     * is expected to be a background one.
+     */
+    public static void warmUp(@Nullable RelationshipData data, @NonNull Dialect dialect) {
+        if (data == null) {
+            return;
+        }
+        RelationshipEngine.get(data, dialect == Dialect.NORTH ? "north" : null);
+    }
+
+    /**
      * The relation tables are written down, so a few of their answers keep the literary 兄
      * (从堂兄, 舅表兄, 兄弟眷叔表兄 …) where speech uses 哥 — 堂哥 / 堂弟 is what people actually
      * say. Prefer the spoken form in the 堂 / 表 family.
