@@ -58,12 +58,31 @@ adb shell input keyevent KEYCODE_WAKEUP || true
 # Separate package installation from instrumentation so System UI has a chance to recover from
 # any ANR dialog caused by the install broadcasts before Espresso/ActivityScenario start.
 install_log=build/install-debug-android-test.log
-if ./gradlew installDebug installDebugAndroidTest --stacktrace --console=plain >"$install_log" 2>&1; then
-    cat "$install_log"
-else
+install_result=0
+# Hosted AVDs occasionally drop the adb connection or abort a package scan mid-sync, which Gradle
+# reports as the useless "Failed to install on any devices". Retry before failing the job, and
+# dump the device list so a dead emulator is distinguishable from a rejected APK.
+for install_attempt in 1 2 3; do
+    if ./gradlew installDebug installDebugAndroidTest --stacktrace --console=plain >"$install_log" 2>&1; then
+        install_result=0
+        cat "$install_log"
+        break
+    fi
     install_result=$?
+    echo "::warning title=APK install attempt $install_attempt failed::$(adb devices -l 2>&1 | tr '\n' ' ' | sed -e 's/%/%25/g' -e 's/\r/%0D/g')"
+    adb reconnect offline >/dev/null 2>&1 || true
+    adb wait-for-device || true
+    sleep 15
+done
+if ((install_result != 0)); then
     cat "$install_log"
-    install_diagnostics=$(tail -n 40 "$install_log" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
+    install_diagnostics=$(grep -nEi 'Caused by|INSTALL_FAILED|InstallException|Failed to install|error:|Execution failed|What went wrong|offline|no devices|SIGNATURE|VERIFICATION|storage' "$install_log" | tail -n 30 || true)
+    if [[ -z "$install_diagnostics" ]]; then
+        install_diagnostics=$(tail -n 40 "$install_log")
+    fi
+    install_diagnostics+=$'\n--- adb devices ---\n'
+    install_diagnostics+=$(adb devices -l 2>&1)
+    install_diagnostics=$(printf '%s\n' "$install_diagnostics" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
     echo "::error title=Install UI test APKs failed::$install_diagnostics"
     exit "$install_result"
 fi
