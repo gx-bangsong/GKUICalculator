@@ -1266,9 +1266,11 @@ public class Calculator extends AppCompatActivity
         }
 
         // Percent semantics belong to the calculator itself; tools consume the % key themselves.
+        // The base calculator counts as an active tool mode, so "no tool" is isActive() == false,
+        // not getActive() == null (which never happens once the ToolManager is initialised).
         final MenuItem percentOfValue = menu.findItem(R.id.menu_percent_of_value);
         if (percentOfValue != null) {
-            percentOfValue.setVisible(activeTool == null);
+            percentOfValue.setVisible(mToolManager == null || !mToolManager.isActive());
             percentOfValue.setChecked(CalculatorExpr.isPercentOfValue());
         }
 
