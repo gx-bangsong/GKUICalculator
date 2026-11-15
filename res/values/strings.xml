@@ -581,7 +581,7 @@
     <string name="si_injury">Work injury %</string>
     <string name="si_maternity">Maternity %</string>
     <string name="si_fund">Housing fund %</string>
-    <string name="ded_children">Children's education (children × 1000/month)</string>
+    <string name="ded_children">Children\'s education (children × 1000/month)</string>
     <string name="ded_continuing">Continuing education</string>
     <string name="ded_medical">Major medical self-paid per year (over 15000, cap 80000)</string>
     <string name="ded_mortgage">First-home mortgage interest (1000/month)</string>
