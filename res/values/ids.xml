@@ -6,4 +6,7 @@
 <resources>
     <item name="lparen" type="id"/>
     <item name="rparen" type="id"/>
+    <item name="action_copy_selection" type="id"/>
+    <item name="action_select_all" type="id"/>
+    <item name="action_to_uppercase" type="id"/>
 </resources>

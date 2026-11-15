@@ -151,6 +151,10 @@
         <item name="android:background">?attr/selectableItemBackground</item>
         <item name="android:textAppearance">?attr/textAppearanceLabelMedium</item>
         <item name="android:gravity">center_vertical</item>
+        <!-- Tool inputs keep the calculator pad as their keyboard, but a cursor and touch
+             selection are available so text can be copied or converted to 中文大写数字. -->
+        <item name="android:textIsSelectable">true</item>
+        <item name="android:cursorVisible">true</item>
     </style>
 
     <!-- One segment of the mode pill. Segments are weighted equally, so together they always

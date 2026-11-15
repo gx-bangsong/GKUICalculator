@@ -73,4 +73,14 @@ public class BmiCalculatorTest {
         assertEquals(BmiCalculator.Category.OVERWEIGHT, BmiCalculator.categoryOf(bd("27.9")));
         assertEquals(BmiCalculator.Category.OBESE, BmiCalculator.categoryOf(bd("28")));
     }
+
+    @Test
+    public void standardWeightFollowsGender() {
+        // male: (175-80)*0.7 = 66.5 ; female: (175-70)*0.6 = 63.0
+        assertEquals(0, bd("66.5").compareTo(BmiCalculator.standardWeight(
+                bd("175"), BmiCalculator.Gender.MALE, MC)));
+        assertEquals(0, bd("63.0").compareTo(BmiCalculator.standardWeight(
+                bd("175"), BmiCalculator.Gender.FEMALE, MC)));
+        assertNull(BmiCalculator.standardWeight(bd("0"), BmiCalculator.Gender.MALE, MC));
+    }
 }

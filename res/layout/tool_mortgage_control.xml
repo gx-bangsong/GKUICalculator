@@ -1,12 +1,89 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Mortgage: 贷款额 (full) / 年利率 + 年限 + 方式 (one row) = 2 rows -->
+<!-- Mortgage: loan-type + rate-basis chips, then 贷款额 / 利率 + 年限 + 方式 / 加点 + 公积金额 -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:paddingTop="@dimen/tool_bar_vertical_padding"
     android:paddingBottom="@dimen/tool_bar_vertical_padding">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/mortgage_type_group"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.6"
+            app:checkedButton="@id/mortgage_type_commercial"
+            app:selectionRequired="true"
+            app:singleSelection="true">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/mortgage_type_commercial"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:padding="0dp"
+                android:text="@string/tool_mortgage_commercial" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/mortgage_type_fund"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:padding="0dp"
+                android:text="@string/tool_mortgage_fund" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/mortgage_type_combined"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:padding="0dp"
+                android:text="@string/tool_mortgage_combined" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/mortgage_basis_group"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            app:checkedButton="@id/mortgage_basis_benchmark"
+            app:selectionRequired="true"
+            app:singleSelection="true">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/mortgage_basis_benchmark"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:padding="0dp"
+                android:text="@string/tool_mortgage_benchmark" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/mortgage_basis_lpr"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:padding="0dp"
+                android:text="@string/tool_mortgage_lpr" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+    </LinearLayout>
 
     <TextView
         android:id="@+id/tool_field_0"
@@ -35,6 +112,26 @@
             android:layout_width="0dp"
             android:layout_weight="1.4"
             android:textColor="?colorOnSurfaceVariant" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tool_field_3"
+            style="@style/ToolFieldStyle"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tool_field_4"
+            style="@style/ToolFieldStyle"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:visibility="gone" />
     </LinearLayout>
 
 </LinearLayout>

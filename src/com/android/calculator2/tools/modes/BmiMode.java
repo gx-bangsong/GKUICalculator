@@ -6,11 +6,15 @@
 package com.android.calculator2.tools.modes;
 
 import android.content.Context;
+import android.view.View;
 
 import com.android.calculator2.R;
+import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.android.calculator2.tools.ToolHost;
 import com.android.calculator2.tools.ToolId;
 import com.android.calculator2.tools.model.BmiCalculator;
+
+import androidx.annotation.NonNull;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -23,6 +27,8 @@ import java.math.RoundingMode;
 public class BmiMode extends FieldToolMode {
 
     private static final MathContext MC = new MathContext(10, RoundingMode.HALF_UP);
+
+    private BmiCalculator.Gender mGender = BmiCalculator.Gender.MALE;
 
     @Override
     public String getId() {
@@ -64,6 +70,24 @@ public class BmiMode extends FieldToolMode {
     }
 
     @Override
+    protected void onViewCreated(@NonNull View root, @NonNull Context context) {
+        final MaterialButtonToggleGroup group = root.findViewById(R.id.bmi_gender_group);
+        if (group == null) {
+            return;
+        }
+        group.check(mGender == BmiCalculator.Gender.MALE
+                ? R.id.bmi_gender_male : R.id.bmi_gender_female);
+        group.addOnButtonCheckedListener((buttonGroup, checkedId, isChecked) -> {
+            if (!isChecked) {
+                return;
+            }
+            mGender = checkedId == R.id.bmi_gender_female
+                    ? BmiCalculator.Gender.FEMALE : BmiCalculator.Gender.MALE;
+            recomputeAndDisplay();
+        });
+    }
+
+    @Override
     protected void recomputeAndDisplay() {
         final ToolHost host = mHost;
         if (host == null || mFields == null) {
@@ -85,7 +109,12 @@ public class BmiMode extends FieldToolMode {
             } else {
                 final Context ctx = host.getContext();
                 formula = ctx.getString(R.string.tool_bmi_value) + " " + r.bmi.toPlainString();
-                result = categoryLabel(ctx, r.category);
+                final BigDecimal standard =
+                        BmiCalculator.standardWeight(height, mGender, MC);
+                result = categoryLabel(ctx, r.category)
+                        + " · " + ctx.getString(R.string.tool_bmi_standard)
+                        + " " + (standard == null ? "—" : standard.toPlainString())
+                        + " " + ctx.getString(R.string.tool_bmi_unit_kg);
             }
         }
         host.setToolFormula(formula);

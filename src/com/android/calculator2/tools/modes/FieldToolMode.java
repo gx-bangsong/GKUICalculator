@@ -5,16 +5,24 @@
 
 package com.android.calculator2.tools.modes;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.text.Selection;
+import android.text.Spannable;
 import android.util.TypedValue;
+import android.view.ActionMode;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.IdRes;
+import androidx.appcompat.app.AlertDialog;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -178,7 +186,8 @@ public abstract class FieldToolMode implements ToolMode {
         mFieldViews = new TextView[fieldCount()];
         // Reference the field ids directly (declared via @+id in the control layouts). Avoid
         // getIdentifier(), which fails under the debug applicationIdSuffix (package-name mismatch).
-        final int[] fieldIds = {R.id.tool_field_0, R.id.tool_field_1, R.id.tool_field_2};
+        final int[] fieldIds = {R.id.tool_field_0, R.id.tool_field_1, R.id.tool_field_2,
+                R.id.tool_field_3, R.id.tool_field_4};
         for (int i = 0; i < fieldCount(); i++) {
             final TextView view = mControlRoot.findViewById(fieldIds[i]);
             mFieldViews[i] = view;
@@ -191,6 +200,9 @@ public abstract class FieldToolMode implements ToolMode {
                         recomputeAndDisplay();
                     }
                 });
+                // Cursor + touch selection are on (see ToolFieldStyle); enrich the selection
+                // action mode with copy / select-all / 中文大写数字 conversion.
+                view.setCustomSelectionActionModeCallback(new SelectionActions(view));
             }
         }
         onViewCreated(mControlRoot, context);
@@ -285,5 +297,89 @@ public abstract class FieldToolMode implements ToolMode {
             return value.data;
         }
         return fallback;
+    }
+
+    /**
+     * Selection action mode for tool input fields: keeps copy and select-all, and adds the
+     * conversion of the selected digits into 中文大写数字 (Chinese financial numerals).
+     */
+    private final class SelectionActions implements ActionMode.Callback {
+        private final TextView mView;
+
+        SelectionActions(TextView view) {
+            mView = view;
+        }
+
+        @Override
+        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+            menu.add(0, R.id.action_copy_selection, 0, android.R.string.copy);
+            menu.add(0, R.id.action_select_all, 1, android.R.string.selectAll);
+            menu.add(0, R.id.action_to_uppercase, 2, R.string.tool_field_to_uppercase);
+            return true;
+        }
+
+        @Override
+        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+            return false;
+        }
+
+        @Override
+        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+            final CharSequence text = mView.getText();
+            int start = mView.getSelectionStart();
+            int end = mView.getSelectionEnd();
+            if (start < 0 || end < 0 || text == null) {
+                start = 0;
+                end = text == null ? 0 : text.length();
+            }
+            if (start > end) {
+                final int swap = start;
+                start = end;
+                end = swap;
+            }
+            final CharSequence selected = text.subSequence(start, end);
+            final int id = item.getItemId();
+            if (id == R.id.action_copy_selection) {
+                final ClipboardManager clipboard = (ClipboardManager) mView.getContext()
+                        .getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard != null) {
+                    clipboard.setPrimaryClip(ClipData.newPlainText("calculator", selected));
+                }
+                mode.finish();
+                return true;
+            }
+            if (id == R.id.action_select_all) {
+                Selection.selectAll((Spannable) text);
+                return true;
+            }
+            if (id == R.id.action_to_uppercase) {
+                showUppercaseDialog(mView.getContext(), selected.toString());
+                mode.finish();
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public void onDestroyActionMode(ActionMode mode) {
+        }
+    }
+
+    /** Shows the 中文大写数字 form of the selected digits, with a copy shortcut. */
+    private static void showUppercaseDialog(@NonNull Context context, @NonNull String selected) {
+        final String uppercase = ChineseNumerals.toUppercase(selected);
+        final String message = uppercase == null || uppercase.isEmpty() ? "—" : uppercase;
+        new AlertDialog.Builder(context)
+                .setTitle(R.string.tool_field_uppercase_title)
+                .setMessage(message)
+                .setPositiveButton(android.R.string.copy, (dialog, which) -> {
+                    final ClipboardManager clipboard = (ClipboardManager) context
+                            .getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(ClipData.newPlainText("calculator", message));
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 }

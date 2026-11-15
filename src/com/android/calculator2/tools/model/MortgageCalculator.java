@@ -100,6 +100,53 @@ public final class MortgageCalculator {
         return new Result(n, firstPayment, decrease, totalInterest, totalPayment, false);
     }
 
+    /**
+     * Combined loan (组合贷款): a commercial tranche and a provident-fund tranche repaid side by
+     * side, each at its own rate and with the same repayment method and term.
+     */
+    public static Result combined(BigDecimal commercialPrincipal,
+            BigDecimal commercialAnnualRatePct, BigDecimal fundPrincipal,
+            BigDecimal fundAnnualRatePct, int years, boolean equalPayment, MathContext mc) {
+        final int n = Math.max(0, years) * 12;
+        final BigDecimal principal = add(commercialPrincipal, fundPrincipal);
+        if (n == 0 || principal.signum() <= 0) {
+            return new Result(n, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                    principal, equalPayment);
+        }
+        final Result commercial = equalPayment
+                ? equalPayment(commercialPrincipal, commercialAnnualRatePct, years, mc)
+                : equalPrincipal(commercialPrincipal, commercialAnnualRatePct, years, mc);
+        final Result fund = equalPayment
+                ? equalPayment(fundPrincipal, fundAnnualRatePct, years, mc)
+                : equalPrincipal(fundPrincipal, fundAnnualRatePct, years, mc);
+        return new Result(n,
+                commercial.monthlyPayment.add(fund.monthlyPayment, mc),
+                commercial.monthlyDecrease.add(fund.monthlyDecrease, mc),
+                commercial.totalInterest.add(fund.totalInterest, mc),
+                commercial.totalPayment.add(fund.totalPayment, mc),
+                equalPayment);
+    }
+
+    /** Commercial rate under the LPR basis: LPR (percent) + spread in basis points. */
+    public static BigDecimal lprRate(BigDecimal lprPct, BigDecimal spreadBasisPoints,
+            MathContext mc) {
+        final BigDecimal lpr = lprPct == null ? BigDecimal.ZERO : lprPct;
+        final BigDecimal spread = spreadBasisPoints == null
+                ? BigDecimal.ZERO : spreadBasisPoints;
+        return lpr.add(spread.divide(new BigDecimal(100), mc), mc);
+    }
+
+    private static BigDecimal add(BigDecimal a, BigDecimal b) {
+        BigDecimal sum = BigDecimal.ZERO;
+        if (a != null && a.signum() > 0) {
+            sum = sum.add(a);
+        }
+        if (b != null && b.signum() > 0) {
+            sum = sum.add(b);
+        }
+        return sum;
+    }
+
     private static BigDecimal monthlyRate(BigDecimal annualRatePct, MathContext mc) {
         if (annualRatePct == null || annualRatePct.signum() == 0) {
             return BigDecimal.ZERO;

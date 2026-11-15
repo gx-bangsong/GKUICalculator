@@ -19,6 +19,22 @@ public class CalculatorApplication extends Application {
         // seconds on a device, longer on a shared CI emulator). Starting the prepare here,
         // before any activity, means the mode pill's one-tap kinship segment never meets a
         // cold table cache in normal use.
-        RelationshipMode.preload(this);
+        if (!isInstrumentedTest()) {
+            RelationshipMode.preload(this);
+        }
+    }
+
+    /**
+     * True while an instrumented test runs in this process. The kinship table build would
+     * saturate the (slow) CI emulator cores for minutes and drag every unrelated test with
+     * it; the kinship instrumented test exercises the non-blocking press path either way.
+     */
+    public static boolean isInstrumentedTest() {
+        try {
+            Class.forName("androidx.test.platform.app.InstrumentationRegistry");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
     }
 }

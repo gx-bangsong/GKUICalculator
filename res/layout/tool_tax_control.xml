@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tax: 月薪 (full) / 五险一金 + 专项附加 (side by side) = 2 rows -->
+<!-- Tax: mode toggle + detail entries row, then 月薪 (full) / 五险一金 + 专项附加 (side by side) -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -7,6 +7,34 @@
     android:orientation="vertical"
     android:paddingTop="@dimen/tool_bar_vertical_padding"
     android:paddingBottom="@dimen/tool_bar_vertical_padding">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <!-- Switches between monthly-salary withholding and the year-end bonus calculation. -->
+        <TextView
+            android:id="@+id/tax_mode_toggle"
+            style="@style/ToolFieldStyle"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:textColor="?colorPrimary" />
+
+        <TextView
+            android:id="@+id/tax_insurance_detail"
+            style="@style/ToolFieldStyle"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:textColor="?colorOnSurfaceVariant" />
+
+        <TextView
+            android:id="@+id/tax_special_detail"
+            style="@style/ToolFieldStyle"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:textColor="?colorOnSurfaceVariant" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/tool_field_0"

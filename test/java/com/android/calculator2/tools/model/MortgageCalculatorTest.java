@@ -93,4 +93,26 @@ public class MortgageCalculatorTest {
         assertEquals(0, r.months);
         assertDecimal("0", r.monthlyPayment);
     }
+
+    @Test
+    public void combinedLoanSumsBothTranches() {
+        MortgageCalculator.Result commercial = MortgageCalculator.equalPayment(
+                bd("600000"), bd("4.9"), 30, MC);
+        MortgageCalculator.Result fund = MortgageCalculator.equalPayment(
+                bd("400000"), bd("3.1"), 30, MC);
+        MortgageCalculator.Result both = MortgageCalculator.combined(
+                bd("600000"), bd("4.9"), bd("400000"), bd("3.1"), 30, true, MC);
+        assertEquals(0, commercial.monthlyPayment.add(fund.monthlyPayment, MC)
+                .compareTo(both.monthlyPayment));
+        assertEquals(0, commercial.totalInterest.add(fund.totalInterest, MC)
+                .compareTo(both.totalInterest));
+        assertEquals(360, both.months);
+    }
+
+    @Test
+    public void lprRateAddsSpreadBasisPoints() {
+        // LPR 3.6% + 30 bp = 3.9%
+        assertEquals(0, bd("3.9").compareTo(MortgageCalculator.lprRate(
+                bd("3.6"), bd("30"), MC)));
+    }
 }

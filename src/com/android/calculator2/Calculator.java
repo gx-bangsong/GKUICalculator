@@ -477,7 +477,9 @@ public class Calculator extends AppCompatActivity
         // that at the first idle moment after launch: the mode pill puts the tool one tap away,
         // so warming only when it opens let the first key press race the table build.
         Looper.myQueue().addIdleHandler(() -> {
-            RelationshipMode.preload(this);
+            if (!CalculatorApplication.isInstrumentedTest()) {
+                RelationshipMode.preload(this);
+            }
             return false;
         });
 
@@ -1275,6 +1277,26 @@ public class Calculator extends AppCompatActivity
         }
 
         // The kinship tool speaks either North or South Chinese; pick exactly one.
+        // Programmer register conversion options: a second set behind the overflow menu.
+        final ProgrammerMode programmer = activeTool instanceof ProgrammerMode
+                ? (ProgrammerMode) activeTool : null;
+        final int width = programmer == null ? 64 : programmer.getWidthBits();
+        final MenuItem width8 = menu.findItem(R.id.menu_programmer_width_8);
+        final MenuItem width16 = menu.findItem(R.id.menu_programmer_width_16);
+        final MenuItem width32 = menu.findItem(R.id.menu_programmer_width_32);
+        final MenuItem width64 = menu.findItem(R.id.menu_programmer_width_64);
+        final MenuItem unsignedItem = menu.findItem(R.id.menu_programmer_unsigned);
+        width8.setVisible(programmer != null);
+        width16.setVisible(programmer != null);
+        width32.setVisible(programmer != null);
+        width64.setVisible(programmer != null);
+        unsignedItem.setVisible(programmer != null);
+        width8.setChecked(width == 8);
+        width16.setChecked(width == 16);
+        width32.setChecked(width == 32);
+        width64.setChecked(width == 64);
+        unsignedItem.setChecked(programmer != null && programmer.isUnsigned());
+
         final RelationshipMode kinship = activeTool instanceof RelationshipMode
                 ? (RelationshipMode) activeTool : null;
         final MenuItem north = menu.findItem(R.id.menu_relationship_north);
@@ -1333,6 +1355,27 @@ public class Calculator extends AppCompatActivity
             ExchangeRateRepository.setAutoUpdateEnabled(this, enabled);
             item.setChecked(enabled);
             return true;
+        } else if (itemId == R.id.menu_programmer_width_8
+                || itemId == R.id.menu_programmer_width_16
+                || itemId == R.id.menu_programmer_width_32
+                || itemId == R.id.menu_programmer_width_64) {
+            final ToolMode active = mToolManager == null ? null : mToolManager.getActive();
+            if (active instanceof ProgrammerMode) {
+                final int bits = itemId == R.id.menu_programmer_width_8 ? 8
+                        : itemId == R.id.menu_programmer_width_16 ? 16
+                        : itemId == R.id.menu_programmer_width_32 ? 32 : 64;
+                ((ProgrammerMode) active).setWidthBits(bits);
+                item.setChecked(true);
+                return true;
+            }
+        } else if (itemId == R.id.menu_programmer_unsigned) {
+            final ToolMode active = mToolManager == null ? null : mToolManager.getActive();
+            if (active instanceof ProgrammerMode) {
+                final boolean unsigned = !item.isChecked();
+                ((ProgrammerMode) active).setUnsigned(unsigned);
+                item.setChecked(unsigned);
+                return true;
+            }
         } else if (itemId == R.id.menu_relationship_north
                 || itemId == R.id.menu_relationship_south) {
             final ToolMode activeTool = mToolManager == null ? null : mToolManager.getActive();
