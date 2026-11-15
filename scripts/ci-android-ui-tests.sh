@@ -61,6 +61,7 @@ install_result=0
 # Hosted AVDs occasionally drop the adb connection or abort a package scan mid-sync, which Gradle
 # reports as the useless "Failed to install on any devices". Retry before failing the job, and
 # dump the device list so a dead emulator is distinguishable from a rejected APK.
+phase_start=$SECONDS
 for install_attempt in 1 2 3; do
     if ./gradlew installDebug installDebugAndroidTest --stacktrace --console=plain >"$install_log" 2>&1; then
         install_result=0
@@ -86,6 +87,9 @@ if ((install_result != 0)); then
     exit "$install_result"
 fi
 
+install_seconds=$((SECONDS-phase_start))
+echo "::notice title=Phase duration::APK install phase (gradle installDebug installDebugAndroidTest) took ${install_seconds}s"
+
 # Dismiss a prompt that appeared during the install phase before starting instrumentation.
 for attempt in 1 2 3 4 5; do
     adb shell input tap "$wait_x" "$wait_y" || true
@@ -97,12 +101,41 @@ adb shell input keyevent KEYCODE_WAKEUP || true
 # Run the whole instrumented class, not just the screenshot method: the geometry and mode-pill
 # guards (pillShowsEveryToolWithoutScrolling, scientificPadDoesNotMoveDisplay, ...) only protect
 # the UI if they actually execute on the emulator.
+phase_start=$SECONDS
 if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorToolUiTest --stacktrace --console=plain >"$log_file" 2>&1; then
     test_result=0
 else
     test_result=$?
 fi
 cat "$log_file"
+connected_seconds=$((SECONDS-phase_start))
+echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 15 tests) took ${connected_seconds}s"
+
+# Per-test wall times from the instrumentation XML, so slow tests are visible in the check
+# annotations instead of hidden inside one monolithic step log.
+per_test=$(python3 - <<'PY'
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+rows = []
+for xml in Path("build/outputs/androidTest-results").rglob("TEST-*.xml"):
+    try:
+        root = ET.parse(xml).getroot()
+    except (ET.ParseError, OSError):
+        continue
+    for case in root.iter("testcase"):
+        try:
+            rows.append((float(case.get("time", "0")), case.get("name", "?")))
+        except ValueError:
+            continue
+rows.sort(reverse=True)
+text = ", ".join(f"{name}={seconds:.1f}s" for seconds, name in rows)
+print(text[:1800].replace("%", "%25").replace("\n", " "))
+PY
+)
+if [[ -n "$per_test" ]]; then
+    echo "::notice title=Per-test durations::$per_test"
+fi
 
 if ((test_result == 0)); then
     test_summary=$(grep -E 'Tests [0-9]+/[0-9]+ completed|BUILD SUCCESSFUL' "$log_file" | tail -n 4 || true)

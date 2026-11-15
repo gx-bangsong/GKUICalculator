@@ -65,7 +65,9 @@ public class CalculatorToolUiTest {
         try {
             device.wakeUp();
             device.executeShellCommand("wm dismiss-keyguard");
-            recoverSystemUiPrompt(device, 5000);
+            // A present prompt is seen at once; the old 5 s budget was fully spent on every
+            // one of the 15 tests when no prompt existed (~75 s of pure waiting per run).
+            recoverSystemUiPrompt(device, 400);
         } catch (Exception exception) {
             Log.w("CalculatorToolUiTest", "Unable to recover emulator window focus", exception);
         }

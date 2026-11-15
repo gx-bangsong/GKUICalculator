@@ -30,6 +30,15 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      # ubuntu-24.04 runners ship /dev/kvm owned root:kvm with 0660; without this the emulator
+      # silently falls back to software emulation and every instrumented minute costs several.
+      # Same fix as gx-bangsong/GKUIPhotos .github/workflows/ui-screenshots.yml.
+      - name: Enable KVM for hosted emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Run instrumented UI tests and capture screens
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -46,6 +55,8 @@ jobs:
           disable-animations: true
           pre-emulator-launch-script: |
             if [ -e /dev/kvm ]; then echo "::notice title=KVM acceleration::/dev/kvm is available"; else echo "::warning title=KVM acceleration::/dev/kvm is missing"; fi
+            if [ -w /dev/kvm ]; then echo "::notice title=KVM permissions::/dev/kvm is writable by $(id -un) (groups: $(id -Gn | tr ' ' ','))"; else echo "::warning title=KVM permissions::/dev/kvm is NOT writable by $(id -un) (groups: $(id -Gn | tr ' ' ',')) - the emulator would fall back to software emulation"; fi
+            echo "::notice title=KVM device node::$(ls -l /dev/kvm 2>/dev/null | tr -s ' ' | sed 's/%/%25/g')"
             echo "::notice title=Android AVD free space::$(df -h "$HOME/.android/avd" | tail -n 1 | sed 's/%/%25/g')"
           script: bash scripts/ci-android-ui-tests.sh
 
