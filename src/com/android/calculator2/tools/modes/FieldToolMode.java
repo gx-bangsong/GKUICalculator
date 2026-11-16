@@ -81,7 +81,7 @@ public abstract class FieldToolMode implements ToolMode {
     private boolean mUppercaseNumbers;
 
     /** Per-field cursor position within the value text (excluding label prefix). -1 = end. */
-    private int[] mCursorPos;
+    int[] mCursorPos;
     /** Per-field selection start within the value text (excluding label prefix). -1 = unknown. */
     private int[] mSelectionStart;
     /** Per-field selection end within the value text (excluding label prefix). -1 = unknown. */
@@ -232,8 +232,8 @@ public abstract class FieldToolMode implements ToolMode {
         final int selEnd = view.getSelectionEnd();
 
         if (DEBUG_LOG) {
-            Log.d(TAG, "onDigit: active=%d digit=%d selStart=%d selEnd=%d valueStart=%d value='%s'",
-                    active, digit, selStart, selEnd, valueStart, value);
+            Log.d(TAG, String.format("onDigit: active=%d digit=%d selStart=%d selEnd=%d valueStart=%d value='%s'",
+                    active, digit, selStart, selEnd, valueStart, value));
         }
 
         // Clamp selection to the value range (exclude label prefix).
@@ -271,8 +271,8 @@ public abstract class FieldToolMode implements ToolMode {
         final int selEnd = view.getSelectionEnd();
 
         if (DEBUG_LOG) {
-            Log.d(TAG, "onDecimalPoint: active=%d selStart=%d selEnd=%d valueStart=%d value='%s'",
-                    active, selStart, selEnd, valueStart, valueBefore);
+            Log.d(TAG, String.format("onDecimalPoint: active=%d selStart=%d selEnd=%d valueStart=%d value='%s'",
+                    active, selStart, selEnd, valueStart, valueBefore));
         }
 
         // Clamp selection to the value range (exclude label prefix).
@@ -320,8 +320,8 @@ public abstract class FieldToolMode implements ToolMode {
         final int selEnd = view.getSelectionEnd();
 
         if (DEBUG_LOG) {
-            Log.d(TAG, "onDelete: active=%d selStart=%d selEnd=%d valueStart=%d value='%s'",
-                    active, selStart, selEnd, valueStart, value);
+            Log.d(TAG, String.format("onDelete: active=%d selStart=%d selEnd=%d valueStart=%d value='%s'",
+                    active, selStart, selEnd, valueStart, value));
         }
 
         if (valLen == 0) {
@@ -377,7 +377,7 @@ public abstract class FieldToolMode implements ToolMode {
         if (mSelectionStart != null) mSelectionStart[active] = pos;
         if (mSelectionEnd != null) mSelectionEnd[active] = pos;
         if (DEBUG_LOG) {
-            Log.d(TAG, "cacheCursorPos: active=%d pos=%d valLen=%d", active, pos, valLen);
+            Log.d(TAG, String.format("cacheCursorPos: active=%d pos=%d valLen=%d", active, pos, valLen));
         }
     }
 
@@ -421,8 +421,8 @@ public abstract class FieldToolMode implements ToolMode {
                     int startVal = clampToValue(selStart, valueStart, mFields.get(index).length());
                     int endVal = clampToValue(selEnd, valueStart, mFields.get(index).length());
                     if (DEBUG_LOG) {
-                        Log.d(TAG, "onSelectionChanged: field=%d selStart=%d selEnd=%d valueStart=%d -> startVal=%d endVal=%d",
-                                index, selStart, selEnd, valueStart, startVal, endVal);
+                        Log.d(TAG, String.format("onSelectionChanged: field=%d selStart=%d selEnd=%d valueStart=%d -> startVal=%d endVal=%d",
+                                index, selStart, selEnd, valueStart, startVal, endVal));
                     }
                     if (mSelectionStart != null) mSelectionStart[index] = startVal;
                     if (mSelectionEnd != null) mSelectionEnd[index] = endVal;
@@ -438,7 +438,7 @@ public abstract class FieldToolMode implements ToolMode {
                     if (hasFocus) {
                         mFields.setActive(index);
                         if (DEBUG_LOG) {
-                            Log.d(TAG, "onFocusChange: field=%d gained focus", index);
+                            Log.d(TAG, String.format("onFocusChange: field=%d gained focus", index));
                         }
                     }
                 });

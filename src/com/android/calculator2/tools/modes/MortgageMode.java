@@ -146,7 +146,7 @@ public class MortgageMode extends FieldToolMode {
             mFields.set(1, mLprBasis && mLoanType != LOAN_FUND ? "3.6"
                     : mLoanType == LOAN_FUND ? FUND_RATE_PERCENT : "4.9");
             mFields.setActive(0);
-            mCursorPos = mFields.get(0).length();
+            mCursorPos[0] = mFields.get(0).length();
         }
         updateLoanShapeUi();
         refreshFields();
