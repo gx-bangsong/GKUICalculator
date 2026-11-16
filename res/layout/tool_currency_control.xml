@@ -26,7 +26,7 @@
             android:layout_gravity="end"
             android:contentDescription="@string/currency_from_desc" />
 
-        <EditText
+        <com.android.calculator2.tools.ToolFieldEditText
             android:id="@+id/currency_input_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -79,7 +79,7 @@
             android:layout_gravity="end"
             android:contentDescription="@string/currency_to_desc" />
 
-        <EditText
+        <com.android.calculator2.tools.ToolFieldEditText
             android:id="@+id/currency_result_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -111,7 +111,7 @@
             android:layout_gravity="end"
             android:contentDescription="@string/currency_second_to_desc" />
 
-        <EditText
+        <com.android.calculator2.tools.ToolFieldEditText
             android:id="@+id/currency_result_2_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

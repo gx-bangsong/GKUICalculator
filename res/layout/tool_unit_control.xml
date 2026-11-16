@@ -48,7 +48,7 @@
             android:layout_gravity="end"
             android:contentDescription="@string/unit_from_desc" />
 
-        <EditText
+        <com.android.calculator2.tools.ToolFieldEditText
             android:id="@+id/unit_input_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -101,7 +101,7 @@
             android:layout_gravity="end"
             android:contentDescription="@string/unit_to_desc" />
 
-        <EditText
+        <com.android.calculator2.tools.ToolFieldEditText
             android:id="@+id/unit_result_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -133,7 +133,7 @@
             android:layout_gravity="end"
             android:contentDescription="@string/unit_second_to_desc" />
 
-        <EditText
+        <com.android.calculator2.tools.ToolFieldEditText
             android:id="@+id/unit_result_2_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

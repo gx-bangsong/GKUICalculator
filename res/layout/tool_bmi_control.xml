@@ -40,7 +40,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
-        <EditText
+        <com.android.calculator2.tools.ToolFieldEditText
             android:id="@+id/tool_field_0"
             style="@style/ToolFieldStyle"
             android:layout_width="0dp"
@@ -48,7 +48,7 @@
             android:background="@null"
             android:inputType="text" />
 
-        <EditText
+        <com.android.calculator2.tools.ToolFieldEditText
             android:id="@+id/tool_field_1"
             style="@style/ToolFieldStyle"
             android:layout_width="0dp"

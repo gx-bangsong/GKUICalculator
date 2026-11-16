@@ -20,7 +20,7 @@
         android:baselineAligned="false"
         android:orientation="horizontal">
 
-        <EditText
+        <com.android.calculator2.tools.ToolFieldEditText
             android:id="@+id/programmer_value_in"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -47,7 +47,7 @@
         android:baselineAligned="false"
         android:orientation="horizontal">
 
-        <EditText
+        <com.android.calculator2.tools.ToolFieldEditText
             android:id="@+id/programmer_value_out"
             android:layout_width="0dp"
             android:layout_height="wrap_content"

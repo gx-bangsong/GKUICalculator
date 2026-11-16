@@ -12,15 +12,14 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.text.Selection;
 import android.text.Spannable;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.ActionMode;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
 import android.widget.TextView;
 
 import androidx.annotation.IdRes;
@@ -31,6 +30,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import com.android.calculator2.R;
+import com.android.calculator2.tools.ToolFieldEditText;
 import com.android.calculator2.tools.ToolHost;
 import com.android.calculator2.tools.ToolInputFields;
 import com.android.calculator2.tools.ToolMode;
@@ -48,8 +48,16 @@ import java.text.DecimalFormat;
  * The active field is indicated by bold + primary-colored text. Subclasses supply the layout, the
  * labels/defaults, any extra controls (via {@link #onViewCreated}), and the
  * {@link #recomputeAndDisplay} hook.
+ * <p>
+ * Cursor position is tracked per field via {@link ToolFieldEditText.onSelectionChanged}, which
+ * reports the actual selection as observed by the Android framework. This avoids the race
+ * condition where OnClickListener/OnTouchListener reads a stale selection before EditText has
+ * updated it.
  */
 public abstract class FieldToolMode implements ToolMode {
+
+    private static final String TAG = "FieldToolMode";
+    private static final boolean DEBUG_LOG = true;
 
     /** Compact result-line text size (sp) fallback if the dimen is missing. */
     private static final float TOOL_RESULT_TEXT_SP = 14f;
@@ -62,7 +70,7 @@ public abstract class FieldToolMode implements ToolMode {
     @Nullable
     protected ToolInputFields mFields;
     @Nullable
-    private TextView[] mFieldViews;
+    private ToolFieldEditText[] mFieldViews;
     @Nullable
     private View mControlRoot;
 
@@ -72,15 +80,15 @@ public abstract class FieldToolMode implements ToolMode {
     /** Render monetary results as Chinese uppercase numerals (中文大写数字). */
     private boolean mUppercaseNumbers;
 
-    /** Cursor position within the active field's value (0 to value.length()), persisted across
-         inputs so digits are inserted at the caret instead of always appended to the end.
-         -1 means "at end of value" (append). Set when a field is activated and updated after
-         every digit/decimal/delete so it survives setText() in refreshFields(). */
-    int mCursorPos = -1;
+    /** Per-field cursor position within the value text (excluding label prefix). -1 = end. */
+    private int[] mCursorPos;
+    /** Per-field selection start within the value text (excluding label prefix). -1 = unknown. */
+    private int[] mSelectionStart;
+    /** Per-field selection end within the value text (excluding label prefix). -1 = unknown. */
+    private int[] mSelectionEnd;
 
     /** Set to true while the application is programmatically calling setText()/setSelection()
-         on the EditText, so that focus/touch listeners do not overwrite mCursorPos based on
-         the transient selection state caused by those programmatic calls. */
+         on the EditText, so that selection listeners do not overwrite cached state. */
     private boolean mProgrammaticUpdate = false;
 
     protected abstract int fieldCount();
@@ -121,8 +129,6 @@ public abstract class FieldToolMode implements ToolMode {
         mHost = host;
         final Context context = host.getContext();
         mActiveColor = resolveThemeColor(context, android.R.attr.colorPrimary, Color.BLACK);
-        // Inactive fields need a concrete color; textColorPrimary is a ColorStateList whose
-        // resource id would render invisibly, so use a flat color resource instead.
         mInactiveColor = ContextCompat.getColor(context, R.color.tool_field_text_color);
         if (mFields == null) {
             mFields = new ToolInputFields(fieldCount(), fieldDefaults());
@@ -130,9 +136,15 @@ public abstract class FieldToolMode implements ToolMode {
         if (carryValue != null) {
             mFields.set(0, carryValue);
         }
-        // Multi-field results are long; use a compact result text size so they fit.
-        // Prefer the resource so tablets/foldables can use a slightly larger (but still
-        // compact) size than phones.
+        final int count = fieldCount();
+        mCursorPos = new int[count];
+        mSelectionStart = new int[count];
+        mSelectionEnd = new int[count];
+        for (int i = 0; i < count; i++) {
+            mCursorPos[i] = -1;
+            mSelectionStart[i] = -1;
+            mSelectionEnd[i] = -1;
+        }
         final float px = context.getResources().getDimension(R.dimen.tool_result_textsize);
         final float sp = px / context.getResources().getDisplayMetrics().scaledDensity;
         host.setToolResultTextSizeSp(sp > 0f ? sp : TOOL_RESULT_TEXT_SP);
@@ -145,108 +157,54 @@ public abstract class FieldToolMode implements ToolMode {
     public void onDeactivate(@NonNull ToolHost host) {
         unmountControls(host);
         mHost = null;
+        mCursorPos = null;
+        mSelectionStart = null;
+        mSelectionEnd = null;
     }
 
     @Override
     public void onDigit(int digit) {
-        if (mFields != null) {
-            final int active = mFields.getActive();
-            final TextView view = mFieldViews == null ? null : mFieldViews[active];
-            if (view instanceof EditText) {
-                final EditText editText = (EditText) view;
-                final int selStart = editText.getSelectionStart();
-                final int selEnd = editText.getSelectionEnd();
-                final String label = fieldLabels()[active];
-                final int valueStart = label.length() + 2; // ": "
-                if (selStart >= 0 && selEnd >= 0 && selStart != selEnd && selStart >= valueStart) {
-                    // A range of digits is selected: replace it with the new digit.
-                    final int selStartVal = selStart - valueStart;
-                    final int selEndVal = Math.min(selEnd - valueStart, mFields.get(active).length());
-                    mFields.onDigitReplace(digit, selStartVal, selEndVal);
-                    mCursorPos = selStartVal + 1;
-                } else {
-                    // No selection: insert at the tracked cursor position.
-                    mFields.onDigit(digit, mCursorPos);
-                    if (mCursorPos >= 0) {
-                        mCursorPos += 1;
-                    }
-                }
-            } else {
-                mFields.onDigit(digit, mCursorPos);
-                if (mCursorPos >= 0) {
-                    mCursorPos += 1;
-                }
-            }
+        if (mFields == null) {
+            return;
+        }
+        final int active = mFields.getActive();
+        final ToolFieldEditText view = mFieldViews == null ? null : mFieldViews[active];
+        if (view != null) {
+            applyDigitFromView(view, active, digit);
+        } else {
+            mFields.onDigit(digit, -1);
             afterInput();
         }
     }
 
     @Override
     public void onDecimalPoint() {
-        if (mFields != null) {
-            final int active = mFields.getActive();
-            final TextView view = mFieldViews == null ? null : mFieldViews[active];
-            if (view instanceof EditText) {
-                final EditText editText = (EditText) view;
-                final int selStart = editText.getSelectionStart();
-                final int selEnd = editText.getSelectionEnd();
-                final String label = fieldLabels()[active];
-                final int valueStart = label.length() + 2; // ": "
-                if (selStart >= 0 && selEnd >= 0 && selStart != selEnd && selStart >= valueStart) {
-                    // A range is selected: replace it with a decimal point.
-                    final int selStartVal = selStart - valueStart;
-                    final int selEndVal = Math.min(selEnd - valueStart, mFields.get(active).length());
-                    final StringBuilder f = new StringBuilder(mFields.get(active));
-                    f.replace(selStartVal, selEndVal, ".");
-                    mFields.set(active, f.toString());
-                    mCursorPos = selStartVal + 1;
-                } else {
-                    final int beforeLen = mFields.get(active).length();
-                    mFields.onDecimalPoint(mCursorPos);
-                    // Only advance the cursor if a decimal was actually inserted (the model
-                    // ignores repeated decimals). Inserting "0." into an empty field adds 2
-                    // characters, so advance by the actual length delta.
-                    if (mCursorPos >= 0) {
-                        final int afterLen = mFields.get(active).length();
-                        if (afterLen > beforeLen) {
-                            mCursorPos += (afterLen - beforeLen);
-                        }
-                    }
-                }
-            } else {
-                final int beforeLen = mFields.get(active).length();
-                mFields.onDecimalPoint(mCursorPos);
-                if (mCursorPos >= 0) {
-                    final int afterLen = mFields.get(active).length();
-                    if (afterLen > beforeLen) {
-                        mCursorPos += (afterLen - beforeLen);
-                    }
-                }
-            }
+        if (mFields == null) {
+            return;
+        }
+        final int active = mFields.getActive();
+        final ToolFieldEditText view = mFieldViews == null ? null : mFieldViews[active];
+        if (view != null) {
+            applyDecimalFromView(view, active);
+        } else {
+            mFields.onDecimalPoint(-1);
             afterInput();
         }
     }
 
     @Override
     public void onDelete() {
-        if (mFields != null) {
-            final int active = mFields.getActive();
+        if (mFields == null) {
+            return;
+        }
+        final int active = mFields.getActive();
+        final ToolFieldEditText view = mFieldViews == null ? null : mFieldViews[active];
+        if (view != null) {
+            applyDeleteFromView(view, active);
+        } else {
             final String value = mFields.get(active);
-            final int len = value.length();
-            if (len == 0) {
-                afterInput();
-                return;
-            }
-            if (mCursorPos == -1) {
-                // Cursor at end of value: delete the last character.
+            if (value.length() > 0) {
                 mFields.onDelete(-1);
-                // mCursorPos stays -1 (still at end).
-            } else if (mCursorPos > 0 && mCursorPos <= len) {
-                // Cursor within value: delete the character before the cursor.
-                mFields.onDelete(mCursorPos);
-                mCursorPos -= 1;
-            } else {
-                // Cursor at position 0: nothing to delete.
             }
             afterInput();
         }
@@ -256,9 +214,170 @@ public abstract class FieldToolMode implements ToolMode {
     public void onClear() {
         if (mFields != null) {
             mFields.onClear();
-            mCursorPos = -1;
-            mProgrammaticUpdate = false;
+            final int active = mFields.getActive();
+            if (mCursorPos != null) mCursorPos[active] = -1;
+            if (mSelectionStart != null) mSelectionStart[active] = 0;
+            if (mSelectionEnd != null) mSelectionEnd[active] = 0;
             afterInput();
+        }
+    }
+
+    /** Apply a digit key press based on the actual selection in the EditText. */
+    private void applyDigitFromView(ToolFieldEditText view, int active, int digit) {
+        final String label = fieldLabels()[active];
+        final int valueStart = label.length() + 2; // ": "
+        final String value = mFields.get(active);
+        final int valLen = value.length();
+        final int selStart = view.getSelectionStart();
+        final int selEnd = view.getSelectionEnd();
+
+        if (DEBUG_LOG) {
+            Log.d(TAG, "onDigit: active=%d digit=%d selStart=%d selEnd=%d valueStart=%d value='%s'",
+                    active, digit, selStart, selEnd, valueStart, value);
+        }
+
+        // Clamp selection to the value range (exclude label prefix).
+        int selStartVal = clampToValue(selStart, valueStart, valLen);
+        int selEndVal = clampToValue(selEnd, valueStart, valLen);
+        if (selStartVal > selEndVal) {
+            int tmp = selStartVal;
+            selStartVal = selEndVal;
+            selEndVal = tmp;
+        }
+
+        int newCursorPosVal;
+        if (selStartVal == selEndVal) {
+            // Collapsed cursor: insert at current position.
+            int insertPos = (selStartVal >= 0 && selStartVal <= valLen) ? selStartVal : -1;
+            mFields.onDigit(digit, insertPos);
+            newCursorPosVal = (insertPos >= 0) ? insertPos + 1 : -1;
+        } else {
+            // Range selected: replace it with the digit.
+            mFields.onDigitReplace(digit, selStartVal, selEndVal);
+            newCursorPosVal = selStartVal + 1;
+        }
+
+        cacheCursorPos(active, newCursorPosVal, valLen);
+        afterInput();
+    }
+
+    /** Apply a decimal point based on the actual selection in the EditText. */
+    private void applyDecimalFromView(ToolFieldEditText view, int active) {
+        final String label = fieldLabels()[active];
+        final int valueStart = label.length() + 2; // ": "
+        final String valueBefore = mFields.get(active);
+        final int valLen = valueBefore.length();
+        final int selStart = view.getSelectionStart();
+        final int selEnd = view.getSelectionEnd();
+
+        if (DEBUG_LOG) {
+            Log.d(TAG, "onDecimalPoint: active=%d selStart=%d selEnd=%d valueStart=%d value='%s'",
+                    active, selStart, selEnd, valueStart, valueBefore);
+        }
+
+        // Clamp selection to the value range (exclude label prefix).
+        int selStartVal = clampToValue(selStart, valueStart, valLen);
+        int selEndVal = clampToValue(selEnd, valueStart, valLen);
+        if (selStartVal > selEndVal) {
+            int tmp = selStartVal;
+            selStartVal = selEndVal;
+            selEndVal = tmp;
+        }
+
+        int newCursorPosVal;
+        if (selStartVal == selEndVal) {
+            // Collapsed cursor: insert decimal at current position.
+            int insertPos = (selStartVal >= 0 && selStartVal <= valLen) ? selStartVal : -1;
+            int beforeLen = valueBefore.length();
+            mFields.onDecimalPoint(insertPos);
+            int afterLen = mFields.get(active).length();
+            if (afterLen > beforeLen) {
+                // Decimal was actually inserted. If "0." was prepended to empty field, advance by 2.
+                newCursorPosVal = (insertPos == 0 && beforeLen == 0) ? 2 : insertPos + 1;
+            } else {
+                // Decimal was ignored (already present): cursor stays.
+                newCursorPosVal = selStartVal;
+            }
+        } else {
+            // Range selected: replace it with a decimal point.
+            final StringBuilder f = new StringBuilder(valueBefore);
+            f.replace(selStartVal, selEndVal, ".");
+            mFields.set(active, f.toString());
+            newCursorPosVal = selStartVal + 1;
+        }
+
+        cacheCursorPos(active, newCursorPosVal, mFields.get(active).length());
+        afterInput();
+    }
+
+    /** Apply a delete key press based on the actual selection in the EditText. */
+    private void applyDeleteFromView(ToolFieldEditText view, int active) {
+        final String label = fieldLabels()[active];
+        final int valueStart = label.length() + 2; // ": "
+        final String value = mFields.get(active);
+        final int valLen = value.length();
+        final int selStart = view.getSelectionStart();
+        final int selEnd = view.getSelectionEnd();
+
+        if (DEBUG_LOG) {
+            Log.d(TAG, "onDelete: active=%d selStart=%d selEnd=%d valueStart=%d value='%s'",
+                    active, selStart, selEnd, valueStart, value);
+        }
+
+        if (valLen == 0) {
+            afterInput();
+            return;
+        }
+
+        // Clamp selection to the value range (exclude label prefix).
+        int selStartVal = clampToValue(selStart, valueStart, valLen);
+        int selEndVal = clampToValue(selEnd, valueStart, valLen);
+        if (selStartVal > selEndVal) {
+            int tmp = selStartVal;
+            selStartVal = selEndVal;
+            selEndVal = tmp;
+        }
+
+        int newCursorPosVal;
+        if (selStartVal == selEndVal) {
+            // Collapsed cursor: delete character before cursor if position > 0.
+            // Position 0: nothing to delete.
+            if (selStartVal > 0 && selStartVal <= valLen) {
+                mFields.onDelete(selStartVal);
+                newCursorPosVal = selStartVal - 1;
+            } else {
+                // Position 0: nothing to delete.
+                newCursorPosVal = selStartVal;
+            }
+        } else {
+            // Range selected: delete the selected range.
+            final StringBuilder f = new StringBuilder(value);
+            f.delete(selStartVal, selEndVal);
+            mFields.set(active, f.toString());
+            newCursorPosVal = selStartVal;
+        }
+
+        cacheCursorPos(active, newCursorPosVal, mFields.get(active).length());
+        afterInput();
+    }
+
+    /** Clamp a selection position to the valid value range [0, valLen]. */
+    private static int clampToValue(int selPos, int valueStart, int valLen) {
+        int pos = selPos - valueStart;
+        if (pos < 0) return 0;
+        if (pos > valLen) return valLen;
+        return pos;
+    }
+
+    /** Cache the cursor position for the active field, clamped to the value length. */
+    private void cacheCursorPos(int active, int pos, int valLen) {
+        if (pos < 0) pos = 0;
+        if (pos > valLen) pos = valLen;
+        if (mCursorPos != null) mCursorPos[active] = pos;
+        if (mSelectionStart != null) mSelectionStart[active] = pos;
+        if (mSelectionEnd != null) mSelectionEnd[active] = pos;
+        if (DEBUG_LOG) {
+            Log.d(TAG, "cacheCursorPos: active=%d pos=%d valLen=%d", active, pos, valLen);
         }
     }
 
@@ -279,53 +398,58 @@ public abstract class FieldToolMode implements ToolMode {
             return;
         }
         mControlRoot = LayoutInflater.from(context).inflate(controlLayoutRes(), slot, false);
-        mFieldViews = new TextView[fieldCount()];
-        // Reference the field ids directly (declared via @+id in the control layouts). Avoid
-        // getIdentifier(), which fails under the debug applicationIdSuffix (package-name mismatch).
+        final int count = fieldCount();
+        mFieldViews = new ToolFieldEditText[count];
         final int[] fieldIds = {R.id.tool_field_0, R.id.tool_field_1, R.id.tool_field_2,
                 R.id.tool_field_3, R.id.tool_field_4};
-        for (int i = 0; i < fieldCount(); i++) {
-            final TextView view = mControlRoot.findViewById(fieldIds[i]);
+        for (int i = 0; i < count; i++) {
+            final ToolFieldEditText view = mControlRoot.findViewById(fieldIds[i]);
             mFieldViews[i] = view;
             if (view != null) {
-                // inputType="text" gives these fields an Editor so cursorVisible and the
-                // long-press selection menu (copy / select-all / 中文大写数字) work. Keep the
-                // soft keyboard off: the calculator pad is the keyboard.
                 view.setShowSoftInputOnFocus(false);
                 final int index = i;
-                // Synchronize mCursorPos from the actual EditText selection whenever the user
-                // touches or focuses the field. OnClickListener alone is unreliable: Android
-                // may grant focus and move the visual cursor without triggering onClick().
-                view.setOnTouchListener((v, event) -> {
-                    if (mProgrammaticUpdate || mFields == null || !(view instanceof EditText)) {
-                        return false;
+
+                // Report selection changes from user touch to FieldToolMode.
+                // This is the authoritative source of cursor position: EditText calls
+                // onSelectionChanged after the framework has updated the selection.
+                view.setSelectionChangeListener((v, selStart, selEnd) -> {
+                    if (mProgrammaticUpdate || mFields == null) {
+                        return;
                     }
-                    if (event.getAction() == MotionEvent.ACTION_UP) {
-                        syncCursorFromView((EditText) view, index);
+                    final String label = fieldLabels()[index];
+                    final int valueStart = label.length() + 2;
+                    int startVal = clampToValue(selStart, valueStart, mFields.get(index).length());
+                    int endVal = clampToValue(selEnd, valueStart, mFields.get(index).length());
+                    if (DEBUG_LOG) {
+                        Log.d(TAG, "onSelectionChanged: field=%d selStart=%d selEnd=%d valueStart=%d -> startVal=%d endVal=%d",
+                                index, selStart, selEnd, valueStart, startVal, endVal);
                     }
-                    return false;
+                    if (mSelectionStart != null) mSelectionStart[index] = startVal;
+                    if (mSelectionEnd != null) mSelectionEnd[index] = endVal;
+                    if (mCursorPos != null) mCursorPos[index] = startVal;
                 });
+
+                // Focus only toggles the active field and visual style; it does not overwrite
+                // the text or cursor position during a touch interaction.
                 view.setOnFocusChangeListener((v, hasFocus) -> {
-                    if (mProgrammaticUpdate || mFields == null || !(view instanceof EditText)) {
+                    if (mProgrammaticUpdate || mFields == null) {
                         return;
                     }
                     if (hasFocus) {
                         mFields.setActive(index);
-                        syncCursorFromView((EditText) view, index);
-                        refreshFields();
-                        recomputeAndDisplay();
+                        if (DEBUG_LOG) {
+                            Log.d(TAG, "onFocusChange: field=%d gained focus", index);
+                        }
                     }
                 });
+
                 view.setOnClickListener(v -> {
                     if (mFields != null) {
                         mFields.setActive(index);
-                        // Just activate the field and request focus; the focus/touch listeners
-                        // above are responsible for capturing the actual cursor position.
                         view.requestFocus();
                     }
                 });
-                // Cursor + touch selection are on (see ToolFieldStyle); enrich the selection
-                // action mode with copy / select-all / 中文大写数字 conversion.
+
                 view.setCustomSelectionActionModeCallback(new SelectionActions(view));
             }
         }
@@ -347,23 +471,6 @@ public abstract class FieldToolMode implements ToolMode {
         mFieldViews = null;
     }
 
-    /**
-     * Reads the current selection start from the given EditText and converts it to a
-     * cursor position within the field's value (excluding the "label: " prefix).
-     * Updates mCursorPos so that subsequent digit input inserts at the right place.
-     */
-    private void syncCursorFromView(EditText editText, int index) {
-        final int selStart = editText.getSelectionStart();
-        final String label = fieldLabels()[index];
-        final int valueStart = label.length() + 2; // ": "
-        if (selStart >= valueStart) {
-            mCursorPos = Math.max(0, selStart - valueStart);
-        } else {
-            // Tap landed on the label or before the value: default to end of value.
-            mCursorPos = mFields.get(index).length();
-        }
-    }
-
     protected void refreshFields() {
         if (mFields == null || mFieldViews == null) {
             return;
@@ -373,7 +480,7 @@ public abstract class FieldToolMode implements ToolMode {
         mProgrammaticUpdate = true;
         try {
             for (int i = 0; i < mFieldViews.length; i++) {
-                final TextView view = mFieldViews[i];
+                final ToolFieldEditText view = mFieldViews[i];
                 if (view == null) {
                     continue;
                 }
@@ -383,19 +490,17 @@ public abstract class FieldToolMode implements ToolMode {
                 view.setText(label + (value.isEmpty() ? "" : ": " + value));
                 view.setTypeface(null, isActive ? Typeface.BOLD : Typeface.NORMAL);
                 view.setTextColor(isActive ? mActiveColor : mInactiveColor);
-                // Restore the text cursor on the active field after setText replaces the text.
-                // Without this, every digit press would drop the caret to the end of the field,
-                // making it impossible to insert digits in the middle of a value.
-                if (isActive && view instanceof EditText) {
-                    final EditText editText = (EditText) view;
-                    final int valueStart = label.length() + 2; // ": "
-                    final int pos;
-                    if (mCursorPos >= 0) {
-                        pos = valueStart + mCursorPos;
+                if (isActive) {
+                    // Restore cursor position within the value text, accounting for the label prefix.
+                    final int valueStart = label.length() + 2;
+                    int pos;
+                    if (mCursorPos != null && mCursorPos[i] >= 0) {
+                        pos = mCursorPos[i];
                     } else {
-                        pos = valueStart + value.length();
+                        pos = value.length();
                     }
-                    editText.setSelection(Math.min(pos, valueStart + value.length()));
+                    if (pos > value.length()) pos = value.length();
+                    view.setSelection(valueStart + pos, valueStart + pos);
                 }
             }
         } finally {
@@ -432,7 +537,7 @@ public abstract class FieldToolMode implements ToolMode {
         return ChineseNumerals.toUppercaseAmount(value);
     }
 
-    /** Keep a long 大写 primary amount on-screen, then restore the normal tool range when off. */
+    /** Keep a long 大写 primary amount on-screen, then restore the normal range when off. */
     private void configureFormulaTextSize() {
         if (mHost == null) {
             return;
@@ -464,9 +569,9 @@ public abstract class FieldToolMode implements ToolMode {
      * conversion of the selected digits into 中文大写数字 (Chinese financial numerals).
      */
     private final class SelectionActions implements ActionMode.Callback {
-        private final TextView mView;
+        private final ToolFieldEditText mView;
 
-        SelectionActions(TextView view) {
+        SelectionActions(ToolFieldEditText view) {
             mView = view;
         }
 
@@ -493,7 +598,7 @@ public abstract class FieldToolMode implements ToolMode {
                 end = text == null ? 0 : text.length();
             }
             if (start > end) {
-                final int swap = start;
+                int swap = start;
                 start = end;
                 end = swap;
             }
