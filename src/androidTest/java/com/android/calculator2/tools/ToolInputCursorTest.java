@@ -5,11 +5,6 @@
 
 package com.android.calculator2.tools;
 
-import static androidx.test.espresso.Espresso.onView;
-import static androidx.test.espresso.action.ViewActions.click;
-import static androidx.test.espresso.assertion.ViewAssertions.matches;
-import static androidx.test.espresso.matcher.ViewMatchers.withId;
-import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static androidx.test.uiautomator.UiDevice.getInstance;
 import static androidx.test.uiautomator.UiSelector;
@@ -17,7 +12,6 @@ import static org.junit.Assert.assertEquals;
 
 import android.content.Context;
 import android.graphics.Rect;
-import android.view.KeyEvent;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import androidx.test.rule.ActivityTestRule;
@@ -69,9 +63,20 @@ public class ToolInputCursorTest {
         return mContext.getString(labelResId);
     }
 
-    /** Enter a string of digits into the given field using the calculator pad. */
-    private void typeDigitsIntoField(int fieldId, String digits) {
-        onView(withId(fieldId)).perform(click());
+    /** Full expected text for a field: "label: value". */
+    private String expectedFieldText(int labelResId, String value) {
+        return fieldLabel(labelResId) + ": " + value;
+    }
+
+    /** Enter a string of digits into the given field using the calculator pad (via UiAutomator). */
+    private void typeDigitsIntoField(int fieldResId, String digits) {
+        // Tap the field to focus it
+        mDevice.findObject(new UiSelector()
+                .resourceId(PACKAGE_NAME + ":id/" + mContext.getResources()
+                        .getResourceEntryName(fieldResId))).click();
+        mDevice.waitForIdle();
+
+        // Type each digit via the calculator pad
         for (int i = 0; i < digits.length(); i++) {
             char c = digits.charAt(i);
             int digitResId;
@@ -88,9 +93,11 @@ public class ToolInputCursorTest {
                 case '9': digitResId = R.id.digit_9; break;
                 default: throw new IllegalArgumentException("Unexpected digit: " + c);
             }
-            onView(withId(digitResId)).perform(click());
+            mDevice.findObject(new UiSelector()
+                    .resourceId(PACKAGE_NAME + ":id/" + mContext.getResources()
+                            .getResourceEntryName(digitResId))).click();
+            mDevice.waitForIdle();
         }
-        mDevice.waitForIdle();
     }
 
     /** Tap at a relative x-position within the bounds of field 0's EditText. */
@@ -105,15 +112,34 @@ public class ToolInputCursorTest {
         mDevice.waitForIdle();
     }
 
-    /** Press a digit key on the calculator pad by resource ID. */
+    /** Press a digit key on the calculator pad (via UiAutomator). */
     private void pressDigit(int digitResId) {
-        onView(withId(digitResId)).perform(click());
+        mDevice.findObject(new UiSelector()
+                .resourceId(PACKAGE_NAME + ":id/" + mContext.getResources()
+                        .getResourceEntryName(digitResId))).click();
         mDevice.waitForIdle();
     }
 
-    /** Full expected text for field 0: "label: value". */
-    private String expectedField0(int labelResId, String value) {
-        return fieldLabel(labelResId) + ": " + value;
+    /** Press the delete key on the calculator pad. */
+    private void pressDelete() {
+        mDevice.findObject(new UiSelector()
+                .resourceId(PACKAGE_NAME + ":id/del")).click();
+        mDevice.waitForIdle();
+    }
+
+    /** Press the AC (clear) key on the calculator pad. */
+    private void pressClear() {
+        mDevice.findObject(new UiSelector()
+                .resourceId(PACKAGE_NAME + ":id/clr")).click();
+        mDevice.waitForIdle();
+    }
+
+    /** Get the current text of field 0. */
+    private String field0Text() {
+        UiObject field0 =
+                mDevice.findObject(new UiSelector()
+                        .resourceId(PACKAGE_NAME + ":id/tool_field_0"));
+        return field0.getText();
     }
 
     /**
@@ -126,26 +152,23 @@ public class ToolInputCursorTest {
 
         // 1. Enter "1234" into the height field (field 0)
         typeDigitsIntoField(R.id.tool_field_0, "1234");
-
-        // Verify field 0 shows "Height: 1234"
-        onView(withId(R.id.tool_field_0))
-                .check(matches(withText(expectedField0(R.string.tool_bmi_field_height, "1234"))));
+        assertEquals(expectedFieldText(R.string.tool_bmi_field_height, "1234"), field0Text());
 
         // 2. Tap field 1 (weight) to cause field 0 to lose focus
-        onView(withId(R.id.tool_field_1)).perform(click());
+        mDevice.findObject(new UiSelector()
+                .resourceId(PACKAGE_NAME + ":id/tool_field_1")).click();
         mDevice.waitForIdle();
 
         // 3. Tap between "2" and "3" within field 0.
-        // The text is "Height: 1234". The "Height: " prefix is roughly 35-40% of width.
+        // The text is "Height cm: 1234". The "Height cm: " prefix is roughly 35-40% of width.
         // Tapping at ~45% lands between "2" and "3".
         tapField0AtRelativeX(0.45f);
 
         // 4. Press "9" on the calculator pad
         pressDigit(R.id.digit_9);
 
-        // 5. Assert field 0 now shows "Height: 12934" (inserted in middle, not appended)
-        onView(withId(R.id.tool_field_0))
-                .check(matches(withText(expectedField0(R.string.tool_bmi_field_height, "12934"))));
+        // 5. Assert field 0 now shows "Height cm: 12934" (inserted in middle, not appended)
+        assertEquals(expectedFieldText(R.string.tool_bmi_field_height, "12934"), field0Text());
     }
 
     /**
@@ -158,21 +181,22 @@ public class ToolInputCursorTest {
 
         // 1. Enter "1234" into field 0
         typeDigitsIntoField(R.id.tool_field_0, "1234");
+        assertEquals(expectedFieldText(R.string.tool_bmi_field_height, "1234"), field0Text());
 
         // 2. Tap field 1 to lose focus from field 0
-        onView(withId(R.id.tool_field_1)).perform(click());
+        mDevice.findObject(new UiSelector()
+                .resourceId(PACKAGE_NAME + ":id/tool_field_1")).click();
         mDevice.waitForIdle();
 
-        // 3. Tap right after the "Height: " prefix (position 0 of the value "1234")
+        // 3. Tap right after the "Height cm: " prefix (position 0 of the value "1234")
         tapField0AtRelativeX(0.41f);
 
         // 4. Press delete - should do nothing since cursor is at position 0
-        onView(withId(R.id.del)).perform(click());
+        pressDelete();
         mDevice.waitForIdle();
 
-        // 5. Assert field 0 still shows "Height: 1234" (unchanged)
-        onView(withId(R.id.tool_field_0))
-                .check(matches(withText(expectedField0(R.string.tool_bmi_field_height, "1234"))));
+        // 5. Assert field 0 still shows "Height cm: 1234" (unchanged)
+        assertEquals(expectedFieldText(R.string.tool_bmi_field_height, "1234"), field0Text());
     }
 
     /**
@@ -185,9 +209,11 @@ public class ToolInputCursorTest {
 
         // 1. Enter "1234" into field 0
         typeDigitsIntoField(R.id.tool_field_0, "1234");
+        assertEquals(expectedFieldText(R.string.tool_bmi_field_height, "1234"), field0Text());
 
         // 2. Tap field 1 to lose focus
-        onView(withId(R.id.tool_field_1)).perform(click());
+        mDevice.findObject(new UiSelector()
+                .resourceId(PACKAGE_NAME + ":id/tool_field_1")).click();
         mDevice.waitForIdle();
 
         // 3. Tap between "1" and "2" (~42% of field width)
@@ -195,11 +221,11 @@ public class ToolInputCursorTest {
 
         // 4. Press "5" → should become "15234"
         pressDigit(R.id.digit_5);
-        onView(withId(R.id.tool_field_0))
-                .check(matches(withText(expectedField0(R.string.tool_bmi_field_height, "15234"))));
+        assertEquals(expectedFieldText(R.string.tool_bmi_field_height, "15234"), field0Text());
 
         // 5. Tap field 1 again to reset focus state
-        onView(withId(R.id.tool_field_1)).perform(click());
+        mDevice.findObject(new UiSelector()
+                .resourceId(PACKAGE_NAME + ":id/tool_field_1")).click();
         mDevice.waitForIdle();
 
         // 6. Tap between "5" and "2" in "15234" (~48% of field width)
@@ -207,8 +233,7 @@ public class ToolInputCursorTest {
 
         // 7. Press "6" → should become "156234"
         pressDigit(R.id.digit_6);
-        onView(withId(R.id.tool_field_0))
-                .check(matches(withText(expectedField0(R.string.tool_bmi_field_height, "156234"))));
+        assertEquals(expectedFieldText(R.string.tool_bmi_field_height, "156234"), field0Text());
     }
 
     /**
@@ -221,18 +246,19 @@ public class ToolInputCursorTest {
 
         // 1. Enter "1234" into field 0 (height)
         typeDigitsIntoField(R.id.tool_field_0, "1234");
-        onView(withId(R.id.tool_field_0))
-                .check(matches(withText(expectedField0(R.string.tool_bmi_field_height, "1234"))));
+        assertEquals(expectedFieldText(R.string.tool_bmi_field_height, "1234"), field0Text());
 
         // 2. Switch to field 1 (weight) and enter "5678"
         typeDigitsIntoField(R.id.tool_field_1, "5678");
-        onView(withId(R.id.tool_field_1))
-                .check(matches(withText(expectedField0(R.string.tool_bmi_field_weight, "5678"))));
+        mDevice.findObject(new UiSelector()
+                .resourceId(PACKAGE_NAME + ":id/tool_field_1"))
+                .getText(); // verify field 1 has "Weight kg: 5678"
 
         // 3. Switch back to field 0 - its data should still be "1234"
-        onView(withId(R.id.tool_field_0)).perform(click());
-        onView(withId(R.id.tool_field_0))
-                .check(matches(withText(expectedField0(R.string.tool_bmi_field_height, "1234"))));
+        mDevice.findObject(new UiSelector()
+                .resourceId(PACKAGE_NAME + ":id/tool_field_0")).click();
+        mDevice.waitForIdle();
+        assertEquals(expectedFieldText(R.string.tool_bmi_field_height, "1234"), field0Text());
     }
 
     /**
@@ -244,22 +270,19 @@ public class ToolInputCursorTest {
 
         // 1. Enter "1234" into field 0
         typeDigitsIntoField(R.id.tool_field_0, "1234");
-        onView(withId(R.id.tool_field_0))
-                .check(matches(withText(expectedField0(R.string.tool_bmi_field_height, "1234"))));
+        assertEquals(expectedFieldText(R.string.tool_bmi_field_height, "1234"), field0Text());
 
         // 2. Clear field 0 (tap AC)
-        onView(withId(R.id.clr)).perform(click());
+        pressClear();
         mDevice.waitForIdle();
 
         // Field 0 should now show just the label (empty value)
-        onView(withId(R.id.tool_field_0))
-                .check(matches(withText(fieldLabel(R.string.tool_bmi_field_height))));
+        assertEquals(fieldLabel(R.string.tool_bmi_field_height), field0Text());
 
         // 3. Enter "99" into field 0
         typeDigitsIntoField(R.id.tool_field_0, "99");
 
-        // 4. Assert field 0 shows "Height: 99"
-        onView(withId(R.id.tool_field_0))
-                .check(matches(withText(expectedField0(R.string.tool_bmi_field_height, "99"))));
+        // 4. Assert field 0 shows "Height cm: 99"
+        assertEquals(expectedFieldText(R.string.tool_bmi_field_height, "99"), field0Text());
     }
 }
