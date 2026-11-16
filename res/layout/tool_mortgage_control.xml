@@ -54,35 +54,16 @@
                 android:text="@string/tool_mortgage_combined" />
         </com.google.android.material.button.MaterialButtonToggleGroup>
 
-        <com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/mortgage_basis_group"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/mortgage_basis_toggle"
+            style="@style/Widget.Material3.Button.TextButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            app:checkedButton="@id/mortgage_basis_benchmark"
-            app:selectionRequired="true"
-            app:singleSelection="true">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/mortgage_basis_benchmark"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:minWidth="0dp"
-                app:minWidth="0dp"
-                android:padding="0dp"
-                android:text="@string/tool_mortgage_benchmark" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/mortgage_basis_lpr"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:minWidth="0dp"
-                app:minWidth="0dp"
-                android:padding="0dp"
-                android:text="@string/tool_mortgage_lpr" />
-        </com.google.android.material.button.MaterialButtonToggleGroup>
+            android:minWidth="0dp"
+            app:minWidth="0dp"
+            android:padding="0dp"
+            android:text="@string/tool_mortgage_benchmark" />
     </LinearLayout>
 
     <EditText

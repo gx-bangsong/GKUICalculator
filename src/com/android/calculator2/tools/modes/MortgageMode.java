@@ -15,6 +15,7 @@ import com.android.calculator2.R;
 import com.android.calculator2.tools.ToolHost;
 import com.android.calculator2.tools.ToolId;
 import com.android.calculator2.tools.model.MortgageCalculator;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 
 import java.math.BigDecimal;
@@ -124,17 +125,15 @@ public class MortgageMode extends FieldToolMode {
                 }
             });
         }
-        final MaterialButtonToggleGroup basis = root.findViewById(R.id.mortgage_basis_group);
-        if (basis != null) {
-            basis.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
-                if (!isChecked) {
-                    return;
-                }
-                final boolean lpr = checkedId == R.id.mortgage_basis_lpr;
-                if (lpr != mLprBasis) {
-                    mLprBasis = lpr;
-                    onLoanShapeChanged();
-                }
+        final MaterialButton basisToggle = root.findViewById(R.id.mortgage_basis_toggle);
+        if (basisToggle != null) {
+            basisToggle.setText(mHost.getContext().getString(
+                    mLprBasis ? R.string.tool_mortgage_lpr : R.string.tool_mortgage_benchmark));
+            basisToggle.setOnClickListener(v -> {
+                mLprBasis = !mLprBasis;
+                basisToggle.setText(mHost.getContext().getString(
+                        mLprBasis ? R.string.tool_mortgage_lpr : R.string.tool_mortgage_benchmark));
+                onLoanShapeChanged();
             });
         }
         updateMethodLabel();
@@ -147,6 +146,7 @@ public class MortgageMode extends FieldToolMode {
             mFields.set(1, mLprBasis && mLoanType != LOAN_FUND ? "3.6"
                     : mLoanType == LOAN_FUND ? FUND_RATE_PERCENT : "4.9");
             mFields.setActive(0);
+            mCursorPos = mFields.get(0).length();
         }
         updateLoanShapeUi();
         refreshFields();
@@ -154,9 +154,9 @@ public class MortgageMode extends FieldToolMode {
     }
 
     private void updateLoanShapeUi() {
-        final View basisGroup = find(R.id.mortgage_basis_group);
-        if (basisGroup != null) {
-            basisGroup.setVisibility(mLoanType == LOAN_FUND ? View.GONE : View.VISIBLE);
+        final View basisToggle = find(R.id.mortgage_basis_toggle);
+        if (basisToggle != null) {
+            basisToggle.setVisibility(mLoanType == LOAN_FUND ? View.GONE : View.VISIBLE);
         }
         final View spread = find(R.id.tool_field_3);
         if (spread != null) {
