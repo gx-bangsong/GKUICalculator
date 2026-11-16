@@ -26,7 +26,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import com.android.calculator2.tools.model.ChineseNumerals;
 
@@ -410,7 +410,7 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
             final CharSequence selected = text.subSequence(start, end);
             final String uppercase = ChineseNumerals.toUppercase(selected.toString());
             final String message = uppercase == null || uppercase.isEmpty() ? "—" : uppercase;
-            new AlertDialog.Builder(getContext())
+            new MaterialAlertDialogBuilder(getContext())
                     .setTitle(R.string.tool_field_uppercase_title)
                     .setMessage(message)
                     .setPositiveButton(android.R.string.copy, (dialog, which) -> {
