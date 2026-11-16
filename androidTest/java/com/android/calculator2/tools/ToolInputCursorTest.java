@@ -16,6 +16,7 @@ import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentat
 import static androidx.test.uiautomator.UiDevice.getInstance;
 import static androidx.test.uiautomator.UiSelector;
 import static org.junit.Assert.assertEquals;
+import org.hamcrest.Matcher;
 
 import android.content.Context;
 import android.graphics.Rect;
@@ -123,7 +124,7 @@ public class ToolInputCursorTest {
 
         onView(withId(fieldId)).perform(new ViewAction() {
             @Override
-            public android.view.ViewMatcher getConstraints() {
+            public Matcher<View> getConstraints() {
                 return isAssignableFrom(EditText.class);
             }
 
