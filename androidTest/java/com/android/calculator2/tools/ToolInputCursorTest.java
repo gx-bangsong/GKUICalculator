@@ -27,6 +27,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObjectNotFoundException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -62,8 +63,12 @@ public class ToolInputCursorTest {
 
     /** Navigate to the BMI tool via its icon in the bottom navigation bar. */
     private void openBmiTool() {
-        mDevice.findObject(new androidx.test.uiautomator.UiSelector()
-                .descriptionContains("BMI")).click();
+        try {
+            mDevice.findObject(new androidx.test.uiautomator.UiSelector()
+                    .descriptionContains("BMI")).click();
+        } catch (UiObjectNotFoundException e) {
+            throw new AssertionError("BMI tool icon not found", e);
+        }
         mDevice.waitForIdle();
     }
 
