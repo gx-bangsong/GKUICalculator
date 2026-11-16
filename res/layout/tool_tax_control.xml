@@ -21,19 +21,31 @@
             android:layout_weight="1"
             android:textColor="?colorPrimary" />
 
+        <!-- Detail entries open a dialog on tap; they are not input fields, so they must not
+             place a text cursor or expose the long-press selection menu. -->
         <TextView
             android:id="@+id/tax_insurance_detail"
             style="@style/ToolFieldStyle"
             android:layout_width="0dp"
             android:layout_weight="1"
-            android:textColor="?colorOnSurfaceVariant" />
+            android:textColor="?colorOnSurfaceVariant"
+            android:textIsSelectable="false"
+            android:cursorVisible="false"
+            android:focusable="false"
+            android:focusableInTouchMode="false" />
 
+        <!-- Detail entries open a dialog on tap; they are not input fields, so they must not
+             place a text cursor or expose the long-press selection menu. -->
         <TextView
             android:id="@+id/tax_special_detail"
             style="@style/ToolFieldStyle"
             android:layout_width="0dp"
             android:layout_weight="1"
-            android:textColor="?colorOnSurfaceVariant" />
+            android:textColor="?colorOnSurfaceVariant"
+            android:textIsSelectable="false"
+            android:cursorVisible="false"
+            android:focusable="false"
+            android:focusableInTouchMode="false" />
     </LinearLayout>
 
     <TextView
