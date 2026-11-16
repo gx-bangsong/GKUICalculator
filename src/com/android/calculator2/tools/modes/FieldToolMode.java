@@ -155,9 +155,17 @@ public abstract class FieldToolMode implements ToolMode {
     @Override
     public void onDecimalPoint() {
         if (mFields != null) {
+            final int active = mFields.getActive();
+            final int beforeLen = mFields.get(active).length();
             mFields.onDecimalPoint(mCursorPos);
+            // Only advance the cursor if a decimal was actually inserted (the model
+            // ignores repeated decimals). Inserting "0." into an empty field adds 2
+            // characters, so advance by the actual length delta.
             if (mCursorPos >= 0) {
-                mCursorPos += 1;
+                final int afterLen = mFields.get(active).length();
+                if (afterLen > beforeLen) {
+                    mCursorPos += (afterLen - beforeLen);
+                }
             }
             afterInput();
         }
@@ -227,9 +235,21 @@ public abstract class FieldToolMode implements ToolMode {
                 view.setOnClickListener(v -> {
                     if (mFields != null) {
                         mFields.setActive(index);
-                        // Position the cursor at the end of the activated field's value so
-                        // digit entry starts there and survives setText() in refreshFields().
-                        mCursorPos = mFields.get(index).length();
+                        // Capture the cursor position where the user tapped within the
+                        // field's value (excluding the "label: " prefix). If the tap lands
+                        // on the label or outside the value text, default to appending at
+                        // the end so the click still activates the field for input.
+                        int tapPos = -1;
+                        if (view instanceof EditText) {
+                            final EditText editText = (EditText) view;
+                            final int selStart = editText.getSelectionStart();
+                            final String label = fieldLabels()[index];
+                            final int valueStart = label.length() + 2; // ": "
+                            if (selStart >= valueStart) {
+                                tapPos = Math.max(0, selStart - valueStart);
+                            }
+                        }
+                        mCursorPos = tapPos >= 0 ? tapPos : mFields.get(index).length();
                         view.requestFocus();
                         refreshFields();
                         recomputeAndDisplay();
