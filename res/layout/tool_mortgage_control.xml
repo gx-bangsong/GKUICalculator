@@ -18,7 +18,7 @@
             android:id="@+id/mortgage_type_group"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1.6"
+            android:layout_weight="2"
             app:checkedButton="@id/mortgage_type_commercial"
             app:selectionRequired="true"
             app:singleSelection="true">
@@ -26,9 +26,8 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/mortgage_type_commercial"
                 style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="36dp"
-                android:layout_weight="1"
                 android:minWidth="0dp"
                 app:minWidth="0dp"
                 android:padding="0dp"
@@ -37,9 +36,8 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/mortgage_type_fund"
                 style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="36dp"
-                android:layout_weight="1"
                 android:minWidth="0dp"
                 app:minWidth="0dp"
                 android:padding="0dp"
@@ -48,9 +46,8 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/mortgage_type_combined"
                 style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="36dp"
-                android:layout_weight="1"
                 android:minWidth="0dp"
                 app:minWidth="0dp"
                 android:padding="0dp"
@@ -61,7 +58,7 @@
             android:id="@+id/mortgage_basis_group"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1.6"
+            android:layout_weight="1"
             app:checkedButton="@id/mortgage_basis_benchmark"
             app:selectionRequired="true"
             app:singleSelection="true">
@@ -69,9 +66,8 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/mortgage_basis_benchmark"
                 style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="36dp"
-                android:layout_weight="1"
                 android:minWidth="0dp"
                 app:minWidth="0dp"
                 android:padding="0dp"
@@ -80,10 +76,10 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/mortgage_basis_lpr"
                 style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="36dp"
-                android:layout_weight="1"
                 android:minWidth="0dp"
+                app:minWidth="0dp"
                 android:padding="0dp"
                 android:text="@string/tool_mortgage_lpr" />
         </com.google.android.material.button.MaterialButtonToggleGroup>

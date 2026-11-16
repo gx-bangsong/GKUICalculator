@@ -19,6 +19,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.TextView;
 
 import androidx.annotation.IdRes;
@@ -69,6 +70,11 @@ public abstract class FieldToolMode implements ToolMode {
 
     /** Render monetary results as Chinese uppercase numerals (中文大写数字). */
     private boolean mUppercaseNumbers;
+
+    /** Cursor position within the active field's value, captured before digit input so the
+         new digit is inserted at the caret instead of always appended. -1 means "no pending
+         position" (append to end). */
+    private int mPendingInsertPos = -1;
 
     protected abstract int fieldCount();
 
@@ -137,25 +143,49 @@ public abstract class FieldToolMode implements ToolMode {
     @Override
     public void onDigit(int digit) {
         if (mFields != null) {
-            mFields.onDigit(digit);
+            mPendingInsertPos = captureInsertPos();
+            mFields.onDigit(digit, mPendingInsertPos);
             afterInput();
+            mPendingInsertPos = -1;
         }
     }
 
     @Override
     public void onDecimalPoint() {
         if (mFields != null) {
-            mFields.onDecimalPoint();
+            mPendingInsertPos = captureInsertPos();
+            mFields.onDecimalPoint(mPendingInsertPos);
             afterInput();
+            mPendingInsertPos = -1;
         }
     }
 
     @Override
     public void onDelete() {
         if (mFields != null) {
-            mFields.onDelete();
+            mPendingInsertPos = captureInsertPos();
+            mFields.onDelete(mPendingInsertPos);
             afterInput();
+            mPendingInsertPos = -1;
         }
+    }
+
+    /** Capture the cursor position within the active field's value (excluding the
+         "label: " prefix). Returns -1 when the field is not focused or the caret is not
+         within the value text, in which case the digit is appended to the end. */
+    private int captureInsertPos() {
+        final int active = mFields.getActive();
+        final TextView view = mFieldViews == null ? null : mFieldViews[active];
+        if (view != null && view.hasFocus() && view instanceof EditText) {
+            final EditText editText = (EditText) view;
+            final int selStart = editText.getSelectionStart();
+            final String label = fieldLabels()[active];
+            final int valueStart = label.length() + 2; // ": "
+            if (selStart >= valueStart) {
+                return Math.max(0, selStart - valueStart);
+            }
+        }
+        return -1;
     }
 
     @Override
@@ -247,6 +277,16 @@ public abstract class FieldToolMode implements ToolMode {
             view.setText(label + (value.isEmpty() ? "" : ": " + value));
             view.setTypeface(null, isActive ? Typeface.BOLD : Typeface.NORMAL);
             view.setTextColor(isActive ? mActiveColor : mInactiveColor);
+            // Restore the text cursor on the active field after setText replaces the text.
+            // Without this, every digit press would drop the caret to the end of the field,
+            // making it impossible to insert digits in the middle of a value.
+            if (isActive && view.hasFocus() && view instanceof EditText && mPendingInsertPos >= 0) {
+                final EditText editText = (EditText) view;
+                final int valueStart = label.length() + 2; // ": "
+                final int newPos = valueStart + mPendingInsertPos + 1;
+                editText.setSelection(Math.min(newPos, valueStart + value.length()));
+                mPendingInsertPos = -1;
+            }
         }
     }
 

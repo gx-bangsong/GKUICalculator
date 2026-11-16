@@ -83,28 +83,56 @@ public final class ToolInputFields {
         }
     }
 
+    public boolean onDigit(int digit, int insertPos) {
+        final StringBuilder f = mFields[mActive];
+        if (insertPos >= 0 && insertPos <= f.length()) {
+            f.insert(insertPos, digit);
+        } else {
+            f.append(digit);
+        }
+        return true;
+    }
+
     public boolean onDigit(int digit) {
-        mFields[mActive].append(digit);
+        return onDigit(digit, -1);
+    }
+
+    public boolean onDecimalPoint(int insertPos) {
+        final StringBuilder f = mFields[mActive];
+        if (f.indexOf(".") < 0) {
+            if (insertPos >= 0 && insertPos <= f.length()) {
+                if (insertPos == 0 && f.length() == 0) {
+                    f.insert(0, "0.");
+                } else {
+                    f.insert(insertPos, ".");
+                }
+            } else {
+                if (f.length() == 0) {
+                    f.append("0.");
+                } else {
+                    f.append(".");
+                }
+            }
+        }
         return true;
     }
 
     public boolean onDecimalPoint() {
-        StringBuilder f = mFields[mActive];
-        if (f.indexOf(".") < 0) {
-            if (f.length() == 0) {
-                f.append("0");
-            }
-            f.append(".");
+        return onDecimalPoint(-1);
+    }
+
+    public boolean onDelete(int insertPos) {
+        final StringBuilder f = mFields[mActive];
+        if (insertPos > 0 && insertPos <= f.length()) {
+            f.deleteCharAt(insertPos - 1);
+        } else if (f.length() > 0) {
+            f.deleteCharAt(f.length() - 1);
         }
         return true;
     }
 
     public boolean onDelete() {
-        StringBuilder f = mFields[mActive];
-        if (f.length() > 0) {
-            f.deleteCharAt(f.length() - 1);
-        }
-        return true;
+        return onDelete(-1);
     }
 
     public boolean onClear() {
