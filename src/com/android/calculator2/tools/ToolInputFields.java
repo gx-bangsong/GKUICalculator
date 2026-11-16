@@ -93,6 +93,20 @@ public final class ToolInputFields {
         return true;
     }
 
+    /** Replace the selected range {@code [start, end)} with the given digit. */
+    public boolean onDigitReplace(int digit, int start, int end) {
+        final StringBuilder f = mFields[mActive];
+        if (start < 0) start = 0;
+        if (end > f.length()) end = f.length();
+        if (start > end) {
+            final int swap = start;
+            start = end;
+            end = swap;
+        }
+        f.replace(start, end, String.valueOf(digit));
+        return true;
+    }
+
     public boolean onDigit(int digit) {
         return onDigit(digit, -1);
     }
