@@ -208,6 +208,12 @@ public final class ProgrammerMode implements ToolMode {
         }
         mControlRoot = LayoutInflater.from(context)
                 .inflate(R.layout.tool_programmer_control, slot, false);
+        // inputType="text" gives the value fields an Editor so cursorVisible and the long-press
+        // selection menu work. Keep the soft keyboard off: the calculator pad is the keyboard.
+        final TextView valueIn = mControlRoot.findViewById(R.id.programmer_value_in);
+        if (valueIn != null) valueIn.setShowSoftInputOnFocus(false);
+        final TextView valueOut = mControlRoot.findViewById(R.id.programmer_value_out);
+        if (valueOut != null) valueOut.setShowSoftInputOnFocus(false);
         final MaterialButton chipIn = mControlRoot.findViewById(R.id.programmer_chip_in);
         if (chipIn != null) {
             chipIn.setOnClickListener(v -> changeRadix(nextRadix(mRadix, mSecondRadix)));

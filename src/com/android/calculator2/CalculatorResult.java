@@ -239,8 +239,8 @@ public class CalculatorResult extends AlignedTextView implements MenuItem.OnMenu
             setupContextMenu();
         }
 
-        setCursorVisible(false);
-        setLongClickable(false);
+        setCursorVisible(true);
+        setShowSoftInputOnFocus(false);
         setContentDescription(context.getString(R.string.desc_result));
     }
 

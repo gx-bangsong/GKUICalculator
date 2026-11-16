@@ -192,6 +192,10 @@ public abstract class FieldToolMode implements ToolMode {
             final TextView view = mControlRoot.findViewById(fieldIds[i]);
             mFieldViews[i] = view;
             if (view != null) {
+                // inputType="text" gives these fields an Editor so cursorVisible and the
+                // long-press selection menu (copy / select-all / 中文大写数字) work. Keep the
+                // soft keyboard off: the calculator pad is the keyboard.
+                view.setShowSoftInputOnFocus(false);
                 final int index = i;
                 view.setOnClickListener(v -> {
                     if (mFields != null) {

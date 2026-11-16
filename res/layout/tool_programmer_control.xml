@@ -20,13 +20,14 @@
         android:baselineAligned="false"
         android:orientation="horizontal">
 
-        <TextView
+        <EditText
             android:id="@+id/programmer_value_in"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:ellipsize="end"
             android:maxLines="1"
+            android:inputType="text"
             android:textAppearance="?attr/textAppearanceTitleMedium"
             android:textIsSelectable="true" />
 
@@ -45,13 +46,14 @@
         android:baselineAligned="false"
         android:orientation="horizontal">
 
-        <TextView
+        <EditText
             android:id="@+id/programmer_value_out"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:ellipsize="end"
             android:maxLines="1"
+            android:inputType="text"
             android:textAppearance="?attr/textAppearanceTitleMedium"
             android:textColor="?colorOnSurfaceVariant"
             android:textIsSelectable="true" />

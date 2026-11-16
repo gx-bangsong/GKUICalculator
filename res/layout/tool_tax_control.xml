@@ -48,26 +48,29 @@
             android:focusableInTouchMode="false" />
     </LinearLayout>
 
-    <TextView
+    <EditText
         android:id="@+id/tool_field_0"
-        style="@style/ToolFieldStyle" />
+        style="@style/ToolFieldStyle"
+        android:inputType="text" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
-        <TextView
+        <EditText
             android:id="@+id/tool_field_1"
             style="@style/ToolFieldStyle"
             android:layout_width="0dp"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:inputType="text" />
 
-        <TextView
+        <EditText
             android:id="@+id/tool_field_2"
             style="@style/ToolFieldStyle"
             android:layout_width="0dp"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:inputType="text" />
     </LinearLayout>
 
 </LinearLayout>

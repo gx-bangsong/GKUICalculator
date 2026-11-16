@@ -26,13 +26,14 @@
             android:layout_gravity="end"
             android:contentDescription="@string/currency_from_desc" />
 
-        <TextView
+        <EditText
             android:id="@+id/currency_input_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="sans-serif-medium"
             android:gravity="end"
             android:includeFontPadding="false"
+            android:inputType="text"
             android:textColor="@color/calculator_key_text"
             android:textSize="34sp" />
 
@@ -77,13 +78,14 @@
             android:layout_gravity="end"
             android:contentDescription="@string/currency_to_desc" />
 
-        <TextView
+        <EditText
             android:id="@+id/currency_result_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="sans-serif-medium"
             android:gravity="end"
             android:includeFontPadding="false"
+            android:inputType="text"
             android:textColor="@color/display_result_text_color"
             android:textSize="34sp" />
 
@@ -107,13 +109,14 @@
             android:layout_gravity="end"
             android:contentDescription="@string/currency_second_to_desc" />
 
-        <TextView
+        <EditText
             android:id="@+id/currency_result_2_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="sans-serif-medium"
             android:gravity="end"
             android:includeFontPadding="false"
+            android:inputType="text"
             android:textColor="@color/display_result_text_color"
             android:textSize="28sp" />
 

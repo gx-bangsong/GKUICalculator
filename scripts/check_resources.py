@@ -184,6 +184,7 @@ _FRAMEWORK_METHODS = {
     'getTotalPaddingBottom', 'isCancelled', 'setAccessibilityLiveRegion', 'setAlpha',
     'setChildrenDrawingOrderEnabled', 'setContentDescription', 'setContentView',
     'setCursorVisible', 'setHasStableIds', 'setIncludeFontPadding', 'setLongClickable',
+    'setShowSoftInputOnFocus',
     'setMinimumHeight', 'setMinimumWidth', 'setOnCreateContextMenuListener',
     'setOnLongClickListener', 'setOnTouchListener', 'setSupportActionBar', 'setText',
     'setTranslationY', 'setVisibility',

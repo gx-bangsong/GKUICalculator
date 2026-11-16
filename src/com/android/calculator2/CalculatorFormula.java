@@ -87,6 +87,7 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
         } else {
             setupContextMenu();
         }
+        setShowSoftInputOnFocus(false);
     }
 
     @Override

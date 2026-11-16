@@ -40,19 +40,21 @@
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:ellipsize="none"
+                android:inputType="text"
                 android:maxLines="1"
                 android:textColor="@color/display_formula_text_color" />
         </com.android.calculator2.CalculatorScrollView>
 
-        <com.android.calculator2.CalculatorResult
-            android:id="@+id/result"
-            style="@style/DisplayTextStyle.Result"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:bufferType="spannable"
-            android:singleLine="true"
-            android:textColor="@color/display_result_text_color" />
+            <com.android.calculator2.CalculatorResult
+                android:id="@+id/result"
+                style="@style/DisplayTextStyle.Result"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:bufferType="spannable"
+                android:inputType="text"
+                android:singleLine="true"
+                android:textColor="@color/display_result_text_color" />
     </LinearLayout>
 
     <include layout="@layout/drag_handle" />
