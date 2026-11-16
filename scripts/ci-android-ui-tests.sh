@@ -10,8 +10,9 @@ screenshot_dir=/sdcard
 adb shell settings put global verifier_verify_adb_installs 0 || true
 adb shell settings put global package_verifier_enable 0 || true
 adb shell rm -f "$screenshot_dir/calculator-default.png" "$screenshot_dir/calculator-units.png" || true
-# Keep the Pixel 2 logical size while reducing software-rendered pixels on the hosted VM.
-adb shell wm size 720x1280 || true
+# Modern 19:9 aspect ratio (typical of current Android phones) at a size that keeps
+# software rendering on the hosted VM fast enough for the UI test suite.
+adb shell wm size 720x1520 || true
 adb shell wm density 280 || true
 
 # Wait for the fresh AVD to finish booting before touching it: installing APKs into a half-booted
