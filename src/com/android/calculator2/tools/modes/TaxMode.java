@@ -16,6 +16,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -184,7 +185,7 @@ public class TaxMode extends FieldToolMode {
      * tapping them, so the keyboard appears on demand rather than racing the dialog window open.
      */
     private static void showDialog(@NonNull MaterialAlertDialogBuilder builder) {
-        final android.app.AlertDialog dialog = builder.create();
+        final AlertDialog dialog = builder.create();
         if (dialog.getWindow() != null) {
             dialog.getWindow().setSoftInputMode(
                     WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN
