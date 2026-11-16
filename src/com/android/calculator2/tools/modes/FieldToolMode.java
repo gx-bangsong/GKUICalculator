@@ -196,6 +196,9 @@ public abstract class FieldToolMode implements ToolMode {
                 view.setOnClickListener(v -> {
                     if (mFields != null) {
                         mFields.setActive(index);
+                        // Place the text cursor on the activated input field so input position
+                        // is visible during entry (cursorVisible + focusableInTouchMode).
+                        view.requestFocus();
                         refreshFields();
                         recomputeAndDisplay();
                     }

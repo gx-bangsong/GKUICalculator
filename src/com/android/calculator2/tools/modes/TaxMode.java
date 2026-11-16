@@ -7,6 +7,7 @@ package com.android.calculator2.tools.modes;
 
 import android.content.Context;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -15,7 +16,8 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import com.android.calculator2.R;
 import com.android.calculator2.tools.ToolHost;
@@ -177,6 +179,20 @@ public class TaxMode extends FieldToolMode {
 
     // ---- detail dialogs ----
 
+    /**
+     * Shows an MD3 dialog without auto-opening the soft keyboard: numeric inputs are edited by
+     * tapping them, so the keyboard appears on demand rather than racing the dialog window open.
+     */
+    private static void showDialog(@NonNull MaterialAlertDialogBuilder builder) {
+        final android.app.AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setSoftInputMode(
+                    WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN
+                            | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        }
+        dialog.show();
+    }
+
     /** Five insurances and one fund, entered proportionally as six categories. */
     private void showInsuranceDialog(@NonNull Context context) {
         final View view = android.view.LayoutInflater.from(context)
@@ -191,7 +207,7 @@ public class TaxMode extends FieldToolMode {
                     ? mInsuranceRates[i].toPlainString()
                     : SocialInsurance.DEFAULT_RATES_PERCENT[i]);
         }
-        new AlertDialog.Builder(context)
+        showDialog(new MaterialAlertDialogBuilder(context)
                 .setTitle(R.string.tool_tax_insurance_title)
                 .setView(view)
                 .setPositiveButton(R.string.dialog_apply, (dialog, which) -> {
@@ -212,8 +228,7 @@ public class TaxMode extends FieldToolMode {
                         recomputeAndDisplay();
                     }
                 })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+                .setNegativeButton(android.R.string.cancel, null));
     }
 
     /** The seven 专项附加扣除 categories, reduced to one monthly total. */
@@ -260,7 +275,7 @@ public class TaxMode extends FieldToolMode {
         infantChildren.setText(String.valueOf(mSpecial.infantChildren));
         infantShare.setSelection(mSpecial.infantShare == SpecialDeductions.Share.HALF ? 1 : 0);
 
-        new AlertDialog.Builder(context)
+        showDialog(new MaterialAlertDialogBuilder(context)
                 .setTitle(R.string.tool_tax_special_title)
                 .setView(view)
                 .setPositiveButton(R.string.dialog_apply, (dialog, which) -> {
@@ -289,8 +304,7 @@ public class TaxMode extends FieldToolMode {
                         recomputeAndDisplay();
                     }
                 })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+                .setNegativeButton(android.R.string.cancel, null));
     }
 
     private static ArrayAdapter<String> spinnerAdapter(

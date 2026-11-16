@@ -148,11 +148,13 @@
         <item name="android:minHeight">0dp</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
+        <item name="android:focusableInTouchMode">true</item>
         <item name="android:background">?attr/selectableItemBackground</item>
         <item name="android:textAppearance">?attr/textAppearanceLabelMedium</item>
         <item name="android:gravity">center_vertical</item>
-        <!-- Tool inputs keep the calculator pad as their keyboard, but a cursor and touch
-             selection are available so text can be copied or converted to 中文大写数字. -->
+        <!-- Tool inputs keep the calculator pad as their keyboard. A tap places the text
+             cursor on the active field (focusableInTouchMode + cursorVisible), and a long
+             press opens the selection menu (copy / select-all / 中文大写数字). -->
         <item name="android:textIsSelectable">true</item>
         <item name="android:cursorVisible">true</item>
     </style>
