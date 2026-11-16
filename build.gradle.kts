@@ -169,9 +169,6 @@ configure<GenerateBpPluginExtension> {
     minSdk.set(android.defaultConfig.minSdk!!)
     versionCode.set(android.defaultConfig.versionCode!!)
     versionName.set(android.defaultConfig.versionName!!)
-    // Only scan main sources; androidTest uses androidx.test dependencies that are not
-    // available as prebuilt AOSP modules and must not be treated as production Java source.
-    sourceDirs.set(listOf("src"))
     availableInAOSP.set { module: Module ->
         when {
             module.group.startsWith("androidx") -> true
