@@ -11,4 +11,7 @@
     <item android:id="@+id/menu_paste"
           android:title="@android:string/paste"/>
 
+    <item android:id="@+id/action_to_uppercase"
+          android:title="@string/tool_field_to_uppercase"/>
+
 </menu>

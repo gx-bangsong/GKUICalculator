@@ -40,6 +40,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:ellipsize="none"
+                android:focusableInTouchMode="true"
                 android:inputType="text"
                 android:maxLines="1"
                 android:textColor="@color/display_formula_text_color" />
@@ -52,6 +53,7 @@
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:bufferType="spannable"
+                android:focusableInTouchMode="true"
                 android:inputType="text"
                 android:singleLine="true"
                 android:textColor="@color/display_result_text_color" />

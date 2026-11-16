@@ -26,6 +26,10 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 
+import androidx.appcompat.app.AlertDialog;
+
+import com.android.calculator2.tools.model.ChineseNumerals;
+
 /**
  * TextView adapted for displaying the formula and allowing pasting.
  */
@@ -389,6 +393,35 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
             return true;
         } else if (itemId == R.id.menu_paste) {
             paste();
+            return true;
+        } else if (itemId == R.id.action_to_uppercase) {
+            final CharSequence text = getText();
+            int start = getSelectionStart();
+            int end = getSelectionEnd();
+            if (start < 0 || end < 0 || text == null) {
+                start = 0;
+                end = text == null ? 0 : text.length();
+            }
+            if (start > end) {
+                final int swap = start;
+                start = end;
+                end = swap;
+            }
+            final CharSequence selected = text.subSequence(start, end);
+            final String uppercase = ChineseNumerals.toUppercase(selected.toString());
+            final String message = uppercase == null || uppercase.isEmpty() ? "—" : uppercase;
+            new AlertDialog.Builder(getContext())
+                    .setTitle(R.string.tool_field_uppercase_title)
+                    .setMessage(message)
+                    .setPositiveButton(android.R.string.copy, (dialog, which) -> {
+                        final ClipboardManager clipboard = (ClipboardManager) getContext()
+                                .getSystemService(Context.CLIPBOARD_SERVICE);
+                        if (clipboard != null) {
+                            clipboard.setPrimaryClip(ClipData.newPlainText("calculator", message));
+                        }
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
             return true;
         }
         return false;

@@ -88,6 +88,7 @@
     <EditText
         android:id="@+id/tool_field_0"
         style="@style/ToolFieldStyle"
+        android:background="@null"
         android:inputType="text" />
 
     <LinearLayout
@@ -100,6 +101,7 @@
             style="@style/ToolFieldStyle"
             android:layout_width="0dp"
             android:layout_weight="1"
+            android:background="@null"
             android:inputType="text" />
 
         <EditText
@@ -107,6 +109,7 @@
             style="@style/ToolFieldStyle"
             android:layout_width="0dp"
             android:layout_weight="1"
+            android:background="@null"
             android:inputType="text" />
 
         <TextView
@@ -127,6 +130,7 @@
             style="@style/ToolFieldStyle"
             android:layout_width="0dp"
             android:layout_weight="1"
+            android:background="@null"
             android:inputType="text"
             android:visibility="gone" />
 
@@ -135,6 +139,7 @@
             style="@style/ToolFieldStyle"
             android:layout_width="0dp"
             android:layout_weight="1"
+            android:background="@null"
             android:inputType="text"
             android:visibility="gone" />
     </LinearLayout>
