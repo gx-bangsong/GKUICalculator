@@ -21,7 +21,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.os.SystemClock;
 import android.text.Layout;
-import android.view.InjectEventSecurityException;
+import androidx.test.espresso.InjectEventSecurityException;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
