@@ -187,7 +187,12 @@ else:
 PY
 )
 if [[ -n "$test_details" ]]; then
-    echo "::notice title=Per-test execution details::$test_details"
+    # An unescaped multi-line annotation keeps only its first line, so every test but the first
+    # was invisible outside the runner. '%' must be escaped before the newline escape, otherwise
+    # the '%0A' just inserted would itself be escaped.
+    escaped_details="${test_details//%/%25}"
+    escaped_details="${escaped_details//$'\n'/%0A}"
+    echo "::notice title=Per-test execution details::$escaped_details"
 fi
 
 # ---- Required-method validation -------------------------------------------
