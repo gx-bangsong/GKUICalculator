@@ -257,7 +257,7 @@ public abstract class FieldToolMode implements ToolMode {
             newCursorPosVal = selStartVal + 1;
         }
 
-        cacheCursorPos(active, newCursorPosVal, valLen);
+        cacheCursorPos(active, newCursorPosVal, mFields.get(active).length());
         afterInput();
     }
 
