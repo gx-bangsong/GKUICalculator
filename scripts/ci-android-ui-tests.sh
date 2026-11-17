@@ -103,14 +103,14 @@ adb shell input keyevent KEYCODE_WAKEUP || true
 # guards (pillShowsEveryToolWithoutScrolling, scientificPadDoesNotMoveDisplay, ...) only protect
 # the UI if they actually execute on the emulator.
 phase_start=$SECONDS
-if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorToolUiTest --stacktrace --console=plain >"$log_file" 2>&1; then
+if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest --stacktrace --console=plain --info >"$log_file" 2>&1; then
     test_result=0
 else
     test_result=$?
 fi
 cat "$log_file"
 connected_seconds=$((SECONDS-phase_start))
-echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 15 tests) took ${connected_seconds}s"
+echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 21 tests) took ${connected_seconds}s"
 
 # Per-test wall times from the instrumentation XML, so slow tests are visible in the check
 # annotations instead of hidden inside one monolithic step log.
@@ -138,6 +138,58 @@ if [[ -n "$per_test" ]]; then
     echo "::notice title=Per-test durations::$per_test"
 fi
 
+# Parse TEST-*.xml files and report each test's classname, name, and status.
+# This verifies that both required test classes and their expected methods
+# actually executed — not just that Gradle reported success.
+test_details=$(python3 - <<'PY'
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+results_dir = Path("build/outputs/androidTest-results")
+if not results_dir.exists():
+    print("WARNING: No androidTest-results directory found.")
+    raise SystemExit(0)
+
+rows = []
+for xml in sorted(results_dir.rglob("TEST-*.xml")):
+    try:
+        root = ET.parse(xml).getroot()
+    except (ET.ParseError, OSError) as e:
+        print(f"WARNING: Could not parse {xml}: {e}")
+        continue
+    for case in root.iter("testcase"):
+        classname = case.get("classname", "?")
+        name = case.get("name", "?")
+        # Determine status from child elements
+        failure = case.find("failure")
+        error = case.find("error")
+        skipped = case.find("skipped")
+        if failure is not None:
+            status = "FAIL"
+            msg = failure.get("message", "")[:120]
+        elif error is not None:
+            status = "ERROR"
+            msg = error.get("message", "")[:120]
+        elif skipped is not None:
+            status = "SKIP"
+            msg = skipped.get("message", "")[:120]
+        else:
+            status = "PASS"
+            msg = ""
+        rows.append((classname, name, status, msg))
+
+if not rows:
+    print("WARNING: No testcases found in any TEST-*.xml files.")
+else:
+    for classname, name, status, msg in rows:
+        suffix = f" | {msg}" if msg else ""
+        print(f"TEST {classname}#{name} => {status}{suffix}")
+PY
+)
+if [[ -n "$test_details" ]]; then
+    echo "::notice title=Per-test execution details::$test_details"
+fi
+
 if ((test_result == 0)); then
     test_summary=$(grep -E 'Tests [0-9]+/[0-9]+ completed|BUILD SUCCESSFUL' "$log_file" | tail -n 4 || true)
     if [[ -n "$test_summary" ]]; then
@@ -146,7 +198,7 @@ if ((test_result == 0)); then
     else
         echo "::warning title=Android UI test result::Gradle reported success without a visible test-count summary."
     fi
-    recovery_summary=$(adb logcat -d -v brief 2>/dev/null | grep -F 'CalculatorToolUiTest' | tail -n 12 || true)
+    recovery_summary=$(adb logcat -d -v brief 2>/dev/null | grep -F -e 'CalculatorToolUiTest' -e 'ToolInputCursorTest' | tail -n 12 || true)
     if [[ -n "$recovery_summary" ]]; then
         recovery_summary=${recovery_summary:0:1400}
         recovery_summary=$(printf '%s\n' "$recovery_summary" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
