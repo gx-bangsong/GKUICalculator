@@ -14,12 +14,14 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import org.hamcrest.Matcher;
 
 import android.app.Activity;
 import android.content.Context;
 import android.os.SystemClock;
 import android.text.Layout;
+import android.view.InjectEventSecurityException;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
@@ -204,10 +206,16 @@ public class ToolInputCursorTest {
                         now, now, MotionEvent.ACTION_DOWN, screenX, screenY, 0);
                 MotionEvent up = MotionEvent.obtain(
                         now, now, MotionEvent.ACTION_UP, screenX, screenY, 0);
-                uiController.injectMotionEvent(down);
-                uiController.injectMotionEvent(up);
-                down.recycle();
-                up.recycle();
+                try {
+                    uiController.injectMotionEvent(down);
+                    uiController.injectMotionEvent(up);
+                } catch (InjectEventSecurityException e) {
+                    throw new AssertionError(
+                            "Failed to inject motion event: " + e.getMessage(), e);
+                } finally {
+                    down.recycle();
+                    up.recycle();
+                }
             }
         });
     }
@@ -407,17 +415,23 @@ public class ToolInputCursorTest {
         onView(withId(com.android.calculator2.R.id.tool_field_0))
                 .check(matches(withText(field0Prefix() + "175")));
 
-        // 2. Set selection to end of value (position 3) via UI thread
+        // 2. Set selection to end of value via UI thread
         mActivityScenario.onActivity(activity -> {
             final View view = activity.findViewById(com.android.calculator2.R.id.tool_field_0);
             if (!(view instanceof EditText)) {
                 throw new AssertionError("tool_field_0 is not an EditText");
             }
             final EditText editText = (EditText) view;
-            editText.setSelection(3);
+            // requestFocus to ensure the view can accept selection changes
+            assertTrue(editText.requestFocus());
+            // Absolute position: label prefix length + value position 3 (end of "175")
+            final int absolutePos = field0Prefix().length() + 3;
+            editText.setSelection(absolutePos);
+            assertEquals(absolutePos, editText.getSelectionStart());
+            assertEquals(absolutePos, editText.getSelectionEnd());
         });
 
-        // 3. Verify selection is at position 3 (end of "175") before editing
+        // 3. Verify selection is at value position 3 (end of "175") before editing
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 3);
 
         // 4. Press "9"

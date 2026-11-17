@@ -39,6 +39,18 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # Separate compilation step before emulator launch: compile both main and test APKs
+      # so that test code compilation errors are caught before the emulator starts.
+      # A successful main APK build does not imply the test APK compiled successfully.
+      - name: Compile debug and test APKs
+        run: |
+          echo "::notice title=Compilation check::Assembling debug and test APKs"
+          if ! ./gradlew assembleDebug assembleDebugAndroidTest --stacktrace --console=plain > build/assemble-debug.log 2>&1; then
+            echo "::error title=Compilation check failed::Test or main APK compilation failed"
+            exit 1
+          fi
+          echo "::notice title=Compilation check::Debug and test APKs assembled successfully"
+
       - name: Run instrumented UI tests and capture screens
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -93,6 +105,7 @@ jobs:
             build/ui-screenshots/*-review.jpg
             build/connected-debug-android-test.log
             build/install-debug-android-test.log
+            build/assemble-debug.log
             build/outputs/androidTest-results/connected/debug/**
             build/reports/androidTests/connected/debug/**
           if-no-files-found: warn

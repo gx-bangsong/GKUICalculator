@@ -6,18 +6,6 @@ rm -f build/ui-screenshots/*.png
 log_file=build/connected-debug-android-test.log
 screenshot_dir=/sdcard
 
-# ---- Compilation check (before emulator launch) ----
-# Assemble both the main and test APKs to catch compilation errors in test code
-# before launching the emulator. A successful main APK build does not imply the
-# test APK has compiled successfully.
-echo "::notice title=Compilation check::Assembling debug and test APKs"
-if ! ./gradlew assembleDebug assembleDebugAndroidTest --stacktrace --console=plain > build/assemble-debug.log 2>&1; then
-    echo "::error title=Compilation check failed::Test or main APK compilation failed"
-    cat build/assemble-debug.log | tail -n 80 || true
-    exit 1
-fi
-echo "::notice title=Compilation check::Debug and test APKs assembled successfully"
-
 # Avoid Play Protect timing out while the fresh CI emulator installs the debug APK.
 adb shell settings put global verifier_verify_adb_installs 0 || true
 adb shell settings put global package_verifier_enable 0 || true
@@ -632,4 +620,9 @@ make_review_preview() {
 make_review_preview build/ui-screenshots/calculator-default.png
 make_review_preview build/ui-screenshots/calculator-units.png
 
-exit "$test_result"
+# Aggregate final exit code: fail if tests failed OR validation failed
+final_result=$test_result
+if ((validation_failed != 0)); then
+    final_result=1
+fi
+exit "$final_result"
