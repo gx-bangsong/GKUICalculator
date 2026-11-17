@@ -6,6 +6,18 @@ rm -f build/ui-screenshots/*.png
 log_file=build/connected-debug-android-test.log
 screenshot_dir=/sdcard
 
+# ---- Compilation check (before emulator launch) ----
+# Assemble both the main and test APKs to catch compilation errors in test code
+# before launching the emulator. A successful main APK build does not imply the
+# test APK has compiled successfully.
+echo "::notice title=Compilation check::Assembling debug and test APKs"
+if ! ./gradlew assembleDebug assembleDebugAndroidTest --stacktrace --console=plain > build/assemble-debug.log 2>&1; then
+    echo "::error title=Compilation check failed::Test or main APK compilation failed"
+    cat build/assemble-debug.log | tail -n 80 || true
+    exit 1
+fi
+echo "::notice title=Compilation check::Debug and test APKs assembled successfully"
+
 # Avoid Play Protect timing out while the fresh CI emulator installs the debug APK.
 adb shell settings put global verifier_verify_adb_installs 0 || true
 adb shell settings put global package_verifier_enable 0 || true
@@ -110,7 +122,7 @@ else
 fi
 cat "$log_file"
 connected_seconds=$((SECONDS-phase_start))
-echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 20 tests) took ${connected_seconds}s"
+echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 21 tests) took ${connected_seconds}s"
 
 # Per-test wall times from the instrumentation XML, so slow tests are visible in the check
 # annotations instead of hidden inside one monolithic step log.
@@ -198,7 +210,8 @@ validation_failed=0
 summary_lines=()
 annotation_lines=()
 
-required_tests=$(python3 - <<'PY'
+set +e
+validation_output=$(python3 - <<'PY'
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -207,7 +220,7 @@ if not results_dir.exists():
     print("ERROR: No androidTest-results directory found.")
     raise SystemExit(1)
 
-# Required methods: 15 CalculatorToolUiTest + 5 ToolInputCursorTest = 20
+# Required methods: 15 CalculatorToolUiTest + 6 ToolInputCursorTest = 21
 required = {
     "com.android.calculator2.CalculatorToolUiTest": [
         "firstRunUsesStandardKeypad",
@@ -232,6 +245,7 @@ required = {
         "testConsecutiveCursorRepositioning",
         "testSwitchingBetweenFields",
         "testEnterAfterClear",
+        "testCursorAtEndAppendsDigit",
     ],
 }
 
@@ -296,6 +310,9 @@ if missing or failed or skipped:
 PY
 )
 validation_failed=$?
+set -e
+
+echo "$validation_output"
 
 if ((validation_failed != 0)); then
     echo "::error title=Required test validation failed::Some required test methods were missing, failed, or skipped."
@@ -308,7 +325,8 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         echo ""
         echo "| Class | Method | Status |"
         echo "|-------|--------|--------|"
-        python3 - <<'PY'
+        set +e
+        summary_output=$(python3 - <<'PY'
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -343,12 +361,19 @@ for classname, name, status in sorted(rows):
         short = classname.rsplit(".", 1)[-1]
         print(f"| {short} | {name} | {status} |")
 PY
+)
+        summary_exit=$?
+        set -e
+        echo "$summary_output"
+        if ((summary_exit != 0)); then
+            echo "| N/A | N/A | Summary generation failed |"
+        fi
     } >> "${GITHUB_STEP_SUMMARY}"
 fi
 
-# Output escaped annotations for each failed/missing item
-if ((validation_failed != 0)); then
-    python3 - <<'PY'
+# Output escaped annotations for each failed/missing item (always)
+set +e
+annotation_output=$(python3 - <<'PY'
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -377,6 +402,7 @@ required = {
         "testConsecutiveCursorRepositioning",
         "testSwitchingBetweenFields",
         "testEnterAfterClear",
+        "testCursorAtEndAppendsDigit",
     ],
 }
 
@@ -411,7 +437,6 @@ for classname, names in required.items():
         key = (classname, name)
         if key not in executed:
             short = classname.rsplit(".", 1)[-1]
-            msg = f"Required test {short}#{name} was not executed (missing from test results)"
             print(f"::error title=Missing test::{short}%23{name}%20not%20executed")
         else:
             status, msg = executed[key]
@@ -420,6 +445,13 @@ for classname, names in required.items():
                 safe_msg = msg.replace(" ", "%20").replace("\n", "%0A").replace("|", "%7C")
                 print(f"::error title={status} test::{short}%23{name}%20{safe_msg}")
 PY
+)
+annotation_exit=$?
+set -e
+
+echo "$annotation_output"
+if ((annotation_exit != 0)); then
+    echo "::error title=Annotation generation failed::Python annotation script exited with code ${annotation_exit}"
 fi
 # ---- End required-method validation ---------------------------------------
 

@@ -87,8 +87,8 @@ public class ToolInputCursorTest {
         onView(withContentDescription(com.android.calculator2.R.string.tool_bmi))
                 .perform(click());
         // After switching to the BMI tool, both input fields must be visible.
-        onView(com.android.calculator2.R.id.tool_field_0).check(matches(isDisplayed()));
-        onView(com.android.calculator2.R.id.tool_field_1).check(matches(isDisplayed()));
+        onView(withId(com.android.calculator2.R.id.tool_field_0)).check(matches(isDisplayed()));
+        onView(withId(com.android.calculator2.R.id.tool_field_1)).check(matches(isDisplayed()));
     }
 
     /** Prefix for field 0 (height): "label: ". */
@@ -392,5 +392,40 @@ public class ToolInputCursorTest {
         onView(withId(com.android.calculator2.R.id.tool_field_0))
                 .check(matches(withText(field0Prefix() + "99")));
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 2);
+    }
+
+    /**
+     * Minimal regression test: no touch coordinates, no field clearing.
+     * Opens BMI tool, verifies default height is "175", sets cursor to end,
+     * presses "9", and expects "1759" with cursor at position 4.
+     */
+    @Test
+    public void testCursorAtEndAppendsDigit() {
+        openBmiTool();
+
+        // 1. Assert default height value is "175"
+        onView(withId(com.android.calculator2.R.id.tool_field_0))
+                .check(matches(withText(field0Prefix() + "175")));
+
+        // 2. Set selection to end of value (position 3) via UI thread
+        mActivityScenario.onActivity(activity -> {
+            final View view = activity.findViewById(com.android.calculator2.R.id.tool_field_0);
+            if (!(view instanceof EditText)) {
+                throw new AssertionError("tool_field_0 is not an EditText");
+            }
+            final EditText editText = (EditText) view;
+            editText.setSelection(3);
+        });
+
+        // 3. Verify selection is at position 3 (end of "175") before editing
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 3);
+
+        // 4. Press "9"
+        onView(withId(com.android.calculator2.R.id.digit_9)).perform(click());
+
+        // 5. Verify text becomes "1759" and cursor at position 4
+        onView(withId(com.android.calculator2.R.id.tool_field_0))
+                .check(matches(withText(field0Prefix() + "1759")));
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 4);
     }
 }
