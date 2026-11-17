@@ -10,9 +10,26 @@ screenshot_dir=/sdcard
 adb shell settings put global verifier_verify_adb_installs 0 || true
 adb shell settings put global package_verifier_enable 0 || true
 adb shell rm -f "$screenshot_dir/calculator-default.png" "$screenshot_dir/calculator-units.png" || true
-# Keep the Pixel 2 logical size while reducing software-rendered pixels on the hosted VM.
-adb shell wm size 720x1280 || true
+# Modern 19:9 aspect ratio (typical of current Android phones) at a size that keeps
+# software rendering on the hosted VM fast enough for the UI test suite.
+adb shell wm size 720x1520 || true
 adb shell wm density 280 || true
+
+# Wait for the fresh AVD to finish booting before touching it: installing APKs into a half-booted
+# system server is a reliable way to provoke the ANR dialogs this script then has to fight, and
+# the instrumented test used to race the boot on slow hosted VMs.
+adb wait-for-device || true
+booted=""
+bootanim=""
+for _ in $(seq 1 90); do
+    booted=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+    bootanim=$(adb shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r')
+    if [[ "$booted" == "1" && "$bootanim" != "running" ]]; then
+        break
+    fi
+    sleep 2
+done
+echo "::notice title=Android boot state::sys.boot_completed=${booted:-unknown}, bootanim=${bootanim:-unknown}"
 
 # Keep the headless AVD awake and unlocked. Fresh emulator boots occasionally leave the
 # System UI "isn't responding" prompt over the launcher, which prevents Espresso from getting
@@ -31,7 +48,6 @@ if [[ "$display_size" =~ ^([0-9]+)x([0-9]+)$ ]]; then
 else
     echo "::warning title=Android emulator wakeup::Could not parse the display size '$display_size'; using Pixel 2 Wait coordinates."
 fi
-echo "::notice title=Android emulator wakeup::Display ${display_size:-unknown}; tapping the system dialog Wait position at $wait_x,$wait_y if present."
 for attempt in 1 2 3; do
     adb shell input tap "$wait_x" "$wait_y" || true
     sleep 2
@@ -42,15 +58,38 @@ adb shell input keyevent KEYCODE_WAKEUP || true
 # Separate package installation from instrumentation so System UI has a chance to recover from
 # any ANR dialog caused by the install broadcasts before Espresso/ActivityScenario start.
 install_log=build/install-debug-android-test.log
-if ./gradlew installDebug installDebugAndroidTest --stacktrace --console=plain >"$install_log" 2>&1; then
-    cat "$install_log"
-else
+install_result=0
+# Hosted AVDs occasionally drop the adb connection or abort a package scan mid-sync, which Gradle
+# reports as the useless "Failed to install on any devices". Retry before failing the job, and
+# dump the device list so a dead emulator is distinguishable from a rejected APK.
+phase_start=$SECONDS
+for install_attempt in 1 2 3; do
+    if ./gradlew installDebug installDebugAndroidTest --stacktrace --console=plain --info >"$install_log" 2>&1; then
+        install_result=0
+        cat "$install_log"
+        break
+    fi
     install_result=$?
+    echo "::warning title=APK install attempt $install_attempt failed::$(adb devices -l 2>&1 | tr '\n' ' ' | sed -e 's/%/%25/g' -e 's/\r/%0D/g')"
+    adb reconnect offline >/dev/null 2>&1 || true
+    adb wait-for-device || true
+    sleep 15
+done
+if ((install_result != 0)); then
     cat "$install_log"
-    install_diagnostics=$(tail -n 40 "$install_log" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
+    install_diagnostics=$(grep -nEi 'Caused by|INSTALL_FAILED|InstallException|Failed to install|error:|Execution failed|What went wrong|offline|no devices|SIGNATURE|VERIFICATION|storage' "$install_log" | tail -n 30 || true)
+    if [[ -z "$install_diagnostics" ]]; then
+        install_diagnostics=$(tail -n 40 "$install_log")
+    fi
+    install_diagnostics+=$'\n--- adb devices ---\n'
+    install_diagnostics+=$(adb devices -l 2>&1)
+    install_diagnostics=$(printf '%s\n' "$install_diagnostics" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
     echo "::error title=Install UI test APKs failed::$install_diagnostics"
     exit "$install_result"
 fi
+
+install_seconds=$((SECONDS-phase_start))
+echo "::notice title=Phase duration::APK install phase (gradle installDebug installDebugAndroidTest) took ${install_seconds}s"
 
 # Dismiss a prompt that appeared during the install phase before starting instrumentation.
 for attempt in 1 2 3 4 5; do
@@ -60,12 +99,44 @@ done
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent KEYCODE_WAKEUP || true
 
-if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorToolUiTest#captureCalculatorScreenshot --stacktrace --console=plain >"$log_file" 2>&1; then
+# Run the whole instrumented class, not just the screenshot method: the geometry and mode-pill
+# guards (pillShowsEveryToolWithoutScrolling, scientificPadDoesNotMoveDisplay, ...) only protect
+# the UI if they actually execute on the emulator.
+phase_start=$SECONDS
+if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest --stacktrace --console=plain --info >"$log_file" 2>&1; then
     test_result=0
 else
     test_result=$?
 fi
 cat "$log_file"
+connected_seconds=$((SECONDS-phase_start))
+echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 21 tests) took ${connected_seconds}s"
+
+# Per-test wall times from the instrumentation XML, so slow tests are visible in the check
+# annotations instead of hidden inside one monolithic step log.
+per_test=$(python3 - <<'PY'
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+rows = []
+for xml in Path("build/outputs/androidTest-results").rglob("TEST-*.xml"):
+    try:
+        root = ET.parse(xml).getroot()
+    except (ET.ParseError, OSError):
+        continue
+    for case in root.iter("testcase"):
+        try:
+            rows.append((float(case.get("time", "0")), case.get("name", "?")))
+        except ValueError:
+            continue
+rows.sort(reverse=True)
+text = ", ".join(f"{name}={seconds:.1f}s" for seconds, name in rows)
+print(text[:1800].replace("%", "%25").replace("\n", " "))
+PY
+)
+if [[ -n "$per_test" ]]; then
+    echo "::notice title=Per-test durations::$per_test"
+fi
 
 if ((test_result == 0)); then
     test_summary=$(grep -E 'Tests [0-9]+/[0-9]+ completed|BUILD SUCCESSFUL' "$log_file" | tail -n 4 || true)
@@ -75,7 +146,7 @@ if ((test_result == 0)); then
     else
         echo "::warning title=Android UI test result::Gradle reported success without a visible test-count summary."
     fi
-    recovery_summary=$(adb logcat -d -v brief 2>/dev/null | grep -F 'CalculatorToolUiTest' | tail -n 12 || true)
+    recovery_summary=$(adb logcat -d -v brief 2>/dev/null | grep -F -e 'CalculatorToolUiTest' -e 'ToolInputCursorTest' | tail -n 12 || true)
     if [[ -n "$recovery_summary" ]]; then
         recovery_summary=${recovery_summary:0:1400}
         recovery_summary=$(printf '%s\n' "$recovery_summary" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
@@ -177,13 +248,13 @@ PY
         failure_summary+=$'\n--- Android test runner diagnostics ---\n'
         failure_summary+="${instrumentation_summary:0:1000}"
     fi
-    logcat_summary=$(adb logcat -d -v brief 2>/dev/null | grep -nEi -B 4 -A 12 'CalculatorToolUiTest|TestRunner|AndroidJUnitRunner|AssertionError|NoMatchingViewException|PerformException|FATAL EXCEPTION|AndroidRuntime|Fatal signal|am_crash|am_anr|Process .*died|OutOfMemory|lowmemory|SIGSEGV|SIGABRT|INSTRUMENTATION_RESULT|instrumentation.*fail|ANR|not responding|Input dispatching timed out|com\.android\.systemui|system_server' | tail -n 90 || true)
+    logcat_summary=$(adb logcat -d -v brief 2>/dev/null | grep -nEi -B 4 -A 12 'ToolInputCursorTest|CalculatorToolUiTest|TestRunner|AndroidJUnitRunner|AssertionError|NoMatchingViewException|PerformException|FATAL EXCEPTION|AndroidRuntime|Fatal signal|am_crash|am_anr|Process .*died|OutOfMemory|lowmemory|SIGSEGV|SIGABRT|INSTRUMENTATION_RESULT|instrumentation.*fail|ANR|not responding|Input dispatching timed out|com\.android\.systemui|system_server' | tail -n 90 || true)
     if [[ -n "$logcat_summary" ]]; then
-        if [[ ${#failure_summary} -gt 1600 ]]; then
-            failure_summary="${failure_summary:0:1600} [report output truncated]"
+        if [[ ${#failure_summary} -gt 2200 ]]; then
+            failure_summary="${failure_summary:0:2200} [report output truncated]"
         fi
         failure_summary+=$'\n--- Relevant emulator logcat ---\n'
-        failure_summary+="${logcat_summary:0:1600}"
+        failure_summary+="${logcat_summary:0:1100}"
     fi
     if [[ ${#failure_summary} -gt 3500 ]]; then
         failure_summary="${failure_summary:0:3500} [diagnostics truncated]"
@@ -216,42 +287,32 @@ if ((test_result == 0)) && [[ "$default_screenshot_is_from_test" != true ]]; the
     echo "::error title=Missing test-generated screenshot::The selected screenshot test passed without saving calculator-default.png."
 fi
 
-emit_review_preview() {
+# Compact JPEG twins of the screenshots, for the dedicated preview-publishing steps in
+# android-ui.yml. The base64 is NOT emitted here: GitHub caps workflow-command annotations per
+# step, and emitting the image from this (annotation-heavy) step truncated it mid-stream — every
+# review so far has been reading a half-decoded frame.
+make_review_preview() {
     local image="$1"
-    local label="$2"
     local preview="${image%.png}-review.jpg"
-    local payload="$image"
-    local format=png
-    local part=1
-    if [[ ! -f "$image" ]]; then
-        return 0
+    rm -f "$preview"
+    [[ -s "$image" ]] || return 0
+    if command -v magick >/dev/null 2>&1; then
+        magick "$image" -resize 360x -quality 38 "$preview" >/dev/null 2>&1 || true
     fi
-
-    # Prefer a compact JPEG, but fall back to the PNG itself rather than failing the test job
-    # when the hosted runner has no image-conversion utility installed.
-    if command -v sips >/dev/null 2>&1 && \
-            sips -s format jpeg -s formatOptions 60 -Z 720 "$image" --out "$preview" >/dev/null 2>&1; then
-        payload="$preview"
-        format=jpeg
-    elif command -v magick >/dev/null 2>&1 && \
-            magick "$image" -resize 720x -quality 60 "$preview" >/dev/null 2>&1; then
-        payload="$preview"
-        format=jpeg
-    elif command -v convert >/dev/null 2>&1 && \
-            convert "$image" -resize 720x -quality 60 "$preview" >/dev/null 2>&1; then
-        payload="$preview"
-        format=jpeg
+    if [[ ! -s "$preview" ]] && command -v convert >/dev/null 2>&1; then
+        convert "$image" -resize 360x -quality 38 "$preview" >/dev/null 2>&1 || true
     fi
-
-    echo "::notice title=$label preview format::$format"
-    while IFS= read -r chunk; do
-        echo "::notice title=$label $format part $part::$chunk"
-        part=$((part + 1))
-    done < <(base64 < "$payload" | tr -d '\n' | fold -w 3000)
+    if [[ ! -s "$preview" ]] && command -v ffmpeg >/dev/null 2>&1; then
+        ffmpeg -v error -y -i "$image" -vf scale=360:-2 -q:v 8 "$preview" >/dev/null 2>&1 || true
+    fi
+    if [[ ! -s "$preview" ]] && command -v sips >/dev/null 2>&1; then
+        sips -s format jpeg -s formatOptions 38 -Z 360 "$image" --out "$preview" >/dev/null 2>&1 || true
+    fi
+    # Stay silent when no converter exists: the publish steps fall back to the raw PNG, and
+    # every annotation here spends part of the check run's 50-annotation budget.
 }
 
-# Keep original PNGs as artifacts; compact image data is also exposed in check annotations for review.
-emit_review_preview build/ui-screenshots/calculator-default.png "VM calculator screenshot"
-emit_review_preview build/ui-screenshots/calculator-units.png "VM unit-converter screenshot"
+make_review_preview build/ui-screenshots/calculator-default.png
+make_review_preview build/ui-screenshots/calculator-units.png
 
 exit "$test_result"

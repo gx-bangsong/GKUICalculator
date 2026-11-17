@@ -26,6 +26,7 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Looper;
 import android.text.Editable;
 import android.text.Layout;
 import android.text.SpannableStringBuilder;
@@ -254,6 +255,7 @@ public class Calculator extends AppCompatActivity
     // the layout grows the display automatically when the scientific pad is hidden).
     private static final String PREFS_NAME = "calc_tools";
     private static final String PREF_SCIENTIFIC = "scientific_pad_visible";
+    private static final String PREF_PERCENT_OF_VALUE = "percent_of_value";
 
     /** Most lines a Chinese-uppercase result may wrap onto before it starts shrinking. */
     private static final int UPPERCASE_MAX_LINES = 4;
@@ -429,9 +431,6 @@ public class Calculator extends AppCompatActivity
         mMainCalculator.setTransitionListener(new MotionLayout.TransitionListener() {
             @Override
             public void onTransitionStarted(MotionLayout motionLayout, int startId, int endId) {
-                if (mToolManager != null) {
-                    mToolManager.collapsePanel();
-                }
                 if (startId == R.id.start_state) {
                     showHistoryFragment();
                 }
@@ -462,10 +461,8 @@ public class Calculator extends AppCompatActivity
         mFormulaText.addTextChangedListener(mFormulaTextWatcher);
         mDeleteButton.setOnLongClickListener(this);
 
-        // Life-calculation tool bar (Stage 1): persistent bar + overlay "more" panel.
-        mToolManager = new ToolManager(this, this,
-                findViewById(R.id.tool_bar),
-                findViewById(R.id.tool_panel_overlay));
+        // Life-calculation tool bar: the mode pill is the only tool switcher.
+        mToolManager = new ToolManager(this, this, findViewById(R.id.tool_bar));
         mToolManager.register(new CalculatorMode());
         mToolManager.register(new UnitConverterMode());
         mToolManager.register(new CurrencyConverterMode());
@@ -476,14 +473,19 @@ public class Calculator extends AppCompatActivity
         mToolManager.register(new ProgrammerMode());
         mToolManager.register(new RelationshipMode());
         mToolManager.init();
-        // DEBUG: record the overlay's initial visibility to diagnose "expanded at launch".
-        final View overlay = findViewById(R.id.tool_panel_overlay);
-        Log.d("ToolDebug", "onCreate: after init, overlay="
-                + (overlay == null ? "null" : ("vis=" + overlay.getVisibility()
-                        + "(" + (overlay.getVisibility() == View.GONE ? "GONE"
-                                : overlay.getVisibility() == View.VISIBLE ? "VISIBLE" : "INVISIBLE")
-                        + ")"))
-                + " panelExpanded=" + (mToolManager != null && mToolManager.isPanelExpanded()));
+        // The kinship tables expand once per process (~30k rule applications per dialect). Start
+        // that at the first idle moment after launch: the mode pill puts the tool one tap away,
+        // so warming only when it opens let the first key press race the table build.
+        Looper.myQueue().addIdleHandler(() -> {
+            if (!CalculatorApplication.isInstrumentedTest()) {
+                RelationshipMode.preload(this);
+            }
+            return false;
+        });
+
+        // Percent reading survives restarts; apply it before any restored expression evaluates.
+        CalculatorExpr.setPercentOfValue(getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getBoolean(PREF_PERCENT_OF_VALUE, true));
 
         if (savedInstanceState != null) {
             restoreInstanceState(savedInstanceState);
@@ -622,9 +624,6 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void onBackPressed() {
-        if (mToolManager != null && mToolManager.onBackPressed()) {
-            return;
-        }
         if (!stopActionModeOrContextMenu()) {
             final HistoryFragment historyFragment = getHistoryFragment();
             if (mMainCalculator.getCurrentState() == R.id.end_state
@@ -1268,7 +1267,36 @@ public class Calculator extends AppCompatActivity
                     && activeTool.isSecondaryOutputEnabled());
         }
 
+        // Percent semantics belong to the calculator itself; tools consume the % key themselves.
+        // The base calculator counts as an active tool mode, so "no tool" is isActive() == false,
+        // not getActive() == null (which never happens once the ToolManager is initialised).
+        final MenuItem percentOfValue = menu.findItem(R.id.menu_percent_of_value);
+        if (percentOfValue != null) {
+            percentOfValue.setVisible(mToolManager == null || !mToolManager.isActive());
+            percentOfValue.setChecked(CalculatorExpr.isPercentOfValue());
+        }
+
         // The kinship tool speaks either North or South Chinese; pick exactly one.
+        // Programmer register conversion options: a second set behind the overflow menu.
+        final ProgrammerMode programmer = activeTool instanceof ProgrammerMode
+                ? (ProgrammerMode) activeTool : null;
+        final int width = programmer == null ? 64 : programmer.getWidthBits();
+        final MenuItem width8 = menu.findItem(R.id.menu_programmer_width_8);
+        final MenuItem width16 = menu.findItem(R.id.menu_programmer_width_16);
+        final MenuItem width32 = menu.findItem(R.id.menu_programmer_width_32);
+        final MenuItem width64 = menu.findItem(R.id.menu_programmer_width_64);
+        final MenuItem unsignedItem = menu.findItem(R.id.menu_programmer_unsigned);
+        width8.setVisible(programmer != null);
+        width16.setVisible(programmer != null);
+        width32.setVisible(programmer != null);
+        width64.setVisible(programmer != null);
+        unsignedItem.setVisible(programmer != null);
+        width8.setChecked(width == 8);
+        width16.setChecked(width == 16);
+        width32.setChecked(width == 32);
+        width64.setChecked(width == 64);
+        unsignedItem.setChecked(programmer != null && programmer.isUnsigned());
+
         final RelationshipMode kinship = activeTool instanceof RelationshipMode
                 ? (RelationshipMode) activeTool : null;
         final MenuItem north = menu.findItem(R.id.menu_relationship_north);
@@ -1299,6 +1327,18 @@ public class Calculator extends AppCompatActivity
         } else if (itemId == R.id.menu_fraction) {
             displayFraction();
             return true;
+        } else if (itemId == R.id.menu_percent_of_value) {
+            final boolean ofValue = !CalculatorExpr.isPercentOfValue();
+            CalculatorExpr.setPercentOfValue(ofValue);
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                    .edit().putBoolean(PREF_PERCENT_OF_VALUE, ofValue).apply();
+            item.setChecked(ofValue);
+            // Re-read what is on screen under the new semantics instead of waiting for a key.
+            if (mEvaluator.getExpr(Evaluator.MAIN_INDEX).hasInterestingOps()) {
+                mEvaluator.touch();
+                mEvaluator.evaluateAndNotify(Evaluator.MAIN_INDEX, this, mResultText);
+            }
+            return true;
         } else if (itemId == R.id.menu_licenses) {
             startActivity(new Intent(this, Licenses.class));
             return true;
@@ -1315,6 +1355,27 @@ public class Calculator extends AppCompatActivity
             ExchangeRateRepository.setAutoUpdateEnabled(this, enabled);
             item.setChecked(enabled);
             return true;
+        } else if (itemId == R.id.menu_programmer_width_8
+                || itemId == R.id.menu_programmer_width_16
+                || itemId == R.id.menu_programmer_width_32
+                || itemId == R.id.menu_programmer_width_64) {
+            final ToolMode active = mToolManager == null ? null : mToolManager.getActive();
+            if (active instanceof ProgrammerMode) {
+                final int bits = itemId == R.id.menu_programmer_width_8 ? 8
+                        : itemId == R.id.menu_programmer_width_16 ? 16
+                        : itemId == R.id.menu_programmer_width_32 ? 32 : 64;
+                ((ProgrammerMode) active).setWidthBits(bits);
+                item.setChecked(true);
+                return true;
+            }
+        } else if (itemId == R.id.menu_programmer_unsigned) {
+            final ToolMode active = mToolManager == null ? null : mToolManager.getActive();
+            if (active instanceof ProgrammerMode) {
+                final boolean unsigned = !item.isChecked();
+                ((ProgrammerMode) active).setUnsigned(unsigned);
+                item.setChecked(unsigned);
+                return true;
+            }
         } else if (itemId == R.id.menu_relationship_north
                 || itemId == R.id.menu_relationship_south) {
             final ToolMode activeTool = mToolManager == null ? null : mToolManager.getActive();
@@ -1706,8 +1767,9 @@ public class Calculator extends AppCompatActivity
                 // A-F are valid only in hexadecimal; bitwise keys are always available.
                 key.setEnabled(i >= 6 || radix == 16);
             }
+            // Visible text only: a content description duplicating it would double TalkBack's
+            // reading and clash with the mode-pill segment's description in UI tests.
             mModeView.setText(R.string.tool_programmer);
-            mModeView.setContentDescription(getString(R.string.tool_programmer));
         } else {
             restoreScientificPadLabels();
             onModeChanged(mEvaluator.getDegreeMode(Evaluator.MAIN_INDEX));
@@ -1775,8 +1837,8 @@ public class Calculator extends AppCompatActivity
             swap.setCheckable(true);
             swap.setChecked(reverse);
             swap.setSelected(reverse);
+            // Visible text only; the pill segment owns the tool's content description.
             mModeView.setText(R.string.tool_relationship);
-            mModeView.setContentDescription(getString(R.string.tool_relationship));
         } else {
             restoreNumericPadLabels();
             onModeChanged(mEvaluator.getDegreeMode(Evaluator.MAIN_INDEX));

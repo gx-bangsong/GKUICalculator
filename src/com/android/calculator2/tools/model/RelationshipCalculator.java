@@ -166,7 +166,34 @@ public final class RelationshipCalculator {
         if (engine == null) {
             return EMPTY;
         }
-        final List<String> resolved = engine.resolve(tokens(chain), reverse);
+        return speak(engine.resolve(tokens(chain), reverse));
+    }
+
+    /**
+     * Like {@link #resolve}, but returns {@code null} instead of waiting when the resolver for
+     * {@code dialect} is still being built. The UI uses this to draw a "preparing" line and
+     * re-draw once the warm-up finishes, so a key press never freezes behind the table build.
+     */
+    @Nullable
+    public static Answer resolveNow(@Nullable RelationshipData data, @NonNull List<Step> chain,
+            @NonNull Dialect dialect, boolean reverse) {
+        if (chain.isEmpty()) {
+            return EMPTY;
+        }
+        if (data == null) {
+            // Tables not loaded yet (or still loading): say "not ready", not "no answer".
+            return null;
+        }
+        final RelationshipEngine engine = RelationshipEngine.peek(data,
+                dialect == Dialect.NORTH ? "north" : null);
+        if (engine == null) {
+            return null;
+        }
+        return speak(engine.resolve(tokens(chain), reverse));
+    }
+
+    @NonNull
+    private static Answer speak(@NonNull List<String> resolved) {
         final List<String> spoken = new ArrayList<>(resolved.size());
         for (String term : resolved) {
             spoken.add(colloquial(term));

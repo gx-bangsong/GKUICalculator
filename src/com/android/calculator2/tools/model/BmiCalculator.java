@@ -19,6 +19,9 @@ public final class BmiCalculator {
 
     public enum Category { UNDERWEIGHT, NORMAL, OVERWEIGHT, OBESE }
 
+    /** Selected gender; drives the standard-weight reference shown with the BMI. */
+    public enum Gender { MALE, FEMALE }
+
     public static final class Result {
         /** BMI rounded to one decimal. */
         public final BigDecimal bmi;
@@ -63,5 +66,22 @@ public final class BmiCalculator {
         } else {
             return Category.OBESE;
         }
+    }
+
+    /**
+     * Standard weight in kilograms under the customary Chinese formulae:
+     * male (height − 80) × 0.7, female (height − 70) × 0.6, rounded to 0.1 kg.
+     */
+    public static BigDecimal standardWeight(BigDecimal heightCm, Gender gender, MathContext mc) {
+        if (heightCm == null || gender == null || heightCm.signum() <= 0) {
+            return null;
+        }
+        final BigDecimal base = gender == Gender.MALE
+                ? heightCm.subtract(new BigDecimal("80"), mc)
+                : heightCm.subtract(new BigDecimal("70"), mc);
+        final BigDecimal factor = gender == Gender.MALE
+                ? new BigDecimal("0.7")
+                : new BigDecimal("0.6");
+        return base.multiply(factor, mc).setScale(1, RoundingMode.HALF_UP);
     }
 }

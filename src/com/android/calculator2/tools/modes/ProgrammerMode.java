@@ -9,6 +9,7 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -20,7 +21,7 @@ import com.android.calculator2.tools.ToolId;
 import com.android.calculator2.tools.ToolMode;
 import com.android.calculator2.tools.model.ProgrammerCalculator;
 import com.android.calculator2.tools.model.ProgrammerCalculator.Operation;
-import com.google.android.material.button.MaterialButtonToggleGroup;
+import com.google.android.material.button.MaterialButton;
 
 import java.math.BigDecimal;
 
@@ -28,6 +29,11 @@ import java.math.BigDecimal;
 public final class ProgrammerMode implements ToolMode {
 
     private int mRadix = 10;
+    /** Second numeral system shown beneath the entry, converter-style. */
+    private int mSecondRadix = 16;
+    /** Conversion options from the overflow menu: register width and signedness. */
+    private int mWidthBits = 64;
+    private boolean mUnsigned;
     private final StringBuilder mEntry = new StringBuilder("0");
     private long mAccumulator;
     @Nullable
@@ -71,6 +77,7 @@ public final class ProgrammerMode implements ToolMode {
         mountControls(host.getContext());
         host.setProgrammerPadMode(true, mRadix);
         host.setToolResultTextSizeSp(36f);
+        host.refreshOptionsMenu();
         redisplay();
     }
 
@@ -84,6 +91,7 @@ public final class ProgrammerMode implements ToolMode {
         }
         mControlRoot = null;
         mHost = null;
+        host.refreshOptionsMenu();
     }
 
     @Override
@@ -200,22 +208,23 @@ public final class ProgrammerMode implements ToolMode {
         }
         mControlRoot = LayoutInflater.from(context)
                 .inflate(R.layout.tool_programmer_control, slot, false);
-        final MaterialButtonToggleGroup group =
-                mControlRoot.findViewById(R.id.programmer_base_group);
-        group.addOnButtonCheckedListener((buttonGroup, checkedId, isChecked) -> {
-            if (!isChecked) {
-                return;
-            }
-            if (checkedId == R.id.programmer_base_hex) {
-                changeRadix(16);
-            } else if (checkedId == R.id.programmer_base_dec) {
-                changeRadix(10);
-            } else if (checkedId == R.id.programmer_base_oct) {
-                changeRadix(8);
-            } else if (checkedId == R.id.programmer_base_bin) {
-                changeRadix(2);
-            }
-        });
+        // inputType="text" gives the value fields an Editor so cursorVisible and the long-press
+        // selection menu work. Keep the soft keyboard off: the calculator pad is the keyboard.
+        final TextView valueIn = mControlRoot.findViewById(R.id.programmer_value_in);
+        if (valueIn != null) valueIn.setShowSoftInputOnFocus(false);
+        final TextView valueOut = mControlRoot.findViewById(R.id.programmer_value_out);
+        if (valueOut != null) valueOut.setShowSoftInputOnFocus(false);
+        final MaterialButton chipIn = mControlRoot.findViewById(R.id.programmer_chip_in);
+        if (chipIn != null) {
+            chipIn.setOnClickListener(v -> changeRadix(nextRadix(mRadix, mSecondRadix)));
+        }
+        final MaterialButton chipOut = mControlRoot.findViewById(R.id.programmer_chip_out);
+        if (chipOut != null) {
+            chipOut.setOnClickListener(v -> {
+                mSecondRadix = nextRadix(mSecondRadix, mRadix);
+                redisplay();
+            });
+        }
         slot.removeAllViews();
         slot.addView(mControlRoot);
         slot.setVisibility(View.VISIBLE);
@@ -229,8 +238,7 @@ public final class ProgrammerMode implements ToolMode {
         mRadix = radix;
         setEntry(current);
         if (mPendingOperation != null) {
-            mExpression = ProgrammerCalculator.format(mAccumulator, mRadix)
-                    + " " + symbol(mPendingOperation);
+            mExpression = fmt(mAccumulator, mRadix) + " " + symbol(mPendingOperation);
         }
         if (mHost != null) {
             mHost.setProgrammerPadMode(true, mRadix);
@@ -270,8 +278,7 @@ public final class ProgrammerMode implements ToolMode {
             mAccumulator = currentValue();
         }
         mPendingOperation = operation;
-        mExpression = ProgrammerCalculator.format(mAccumulator, mRadix)
-                + " " + symbol(operation);
+        mExpression = fmt(mAccumulator, mRadix) + " " + symbol(operation);
         mStartNewEntry = true;
         redisplay();
     }
@@ -281,9 +288,9 @@ public final class ProgrammerMode implements ToolMode {
             return;
         }
         final long right = currentValue();
-        final String expression = ProgrammerCalculator.format(mAccumulator, mRadix)
+        final String expression = fmt(mAccumulator, mRadix)
                 + " " + symbol(mPendingOperation) + " "
-                + ProgrammerCalculator.format(right, mRadix) + " =";
+                + fmt(right, mRadix) + " =";
         if (applyPending(right)) {
             mExpression = expression;
             mPendingOperation = null;
@@ -295,7 +302,7 @@ public final class ProgrammerMode implements ToolMode {
     private void applyNot() {
         final long value = currentValue();
         final long result = ProgrammerCalculator.not(value);
-        mExpression = "NOT " + ProgrammerCalculator.format(value, mRadix);
+        mExpression = "NOT " + fmt(value, mRadix);
         setEntry(result);
         mAccumulator = result;
         mPendingOperation = null;
@@ -354,6 +361,98 @@ public final class ProgrammerMode implements ToolMode {
         }
         mHost.setToolFormula(mExpression);
         mHost.setToolResult(mError == null ? mEntry : mError);
+        if (mControlRoot == null) {
+            return;
+        }
+        final long value = mError == null ? currentValue() : 0L;
+        final TextView valueIn = mControlRoot.findViewById(R.id.programmer_value_in);
+        if (valueIn != null) {
+            valueIn.setText(fmt(value, mRadix));
+        }
+        final TextView valueOut = mControlRoot.findViewById(R.id.programmer_value_out);
+        if (valueOut != null) {
+            valueOut.setText(fmt(value, mSecondRadix));
+        }
+        final MaterialButton chipIn = mControlRoot.findViewById(R.id.programmer_chip_in);
+        if (chipIn != null) {
+            chipIn.setText(radixNameRes(mRadix));
+        }
+        final MaterialButton chipOut = mControlRoot.findViewById(R.id.programmer_chip_out);
+        if (chipOut != null) {
+            chipOut.setText(radixNameRes(mSecondRadix));
+        }
+        final TextView widthLabel = mControlRoot.findViewById(R.id.programmer_width_label);
+        if (widthLabel != null) {
+            final Context context = mHost.getContext();
+            widthLabel.setText(context.getString(mUnsigned
+                    ? R.string.programmer_unsigned : R.string.programmer_signed)
+                    + " " + mWidthBits + "-bit");
+        }
+    }
+
+    /** The next radix in the HEX/DEC/OCT/BIN cycle that is not {@code excluded}. */
+    private static int nextRadix(int current, int excluded) {
+        final int[] order = {16, 10, 8, 2};
+        for (int i = 0; i < order.length; i++) {
+            if (order[i] == current) {
+                for (int step = 1; step <= order.length; step++) {
+                    final int candidate = order[(i + step) % order.length];
+                    if (candidate != excluded) {
+                        return candidate;
+                    }
+                }
+            }
+        }
+        return current;
+    }
+
+    private static int radixNameRes(int radix) {
+        switch (radix) {
+            case 16:
+                return R.string.programmer_hex;
+            case 8:
+                return R.string.programmer_oct;
+            case 2:
+                return R.string.programmer_bin;
+            default:
+                return R.string.programmer_dec;
+        }
+    }
+
+    /** Formats a register value under the overflow menu's width / signedness options. */
+    private String fmt(long value, int radix) {
+        long masked = value;
+        if (mWidthBits < 64) {
+            masked &= (1L << mWidthBits) - 1;
+            if (!mUnsigned && (masked & (1L << (mWidthBits - 1))) != 0) {
+                masked |= -1L << mWidthBits;   // sign-extend back to 64 bits
+            }
+        }
+        final String digits = mUnsigned
+                ? Long.toUnsignedString(masked, radix)
+                : Long.toString(masked, radix);
+        return digits.toUpperCase(java.util.Locale.ROOT);
+    }
+
+    /** Overflow-menu conversion options. */
+    public void setWidthBits(int widthBits) {
+        if (widthBits == 8 || widthBits == 16 || widthBits == 32 || widthBits == 64) {
+            mWidthBits = widthBits;
+            redisplay();
+        }
+    }
+
+    public int getWidthBits() {
+        return mWidthBits;
+    }
+
+    public void setUnsigned(boolean unsigned) {
+        mUnsigned = unsigned;
+        redisplay();
+    }
+
+    public boolean isUnsigned() {
+        return mUnsigned;
     }
 
     @Nullable

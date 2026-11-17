@@ -854,6 +854,22 @@ class CalculatorExpr {
 
     private static final UnifiedReal ONE_HUNDREDTH = new UnifiedReal(100).inverse();
 
+    /**
+     * How an additive percent reads: {@code true} takes it of the preceding value (the raw-value
+     * reading, 200+10% = 220, also Google's and most Chinese OEM calculators' default);
+     * {@code false} reads every percent as a plain proportion (200+10% = 200.1). Multiplicative
+     * and bare percents are always the plain proportion. Selectable in the overflow menu.
+     */
+    private static volatile boolean sPercentOfValue = true;
+
+    public static void setPercentOfValue(boolean ofValue) {
+        sPercentOfValue = ofValue;
+    }
+
+    public static boolean isPercentOfValue() {
+        return sPercentOfValue;
+    }
+
     private EvalRet evalSuffix(int i, EvalContext ec) throws SyntaxException {
         final EvalRet tmp = evalUnary(i, ec);
         int cpos = tmp.pos;
@@ -940,6 +956,10 @@ class CalculatorExpr {
      * but is consistent with Google web search.
      */
     private boolean isPercent(int pos) {
+        if (!sPercentOfValue) {
+            // Proportion reading: no additive special case, every % is simply /100.
+            return false;
+        }
         if (mExpr.size() < pos + 2 || !isOperatorUnchecked(pos + 1, R.id.op_pct)) {
             return false;
         }

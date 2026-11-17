@@ -276,6 +276,12 @@ public class CurrencyConverterMode implements ToolMode {
         mSecondaryRow = mControlRoot.findViewById(R.id.currency_secondary_row);
         mToSecondaryView = mControlRoot.findViewById(R.id.currency_to_2);
         mSecondaryResultView = mControlRoot.findViewById(R.id.currency_result_2_text);
+        // inputType="text" gives the input/result fields an Editor so cursorVisible and the
+        // long-press selection menu work. Keep the soft keyboard off: the calculator pad is the
+        // keyboard.
+        if (mInputView != null) mInputView.setShowSoftInputOnFocus(false);
+        if (mResultView != null) mResultView.setShowSoftInputOnFocus(false);
+        if (mSecondaryResultView != null) mSecondaryResultView.setShowSoftInputOnFocus(false);
         final ImageButton swap = mControlRoot.findViewById(R.id.currency_swap);
         swap.setOnClickListener(v -> swapCurrencies());
         configureCurrencyDropdown(mFromView, SELECTOR_FROM);

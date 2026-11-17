@@ -14,7 +14,6 @@ import androidx.annotation.Nullable;
 import com.android.calculator2.KeyMaps;
 import com.android.calculator2.R;
 import com.android.calculator2.tools.ui.ToolBarView;
-import com.android.calculator2.tools.ui.ToolPanelOverlay;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -28,7 +27,7 @@ import java.util.List;
  *   <li>Hold registered {@link ToolMode}s and the currently active one.</li>
  *   <li>Switch modes (with value carry-over and display hand-off via {@link ToolHost}).</li>
  *   <li>Order the toolbar chips by usage frequency (SharedPreferences) plus first-run defaults.</li>
- *   <li>Drive the overlay panel (expand/collapse) and route pad input to the active tool.</li>
+ *   <li>Route pad input to the active tool.</li>
  * </ul>
  * The calculator's own mode is the default; while it is active this manager stays out of the way
  * and the existing engine handles input/display.
@@ -38,19 +37,16 @@ public class ToolManager {
     private final Context mAppContext;
     private final ToolHost mHost;
     private final ToolBarView mToolBar;
-    private final ToolPanelOverlay mOverlay;
 
     private final LinkedHashMap<String, ToolMode> mModes = new LinkedHashMap<>();
     @Nullable
     private ToolMode mActive;
-    private boolean mPanelExpanded;
 
     public ToolManager(@NonNull Context context, @NonNull ToolHost host,
-            @Nullable ToolBarView toolBar, @Nullable ToolPanelOverlay overlay) {
+            @Nullable ToolBarView toolBar) {
         mAppContext = context.getApplicationContext();
         mHost = host;
         mToolBar = toolBar;
-        mOverlay = overlay;
 
         if (mToolBar != null) {
             mToolBar.setListener(new ToolBarView.Listener() {
@@ -59,9 +55,6 @@ public class ToolManager {
                     activate(toolId);
                 }
             });
-        }
-        if (mOverlay != null) {
-            mOverlay.setListener(toolId -> activate(toolId));
         }
     }
 
@@ -73,10 +66,7 @@ public class ToolManager {
     /** Finalize setup: select the calculator mode as active and render the UI. */
     public void init() {
         mActive = mModes.get(ToolId.CALCULATOR);
-        Log.d("ToolDebug", "init: active=" + (mActive == null ? "null" : mActive.getId())
-                + " overlay=" + (mOverlay != null)
-                + " overlayVis=" + (mOverlay == null ? "null" : mOverlay.getVisibility())
-                + " panelExpanded=" + mPanelExpanded);
+        Log.d("ToolDebug", "init: active=" + (mActive == null ? "null" : mActive.getId()));
         refresh();
     }
 
@@ -88,18 +78,6 @@ public class ToolManager {
     /** True when a non-calculator tool is active (pad input is routed to the tool). */
     public boolean isActive() {
         return mActive != null && !mActive.getId().equals(ToolId.CALCULATOR);
-    }
-
-    /** All registered tools except the calculator (shown in the "more" grid). */
-    @NonNull
-    public List<ToolMode> getMoreItems() {
-        List<ToolMode> result = new ArrayList<>();
-        for (ToolMode mode : mModes.values()) {
-            if (!mode.getId().equals(ToolId.CALCULATOR)) {
-                result.add(mode);
-            }
-        }
-        return result;
     }
 
     /**
@@ -150,7 +128,6 @@ public class ToolManager {
         }
 
         mHost.refreshOptionsMenu();
-        collapsePanel();
         refresh();
     }
 
@@ -192,64 +169,10 @@ public class ToolManager {
         return true;
     }
 
-    // ---- Overlay panel ----
-
-    public void togglePanel() {
-        Log.d("ToolDebug", "togglePanel: mPanelExpanded=" + mPanelExpanded);
-        if (mPanelExpanded) {
-            collapsePanel();
-        } else {
-            expandPanel();
-        }
-    }
-
-    public void expandPanel() {
-        Log.d("ToolDebug", "expandPanel: mPanelExpanded=" + mPanelExpanded
-                + " overlay=" + (mOverlay != null));
-        if (mPanelExpanded || mOverlay == null) {
-            mPanelExpanded = true;
-            refresh();
-            return;
-        }
-        mPanelExpanded = true;
-        mOverlay.expand();
-        Log.d("ToolDebug", "expandPanel: after expand(), overlayVis=" + mOverlay.getVisibility());
-        refresh();
-    }
-
-    public void collapsePanel() {
-        Log.d("ToolDebug", "collapsePanel: mPanelExpanded=" + mPanelExpanded);
-        if (!mPanelExpanded) {
-            return;
-        }
-        mPanelExpanded = false;
-        if (mOverlay != null) {
-            mOverlay.collapse();
-            Log.d("ToolDebug", "collapsePanel: after collapse(), overlayVis=" + mOverlay.getVisibility());
-        }
-        refresh();
-    }
-
-    public boolean isPanelExpanded() {
-        return mPanelExpanded;
-    }
-
-    /** Consume back-press to close the panel first. Returns true if handled. */
-    public boolean onBackPressed() {
-        if (mPanelExpanded) {
-            collapsePanel();
-            return true;
-        }
-        return false;
-    }
-
     private void refresh() {
         final String activeId = mActive == null ? null : mActive.getId();
         if (mToolBar != null) {
             mToolBar.render(getToolbarItems(), activeId);
-        }
-        if (mOverlay != null) {
-            mOverlay.render(getMoreItems());
         }
     }
 }

@@ -15,6 +15,8 @@ import com.android.calculator2.R;
 import com.android.calculator2.tools.ToolHost;
 import com.android.calculator2.tools.ToolId;
 import com.android.calculator2.tools.model.MortgageCalculator;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.button.MaterialButtonToggleGroup;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -29,6 +31,18 @@ public class MortgageMode extends FieldToolMode {
     private static final MathContext MC = new MathContext(20, RoundingMode.HALF_UP);
 
     private boolean mEqualPayment = true;
+
+    /** Loan category: commercial, provident fund, or a combined loan. */
+    private int mLoanType = LOAN_COMMERCIAL;
+    /** Commercial rate basis: benchmark rate or LPR + spread. */
+    private boolean mLprBasis;
+
+    private static final int LOAN_COMMERCIAL = 0;
+    private static final int LOAN_FUND = 1;
+    private static final int LOAN_COMBINED = 2;
+
+    /** Current provident-fund rate for first homes, percent. */
+    private static final String FUND_RATE_PERCENT = "3.1";
 
     @NonNull
     @Override
@@ -53,22 +67,32 @@ public class MortgageMode extends FieldToolMode {
 
     @Override
     protected int fieldCount() {
-        return 3;
+        return 5;
     }
 
     @Override
     protected String[] fieldLabels() {
         Context ctx = ctx();
+        final String rateLabel;
+        if (mLoanType == LOAN_FUND) {
+            rateLabel = ctx.getString(R.string.tool_mortgage_field_fund_rate);
+        } else if (mLprBasis) {
+            rateLabel = ctx.getString(R.string.tool_mortgage_field_lpr);
+        } else {
+            rateLabel = ctx.getString(R.string.tool_mortgage_field_rate);
+        }
         return new String[] {
                 ctx.getString(R.string.tool_mortgage_field_principal),
-                ctx.getString(R.string.tool_mortgage_field_rate),
+                rateLabel,
                 ctx.getString(R.string.tool_mortgage_field_years),
+                ctx.getString(R.string.tool_mortgage_field_spread),
+                ctx.getString(R.string.tool_mortgage_field_fund_amount),
         };
     }
 
     @Override
     protected String[] fieldDefaults() {
-        return new String[] {"1000000", "4.9", "30"};
+        return new String[] {"1000000", mLprBasis ? "3.6" : "4.9", "30", "30", "400000"};
     }
 
     @Override
@@ -86,7 +110,63 @@ public class MortgageMode extends FieldToolMode {
                 recomputeAndDisplay();
             });
         }
+        final MaterialButtonToggleGroup types = root.findViewById(R.id.mortgage_type_group);
+        if (types != null) {
+            types.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+                if (!isChecked) {
+                    return;
+                }
+                final int type = checkedId == R.id.mortgage_type_fund ? LOAN_FUND
+                        : checkedId == R.id.mortgage_type_combined ? LOAN_COMBINED
+                        : LOAN_COMMERCIAL;
+                if (type != mLoanType) {
+                    mLoanType = type;
+                    onLoanShapeChanged();
+                }
+            });
+        }
+        final MaterialButton basisToggle = root.findViewById(R.id.mortgage_basis_toggle);
+        if (basisToggle != null) {
+            basisToggle.setText(mHost.getContext().getString(
+                    mLprBasis ? R.string.tool_mortgage_lpr : R.string.tool_mortgage_benchmark));
+            basisToggle.setOnClickListener(v -> {
+                mLprBasis = !mLprBasis;
+                basisToggle.setText(mHost.getContext().getString(
+                        mLprBasis ? R.string.tool_mortgage_lpr : R.string.tool_mortgage_benchmark));
+                onLoanShapeChanged();
+            });
+        }
         updateMethodLabel();
+        updateLoanShapeUi();
+    }
+
+    /** Rate/field shape changed: refresh labels, visibility and the rate defaults. */
+    private void onLoanShapeChanged() {
+        if (mFields != null) {
+            mFields.set(1, mLprBasis && mLoanType != LOAN_FUND ? "3.6"
+                    : mLoanType == LOAN_FUND ? FUND_RATE_PERCENT : "4.9");
+            mFields.setActive(0);
+            mCursorPos[0] = mFields.get(0).length();
+        }
+        updateLoanShapeUi();
+        refreshFields();
+        recomputeAndDisplay();
+    }
+
+    private void updateLoanShapeUi() {
+        final View basisToggle = find(R.id.mortgage_basis_toggle);
+        if (basisToggle != null) {
+            basisToggle.setVisibility(mLoanType == LOAN_FUND ? View.GONE : View.VISIBLE);
+        }
+        final View spread = find(R.id.tool_field_3);
+        if (spread != null) {
+            spread.setVisibility(mLprBasis && mLoanType != LOAN_FUND
+                    ? View.VISIBLE : View.GONE);
+        }
+        final View fundAmount = find(R.id.tool_field_4);
+        if (fundAmount != null) {
+            fundAmount.setVisibility(mLoanType == LOAN_COMBINED ? View.VISIBLE : View.GONE);
+        }
     }
 
     private void updateMethodLabel() {
@@ -109,6 +189,8 @@ public class MortgageMode extends FieldToolMode {
         final BigDecimal principal = mFields.getNumber(0);
         final BigDecimal rate = mFields.getNumber(1);
         final BigDecimal yearsBd = mFields.getNumber(2);
+        final BigDecimal spread = mFields.getNumber(3);
+        final BigDecimal fundAmount = mFields.getNumber(4);
         final int years = yearsBd == null ? 0 : yearsBd.intValue();
 
         String formula;
@@ -118,9 +200,24 @@ public class MortgageMode extends FieldToolMode {
             result = "—";
         } else {
             final BigDecimal safeRate = rate == null ? BigDecimal.ZERO : rate;
-            final MortgageCalculator.Result r = mEqualPayment
-                    ? MortgageCalculator.equalPayment(principal, safeRate, years, MC)
-                    : MortgageCalculator.equalPrincipal(principal, safeRate, years, MC);
+            final BigDecimal commercialRate = mLprBasis && mLoanType != LOAN_FUND
+                    ? MortgageCalculator.lprRate(safeRate, spread, MC)
+                    : safeRate;
+            final MortgageCalculator.Result r;
+            if (mLoanType == LOAN_COMBINED) {
+                final BigDecimal fund = fundAmount == null ? BigDecimal.ZERO : fundAmount;
+                final BigDecimal commercial = principal.subtract(fund, MC);
+                r = MortgageCalculator.combined(commercial, commercialRate, fund,
+                        new BigDecimal(FUND_RATE_PERCENT), years, mEqualPayment, MC);
+            } else if (mLoanType == LOAN_FUND) {
+                r = mEqualPayment
+                        ? MortgageCalculator.equalPayment(principal, safeRate, years, MC)
+                        : MortgageCalculator.equalPrincipal(principal, safeRate, years, MC);
+            } else {
+                r = mEqualPayment
+                        ? MortgageCalculator.equalPayment(principal, commercialRate, years, MC)
+                        : MortgageCalculator.equalPrincipal(principal, commercialRate, years, MC);
+            }
             final Context ctx = host.getContext();
             if (mEqualPayment) {
                 formula = ctx.getString(R.string.tool_mortgage_monthly) + " "

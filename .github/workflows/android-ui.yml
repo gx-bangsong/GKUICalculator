@@ -17,7 +17,7 @@ jobs:
     name: Pixel-style emulator UI checks
     # Ubuntu's KVM-backed emulator is more reliable than the unaccelerated hosted macOS AVD.
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Check out source
@@ -29,6 +29,15 @@ jobs:
           distribution: zulu
           java-version: '17'
           cache: gradle
+
+      # ubuntu-24.04 runners ship /dev/kvm owned root:kvm with 0660; without this the emulator
+      # silently falls back to software emulation and every instrumented minute costs several.
+      # Same fix as gx-bangsong/GKUIPhotos .github/workflows/ui-screenshots.yml.
+      - name: Enable KVM for hosted emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Run instrumented UI tests and capture screens
         uses: reactivecircus/android-emulator-runner@v2
@@ -46,8 +55,33 @@ jobs:
           disable-animations: true
           pre-emulator-launch-script: |
             if [ -e /dev/kvm ]; then echo "::notice title=KVM acceleration::/dev/kvm is available"; else echo "::warning title=KVM acceleration::/dev/kvm is missing"; fi
+            if [ -w /dev/kvm ]; then echo "::notice title=KVM permissions::/dev/kvm is writable by $(id -un) (groups: $(id -Gn | tr ' ' ','))"; else echo "::warning title=KVM permissions::/dev/kvm is NOT writable by $(id -un) (groups: $(id -Gn | tr ' ' ',')) - the emulator would fall back to software emulation"; fi
+            echo "::notice title=KVM device node::$(ls -l /dev/kvm 2>/dev/null | tr -s ' ' | sed 's/%/%25/g')"
             echo "::notice title=Android AVD free space::$(df -h "$HOME/.android/avd" | tail -n 1 | sed 's/%/%25/g')"
           script: bash scripts/ci-android-ui-tests.sh
+
+      # Each step gets its own check-annotation budget, so the base64 previews live in steps of
+      # their own: inside the test step they were silently truncated and every review read a
+      # half-decoded frame.
+      # Annotation messages are cut at 4096 chars, so one frame needs several steps of parts.
+      - name: Publish default-screen preview (parts 1-10)
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot" 0
+      - name: Publish default-screen preview (parts 11-20)
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot" 10
+      - name: Publish default-screen preview (parts 21+)
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot" 20
+      - name: Publish converter-screen preview (parts 1-10)
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot" 0
+      - name: Publish converter-screen preview (parts 11-20)
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot" 10
+      - name: Publish converter-screen preview (parts 21+)
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot" 20
 
       - name: Upload emulator screenshots
         if: always()
@@ -56,6 +90,7 @@ jobs:
           name: calculator-ui-screenshots
           path: |
             build/ui-screenshots/*.png
+            build/ui-screenshots/*-review.jpg
             build/connected-debug-android-test.log
             build/install-debug-android-test.log
             build/outputs/androidTest-results/connected/debug/**
