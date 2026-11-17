@@ -110,7 +110,7 @@ else
 fi
 cat "$log_file"
 connected_seconds=$((SECONDS-phase_start))
-echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 21 tests) took ${connected_seconds}s"
+echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 20 tests) took ${connected_seconds}s"
 
 # Per-test wall times from the instrumentation XML, so slow tests are visible in the check
 # annotations instead of hidden inside one monolithic step log.
@@ -189,6 +189,239 @@ PY
 if [[ -n "$test_details" ]]; then
     echo "::notice title=Per-test execution details::$test_details"
 fi
+
+# ---- Required-method validation -------------------------------------------
+# Definitive list of required test methods based on the current source code:
+#   15 for CalculatorToolUiTest + 5 for ToolInputCursorTest = 20 total.
+# Any missing, absent, or skipped required method triggers a validation failure.
+validation_failed=0
+summary_lines=()
+annotation_lines=()
+
+required_tests=$(python3 - <<'PY'
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+results_dir = Path("build/outputs/androidTest-results")
+if not results_dir.exists():
+    print("ERROR: No androidTest-results directory found.")
+    raise SystemExit(1)
+
+# Required methods: 15 CalculatorToolUiTest + 5 ToolInputCursorTest = 20
+required = {
+    "com.android.calculator2.CalculatorToolUiTest": [
+        "firstRunUsesStandardKeypad",
+        "scientificSegmentTogglesPad",
+        "scientificPadDoesNotMoveDisplay",
+        "convertSegmentOpensConverter",
+        "everyToolHasAModeSegment",
+        "pillShowsEveryToolWithoutScrolling",
+        "firstKinshipPressDoesNotStallThePad",
+        "percentModeOptionSwitchesAdditiveSemantics",
+        "unitCategoriesRemainInlinePills",
+        "captureCalculatorScreenshot",
+        "captureUnitConverterScreenshot",
+        "pendingCalculatorResultDoesNotReplaceMortgageResult",
+        "uppercaseNumbersIncludePrimaryMortgagePayment",
+        "unitConverterAcceptsArithmetic",
+        "currencyConverterUsesValueColumnForUppercaseAndAcceptsArithmetic",
+    ],
+    "com.android.calculator2.tools.ToolInputCursorTest": [
+        "testMiddleInsertionAfterFocusLoss",
+        "testDeleteAtPosition0DoesNothing",
+        "testConsecutiveCursorRepositioning",
+        "testSwitchingBetweenFields",
+        "testEnterAfterClear",
+    ],
+}
+
+# Collect all executed testcases from TEST-*.xml files
+executed = {}
+for xml in sorted(results_dir.rglob("TEST-*.xml")):
+    try:
+        root = ET.parse(xml).getroot()
+    except (ET.ParseError, OSError) as e:
+        print(f"WARNING: Could not parse {xml}: {e}")
+        continue
+    for case in root.iter("testcase"):
+        classname = case.get("classname", "?")
+        name = case.get("name", "?")
+        failure = case.find("failure")
+        error = case.find("error")
+        skipped = case.find("skipped")
+        if failure is not None:
+            status = "FAIL"
+        elif error is not None:
+            status = "ERROR"
+        elif skipped is not None:
+            status = "SKIP"
+        else:
+            status = "PASS"
+        executed[(classname, name)] = status
+
+missing = []
+failed = []
+skipped = []
+
+for classname, names in required.items():
+    for name in names:
+        key = (classname, name)
+        if key not in executed:
+            missing.append(f"{classname}#{name}")
+        elif executed[key] == "FAIL":
+            failed.append(f"{classname}#{name}")
+        elif executed[key] == "SKIP":
+            skipped.append(f"{classname}#{name}")
+
+if missing:
+    print("MISSING required tests (not executed):")
+    for m in missing:
+        print(f"  - {m}")
+if failed:
+    print("FAILED required tests:")
+    for f in failed:
+        print(f"  - {f}")
+if skipped:
+    print("SKIPPED required tests:")
+    for s in skipped:
+        print(f"  - {s}")
+
+total_required = sum(len(v) for v in required.values())
+total_executed = len(executed)
+total_passed = sum(1 for s in executed.values() if s == "PASS")
+print(f"Required: {total_required}, Executed: {total_executed}, Passed: {total_passed}")
+
+if missing or failed or skipped:
+    raise SystemExit(1)
+PY
+)
+validation_failed=$?
+
+if ((validation_failed != 0)); then
+    echo "::error title=Required test validation failed::Some required test methods were missing, failed, or skipped."
+fi
+
+# Write results table to GITHUB_STEP_SUMMARY
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    {
+        echo "# Android UI Test Results"
+        echo ""
+        echo "| Class | Method | Status |"
+        echo "|-------|--------|--------|"
+        python3 - <<'PY'
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+results_dir = Path("build/outputs/androidTest-results")
+if not results_dir.exists():
+    print("| N/A | N/A | No results |")
+    raise SystemExit(0)
+
+rows = []
+for xml in sorted(results_dir.rglob("TEST-*.xml")):
+    try:
+        root = ET.parse(xml).getroot()
+    except (ET.ParseError, OSError):
+        continue
+    for case in root.iter("testcase"):
+        classname = case.get("classname", "?")
+        name = case.get("name", "?")
+        failure = case.find("failure")
+        error = case.find("error")
+        skipped = case.find("skipped")
+        if failure is not None:
+            status = "FAIL"
+        elif error is not None:
+            status = "ERROR"
+        elif skipped is not None:
+            status = "SKIP"
+        else:
+            status = "PASS"
+        rows.append((classname, name, status))
+
+for classname, name, status in sorted(rows):
+        short = classname.rsplit(".", 1)[-1]
+        print(f"| {short} | {name} | {status} |")
+PY
+    } >> "${GITHUB_STEP_SUMMARY}"
+fi
+
+# Output escaped annotations for each failed/missing item
+if ((validation_failed != 0)); then
+    python3 - <<'PY'
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+results_dir = Path("build/outputs/androidTest-results")
+required = {
+    "com.android.calculator2.CalculatorToolUiTest": [
+        "firstRunUsesStandardKeypad",
+        "scientificSegmentTogglesPad",
+        "scientificPadDoesNotMoveDisplay",
+        "convertSegmentOpensConverter",
+        "everyToolHasAModeSegment",
+        "pillShowsEveryToolWithoutScrolling",
+        "firstKinshipPressDoesNotStallThePad",
+        "percentModeOptionSwitchesAdditiveSemantics",
+        "unitCategoriesRemainInlinePills",
+        "captureCalculatorScreenshot",
+        "captureUnitConverterScreenshot",
+        "pendingCalculatorResultDoesNotReplaceMortgageResult",
+        "uppercaseNumbersIncludePrimaryMortgagePayment",
+        "unitConverterAcceptsArithmetic",
+        "currencyConverterUsesValueColumnForUppercaseAndAcceptsArithmetic",
+    ],
+    "com.android.calculator2.tools.ToolInputCursorTest": [
+        "testMiddleInsertionAfterFocusLoss",
+        "testDeleteAtPosition0DoesNothing",
+        "testConsecutiveCursorRepositioning",
+        "testSwitchingBetweenFields",
+        "testEnterAfterClear",
+    ],
+}
+
+executed = {}
+for xml in sorted(results_dir.rglob("TEST-*.xml")):
+    try:
+        root = ET.parse(xml).getroot()
+    except (ET.ParseError, OSError):
+        continue
+    for case in root.iter("testcase"):
+        classname = case.get("classname", "?")
+        name = case.get("name", "?")
+        failure = case.find("failure")
+        error = case.find("error")
+        skipped = case.find("skipped")
+        if failure is not None:
+            status = "FAIL"
+            msg = (failure.get("message") or "")[:200]
+        elif error is not None:
+            status = "ERROR"
+            msg = (error.get("message") or "")[:200]
+        elif skipped is not None:
+            status = "SKIP"
+            msg = (skipped.get("message") or "")[:200]
+        else:
+            status = "PASS"
+            msg = ""
+        executed[(classname, name)] = (status, msg)
+
+for classname, names in required.items():
+    for name in names:
+        key = (classname, name)
+        if key not in executed:
+            short = classname.rsplit(".", 1)[-1]
+            msg = f"Required test {short}#{name} was not executed (missing from test results)"
+            print(f"::error title=Missing test::{short}%23{name}%20not%20executed")
+        else:
+            status, msg = executed[key]
+            if status != "PASS":
+                short = classname.rsplit(".", 1)[-1]
+                safe_msg = msg.replace(" ", "%20").replace("\n", "%0A").replace("|", "%7C")
+                print(f"::error title={status} test::{short}%23{name}%20{safe_msg}")
+PY
+fi
+# ---- End required-method validation ---------------------------------------
 
 if ((test_result == 0)); then
     test_summary=$(grep -E 'Tests [0-9]+/[0-9]+ completed|BUILD SUCCESSFUL' "$log_file" | tail -n 4 || true)

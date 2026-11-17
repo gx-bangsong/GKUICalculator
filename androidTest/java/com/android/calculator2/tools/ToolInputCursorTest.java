@@ -8,38 +8,45 @@ package com.android.calculator2.tools;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static org.junit.Assert.assertEquals;
 import org.hamcrest.Matcher;
 
+import android.app.Activity;
 import android.content.Context;
 import android.os.SystemClock;
 import android.text.Layout;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
+import androidx.test.core.app.ActivityScenario;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.espresso.UiController;
 import androidx.test.espresso.ViewAction;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.test.uiautomator.UiDevice;
-import androidx.test.uiautomator.UiObjectNotFoundException;
+import com.android.calculator2.Calculator;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Regression tests for cursor-aware digit input in tool input fields (mortgage, tax, BMI).
+ * Regression tests for cursor-aware digit input in tool input fields (BMI).
  *
  * <p>These tests simulate real user workflows: entering digits into a tool's input field, losing
  * focus, tapping at a specific position within the field's value, and pressing a calculator pad
  * key. The expected behavior is that the digit is inserted at the tapped position rather than
  * always appended to the end.
+ *
+ * <p>Each test manages its own Activity lifecycle via {@link ActivityScenario}. The BMI tool
+ * displays default values ("175" for height, "70" for weight); tests must not treat a newly
+ * launched screen as an empty form.
  *
  * <p>Run with: {@code ./gradlew connectedDebugAndroidTest}
  */
@@ -47,8 +54,8 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class ToolInputCursorTest {
 
+    private ActivityScenario<Calculator> mActivityScenario;
     private Context mContext;
-    private UiDevice mDevice;
     private String mHeightLabel;
     private String mWeightLabel;
 
@@ -57,19 +64,31 @@ public class ToolInputCursorTest {
         mContext = ApplicationProvider.getApplicationContext();
         mHeightLabel = mContext.getString(com.android.calculator2.R.string.tool_bmi_field_height);
         mWeightLabel = mContext.getString(com.android.calculator2.R.string.tool_bmi_field_weight);
-        mDevice = UiDevice.getInstance(getInstrumentation());
-        mDevice.waitForIdle();
+
+        // Clear persistent tool preferences so digits from previous tests do not leak in.
+        final Context context = InstrumentationRegistry.getInstrumentation()
+                .getTargetContext();
+        context.getSharedPreferences("calc_tools", Context.MODE_PRIVATE)
+                .edit().clear().commit();
+
+        // Launch the Calculator activity and wait for it to be ready.
+        mActivityScenario = ActivityScenario.launch(Calculator.class);
+    }
+
+    @After
+    public void tearDown() {
+        if (mActivityScenario != null) {
+            mActivityScenario.close();
+        }
     }
 
     /** Navigate to the BMI tool via its icon in the bottom navigation bar. */
     private void openBmiTool() {
-        try {
-            mDevice.findObject(new androidx.test.uiautomator.UiSelector()
-                    .descriptionContains("BMI")).click();
-        } catch (UiObjectNotFoundException e) {
-            throw new AssertionError("BMI tool icon not found", e);
-        }
-        mDevice.waitForIdle();
+        onView(withContentDescription(com.android.calculator2.R.string.tool_bmi))
+                .perform(click());
+        // After switching to the BMI tool, both input fields must be visible.
+        onView(com.android.calculator2.R.id.tool_field_0).check(matches(isDisplayed()));
+        onView(com.android.calculator2.R.id.tool_field_1).check(matches(isDisplayed()));
     }
 
     /** Prefix for field 0 (height): "label: ". */
@@ -80,6 +99,32 @@ public class ToolInputCursorTest {
     /** Prefix for field 1 (weight): "label: ". */
     private String field1Prefix() {
         return mWeightLabel + ": ";
+    }
+
+    /**
+     * Verify that the given field has the expected selection range before a key press.
+     * This distinguishes between an incorrect tap location and a flaw in the insertion logic.
+     */
+    private void assertSelectionAtValuePos(int fieldId, int expectedValuePos) {
+        final String prefix = field0Prefix();
+        final int valueStart = prefix.length();
+        final int expectedAbs = valueStart + expectedValuePos;
+
+        mActivityScenario.onActivity(activity -> {
+            final View view = activity.findViewById(fieldId);
+            if (!(view instanceof EditText)) {
+                throw new AssertionError("View " + fieldId + " is not an EditText");
+            }
+            final EditText editText = (EditText) view;
+            final int start = editText.getSelectionStart();
+            final int end = editText.getSelectionEnd();
+            if (start != expectedAbs || end != expectedAbs) {
+                throw new AssertionError(
+                        "Field " + fieldId + ": expected selection at value pos "
+                                + expectedValuePos + " (abs " + expectedAbs
+                                + "), but got start=" + start + " end=" + end);
+            }
+        });
     }
 
     /** Enter a string of digits into the given field using the calculator pad. */
@@ -102,13 +147,11 @@ public class ToolInputCursorTest {
             }
             onView(withId(resId)).perform(click());
         }
-        mDevice.waitForIdle();
     }
 
     /**
-     * Tap within an EditText at the boundary between two value characters. The tap coordinate is
-     * calculated from the EditText's {@link Layout} so it lands on the actual glyph boundary,
-     * not an arbitrary screen ratio.
+     * Tap within an EditText at the boundary between two value characters using
+     * {@link UiController#injectMotionEvent} (the Espresso-mandated event-injection method).
      *
      * @param fieldId   the EditText resource id
      * @param valueIndex the index within the value text where the tap lands
@@ -137,14 +180,19 @@ public class ToolInputCursorTest {
                     return;
                 }
 
-                // Clamp to valid character boundary range [1, length-1]
-                int clampedIndex = Math.max(1,
+                // Clamp to valid character boundary range [0, length-1]
+                int clampedIndex = Math.max(0,
                         Math.min(textIndex, layout.getText().length() - 1));
 
                 // Get x positions of the characters on either side of the boundary
-                float x1 = layout.getPrimaryHorizontal(clampedIndex - 1);
-                float x2 = layout.getPrimaryHorizontal(clampedIndex);
-                float x = (x1 + x2) / 2f;
+                float x;
+                if (clampedIndex == 0) {
+                    x = layout.getPrimaryHorizontal(0);
+                } else {
+                    float x1 = layout.getPrimaryHorizontal(clampedIndex - 1);
+                    float x2 = layout.getPrimaryHorizontal(clampedIndex);
+                    x = (x1 + x2) / 2f;
+                }
 
                 int[] location = new int[2];
                 view.getLocationOnScreen(location);
@@ -156,25 +204,22 @@ public class ToolInputCursorTest {
                         now, now, MotionEvent.ACTION_DOWN, screenX, screenY, 0);
                 MotionEvent up = MotionEvent.obtain(
                         now, now, MotionEvent.ACTION_UP, screenX, screenY, 0);
-                InstrumentationRegistry.getInstrumentation().sendPointerSync(down);
-                InstrumentationRegistry.getInstrumentation().sendPointerSync(up);
+                uiController.injectMotionEvent(down);
+                uiController.injectMotionEvent(up);
                 down.recycle();
                 up.recycle();
             }
         });
-        mDevice.waitForIdle();
     }
 
     /** Press the delete key on the calculator pad. */
     private void pressDelete() {
         onView(withId(com.android.calculator2.R.id.del)).perform(click());
-        mDevice.waitForIdle();
     }
 
     /** Press the AC (clear) key on the calculator pad. */
     private void pressClear() {
         onView(withId(com.android.calculator2.R.id.clr)).perform(click());
-        mDevice.waitForIdle();
     }
 
     /**
@@ -197,12 +242,18 @@ public class ToolInputCursorTest {
         // Value "1234": boundary index 2 = between char 1 ('2') and char 2 ('3')
         tapAtValueBoundary(com.android.calculator2.R.id.tool_field_0, 2);
 
-        // 4. Press "9"
+        // 4. Verify cursor is at value position 2 before pressing "9"
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 2);
+
+        // 5. Press "9"
         onView(withId(com.android.calculator2.R.id.digit_9)).perform(click());
 
-        // 5. Verify result is "12934" (digit inserted in middle, not appended)
+        // 6. Verify result is "12934" (digit inserted in middle, not appended)
         onView(withId(com.android.calculator2.R.id.tool_field_0))
                 .check(matches(withText(field0Prefix() + "12934")));
+
+        // 7. Verify cursor is after "9" (value position 3)
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 3);
     }
 
     /**
@@ -224,12 +275,18 @@ public class ToolInputCursorTest {
         // 3. Tap at value boundary index 0 (before "1")
         tapAtValueBoundary(com.android.calculator2.R.id.tool_field_0, 0);
 
-        // 4. Press delete - should do nothing since cursor is at position 0
+        // 4. Verify cursor is at value position 0 before delete
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 0);
+
+        // 5. Press delete - should do nothing since cursor is at position 0
         pressDelete();
 
-        // 5. Assert field 0 still shows "Height cm: 1234" (unchanged)
+        // 6. Assert field 0 still shows "Height cm: 1234" (unchanged)
         onView(withId(com.android.calculator2.R.id.tool_field_0))
                 .check(matches(withText(field0Prefix() + "1234")));
+
+        // 7. Verify cursor is still at value position 0
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 0);
     }
 
     /**
@@ -252,21 +309,33 @@ public class ToolInputCursorTest {
         // 3. Tap between "1" and "2" (value boundary index 1)
         tapAtValueBoundary(com.android.calculator2.R.id.tool_field_0, 1);
 
-        // 4. Press "5" → "15234"
+        // 4. Verify cursor is at value position 1 before pressing "5"
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 1);
+
+        // 5. Press "5" → "15234"
         onView(withId(com.android.calculator2.R.id.digit_5)).perform(click());
         onView(withId(com.android.calculator2.R.id.tool_field_0))
                 .check(matches(withText(field0Prefix() + "15234")));
 
-        // 5. Tap field 1 again to reset focus state
+        // 6. Verify cursor is after "5" (value position 2)
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 2);
+
+        // 7. Tap field 1 again to reset focus state
         onView(withId(com.android.calculator2.R.id.tool_field_1)).perform(click());
 
-        // 6. Tap between "5" and "2" in "15234" (value boundary index 2)
+        // 8. Tap between "5" and "2" in "15234" (value boundary index 2)
         tapAtValueBoundary(com.android.calculator2.R.id.tool_field_0, 2);
 
-        // 7. Press "6" → "156234"
+        // 9. Verify cursor is at value position 2 before pressing "6"
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 2);
+
+        // 10. Press "6" → "156234"
         onView(withId(com.android.calculator2.R.id.digit_6)).perform(click());
         onView(withId(com.android.calculator2.R.id.tool_field_0))
                 .check(matches(withText(field0Prefix() + "156234")));
+
+        // 11. Verify cursor is after "6" (value position 3)
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 3);
     }
 
     /**
@@ -281,20 +350,24 @@ public class ToolInputCursorTest {
         typeDigitsIntoField(com.android.calculator2.R.id.tool_field_0, "1234");
         onView(withId(com.android.calculator2.R.id.tool_field_0))
                 .check(matches(withText(field0Prefix() + "1234")));
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 4);
 
         // 2. Switch to field 1 (weight) and enter "5678"
         typeDigitsIntoField(com.android.calculator2.R.id.tool_field_1, "5678");
         onView(withId(com.android.calculator2.R.id.tool_field_1))
                 .check(matches(withText(field1Prefix() + "5678")));
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_1, 4);
 
         // 3. Switch back to field 0 - its data should still be "1234"
         onView(withId(com.android.calculator2.R.id.tool_field_0)).perform(click());
         onView(withId(com.android.calculator2.R.id.tool_field_0))
                 .check(matches(withText(field0Prefix() + "1234")));
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 4);
     }
 
     /**
      * Test entering data after clearing a field: enter "1234", clear, then enter "99" and verify.
+     * After clear, displayed text is just the label (no ": " suffix); cursor should be at 0.
      */
     @Test
     public void testEnterAfterClear() {
@@ -308,15 +381,16 @@ public class ToolInputCursorTest {
         // 2. Clear field 0 (tap AC)
         pressClear();
 
-        // Field 0 should now show just the label (empty value)
+        // Field 0 should now show just the label (empty value, no ": " suffix)
         onView(withId(com.android.calculator2.R.id.tool_field_0))
                 .check(matches(withText(mHeightLabel)));
 
         // 3. Enter "99" into field 0
         typeDigitsIntoField(com.android.calculator2.R.id.tool_field_0, "99");
 
-        // 4. Assert field 0 shows "Height cm: 99"
+        // 4. Assert field 0 shows "Height cm: 99" with cursor after "99" (value position 2)
         onView(withId(com.android.calculator2.R.id.tool_field_0))
                 .check(matches(withText(field0Prefix() + "99")));
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 2);
     }
 }
