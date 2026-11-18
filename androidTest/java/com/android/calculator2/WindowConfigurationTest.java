@@ -858,7 +858,21 @@ public class WindowConfigurationTest {
         device.wait(androidx.test.uiautomator.Until.gone(androidx.test.uiautomator.By.res("com.android.systemui","clipboard_ui")),20000);
     }
     private void assertTextReachable(int id) {
-        onView(withId(id)).perform(androidx.test.espresso.action.ViewActions.scrollTo()).check((view,error) -> {
+        onView(withId(id)).perform(new androidx.test.espresso.ViewAction() {
+            public org.hamcrest.Matcher<View> getConstraints(){return isAssignableFrom(TextView.class);}
+            public String getDescription(){return "scroll whole text rectangle, not Espresso's 90 percent visibility shortcut";}
+            public void perform(androidx.test.espresso.UiController ui,View view) {
+                View ancestor=view;
+                while(ancestor!=null&&!"field_tool_viewport".equals(ancestor.getTag()))
+                    ancestor=ancestor.getParent() instanceof View?(View)ancestor.getParent():null;
+                assertNotNull("bounded field viewport",ancestor);
+                android.widget.ScrollView scroll=(android.widget.ScrollView)ancestor;
+                Rect rect=new Rect(0,0,view.getWidth(),view.getHeight());
+                scroll.offsetDescendantRectToMyCoords(view,rect);
+                scroll.scrollBy(0,rect.top-scroll.getPaddingTop());
+                ui.loopMainThreadUntilIdle();
+            }
+        }).check((view,error) -> {
             if(error!=null)throw error;
             TextView text=(TextView)view;Rect visible=new Rect();assertTrue(text.getGlobalVisibleRect(visible));
             assertNotNull("text layout measured",text.getLayout());

@@ -93,7 +93,11 @@ final class FieldToolViewport {
         int handle=activity.findViewById(R.id.drag_handle_view).getHeight()
             +2*activity.getResources().getDimensionPixelSize(R.dimen.drag_handle_margin);
         // Leave a readable viewport. Top action toolbar may scroll with the content.
-        boolean needsCompact=motion.getHeight()<minimumPad+modeBar.getHeight()+line+handle;
+        android.util.TypedValue ratio=new android.util.TypedValue();
+        activity.getResources().getValue(R.dimen.layout_pads_ratio,ratio,true);
+        int stackedPadHeight=Math.round(motion.getHeight()*ratio.getFloat());
+        boolean needsCompact=stackedPadHeight<minimumPad
+            ||motion.getHeight()<minimumPad+modeBar.getHeight()+line+handle;
         int keyboardWidth=motion.getWidth()/2;
         boolean roomForColumns=keyboardWidth>=Math.round(4*40*density);
         boolean target=needsCompact&&roomForColumns;
