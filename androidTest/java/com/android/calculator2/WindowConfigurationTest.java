@@ -1095,8 +1095,8 @@ public class WindowConfigurationTest {
                 visible.top>=viewport.top&&visible.bottom<=viewport.bottom);
             assertNotNull(view.getLayout());
             assertTrue("no vertical text truncation "+id,view.getHeight()>=view.getLayout().getHeight()+view.getCompoundPaddingTop()+view.getCompoundPaddingBottom());
-            if(id!=R.id.formula&&id!=R.id.result) {
-                assertEquals("entire form row width "+id,view.getWidth(),visible.width());
+            {
+                assertEquals("entire form/output row width "+id,view.getWidth(),visible.width());
                 for(int line=0;line<view.getLayout().getLineCount();line++)
                     assertTrue("no hidden form text horizontally "+id,view.getLayout().getLineWidth(line)<=view.getWidth()-view.getCompoundPaddingLeft()-view.getCompoundPaddingRight()+1);
             }

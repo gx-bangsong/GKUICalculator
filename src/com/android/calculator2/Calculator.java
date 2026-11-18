@@ -2093,9 +2093,9 @@ public class Calculator extends AppCompatActivity
      */
     private void applyUppercaseResultLayout(boolean enabled) {
         final ViewGroup.LayoutParams params = mResultText.getLayoutParams();
-        if (enabled) {
+        if (enabled || isMortgageViewport()) {
             mResultText.setSingleLine(false);
-            mResultText.setMaxLines(UPPERCASE_MAX_LINES);
+            mResultText.setMaxLines(isMortgageViewport()?Integer.MAX_VALUE:UPPERCASE_MAX_LINES);
             mResultText.setHorizontallyScrolling(false);
             mResultText.setEllipsize(null);
             mResultText.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);

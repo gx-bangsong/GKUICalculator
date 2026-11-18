@@ -123,6 +123,16 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
         setShowSoftInputOnFocus(false);
     }
 
+    private boolean mWrapToolOutput;
+
+    void setWrapToolOutput(boolean wrap) {
+        mWrapToolOutput=wrap;
+        setSingleLine(!wrap);
+        setMaxLines(wrap?Integer.MAX_VALUE:1);
+        setHorizontallyScrolling(!wrap);
+        requestLayout();
+    }
+
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         if (!isLaidOut()) {
@@ -142,7 +152,7 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
         // Re-calculate our textSize based on new width.
         mWidthConstraint = MeasureSpec.getSize(widthMeasureSpec)
                 - getPaddingLeft() - getPaddingRight();
-        final float textSize = getVariableTextSize(getText());
+        final float textSize = mWrapToolOutput?getEffectiveMaximumTextSize():getVariableTextSize(getText());
         if (getTextSize() != textSize) {
             setTextSizeInternal(TypedValue.COMPLEX_UNIT_PX, textSize, false /* notifyListener */);
         }

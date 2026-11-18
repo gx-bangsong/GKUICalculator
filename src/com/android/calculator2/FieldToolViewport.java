@@ -54,6 +54,8 @@ final class FieldToolViewport {
         enabled=value;
         if(value) {
             mortgage=activity.isMortgageViewport();
+            ((CalculatorFormula)formulaText).setWrapToolOutput(mortgage);
+            ((CalculatorScrollView)formula).setWrapChildToViewport(mortgage);
             viewport=new ScrollView(activity);
             viewport.setTag("field_tool_viewport");
             viewport.setFillViewport(false);
@@ -86,6 +88,8 @@ final class FieldToolViewport {
             shared.setVisibility(View.VISIBLE);
             if(compact&&original!=null)motion.updateState(R.id.start_state,original);
             compact=false;
+            ((CalculatorFormula)formulaText).setWrapToolOutput(false);
+            ((CalculatorScrollView)formula).setWrapChildToViewport(false);
             inputPad.setPadding(inputPaddingLeft,inputPad.getPaddingTop(),inputPaddingRight,inputPad.getPaddingBottom());
         }
     }
