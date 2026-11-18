@@ -1024,10 +1024,11 @@ public class WindowConfigurationTest {
         fingerTap(R.id.mortgage_type_combined);fingerTap(R.id.mortgage_basis_toggle);
         assertEquals("2",modelSnapshot().get("mLoanType"));
         assertEquals("true",modelSnapshot().get("mLprBasis"));
-        mortgageEdit(3,"25");mortgageEdit(4,"300000");mortgageEdit(1,"3.5");
+        mortgageEdit(3,"25");mortgageEdit(4,"300000");
+        evidence("mortgage-"+stage+"-combined");mortgageEdit(1,"3.5");
         fingerTap(R.id.mortgage_type_fund);
         assertEquals("1",modelSnapshot().get("mLoanType"));
-        mortgageEdit(1,"3.1");
+        mortgageEdit(1,"3.1");evidence("mortgage-"+stage+"-fund-rate");
         Log.i("MortgageForm",stage+" CONDITIONAL_TYPES_PASS commercial/combined/fund LPR/spread/fund-amount/fund-rate");
         fingerTap(R.id.mortgage_type_commercial);
         // Return to benchmark for a second whole sequence in the SAME resized task.
@@ -1088,6 +1089,10 @@ public class WindowConfigurationTest {
         scenario.onActivity(a -> {
             TextView view=a.findViewById(id);Rect visible=new Rect();assertTrue("visible "+id,view.getGlobalVisibleRect(visible));
             assertEquals("whole row vertically visible "+id,view.getHeight(),visible.height());
+            Rect viewport=new Rect();assertTrue(a.findViewById(R.id.main_calculator)
+                .findViewWithTag("field_tool_viewport").getGlobalVisibleRect(viewport));
+            assertTrue("row/caret stays inside actual scroll viewport "+id+" "+visible+" vs "+viewport,
+                visible.top>=viewport.top&&visible.bottom<=viewport.bottom);
             assertNotNull(view.getLayout());
             assertTrue("no vertical text truncation "+id,view.getHeight()>=view.getLayout().getHeight()+view.getCompoundPaddingTop()+view.getCompoundPaddingBottom());
             if(id!=R.id.formula&&id!=R.id.result) {

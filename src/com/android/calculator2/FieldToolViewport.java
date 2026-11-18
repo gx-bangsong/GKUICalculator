@@ -57,6 +57,8 @@ final class FieldToolViewport {
             viewport=new ScrollView(activity);
             viewport.setTag("field_tool_viewport");
             viewport.setFillViewport(false);
+            viewport.setClipChildren(true);
+            viewport.setClipToPadding(true);
             viewport.setVerticalScrollBarEnabled(true);
             viewport.setScrollbarFadingEnabled(false);
             viewport.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
