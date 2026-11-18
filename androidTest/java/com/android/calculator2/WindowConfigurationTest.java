@@ -495,6 +495,52 @@ public class WindowConfigurationTest {
         device.pressBack();awaitMotionState(R.id.start_state);
     }
 
+    @Test public void bmiScaleIconFollowsThemeAndSelection() throws Exception {
+        int original=androidx.appcompat.app.AppCompatDelegate.getDefaultNightMode();
+        try {
+            for(int night:new int[]{androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO,
+                    androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES}) {
+                InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+                    androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(night));
+                awaitOrientation(Configuration.ORIENTATION_PORTRAIT);
+                for(int orientation:new int[]{Configuration.ORIENTATION_PORTRAIT,Configuration.ORIENTATION_LANDSCAPE}) {
+                    if(orientation==Configuration.ORIENTATION_LANDSCAPE) device.setOrientationLeft();
+                    else device.setOrientationNatural();
+                    awaitOrientation(orientation);
+                    key(R.id.mode_segment_basic);assertBmiIcon(false);
+                    evidence("bmi-icon-"+night+"-"+orientation+"-unselected");
+                    onView(withContentDescription(R.string.tool_bmi)).perform(click());assertBmiIcon(true);
+                    evidence("bmi-icon-"+night+"-"+orientation+"-selected");
+                }
+                device.setOrientationNatural();awaitOrientation(Configuration.ORIENTATION_PORTRAIT);
+            }
+        } finally {
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
+                androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(original));
+        }
+    }
+    private void assertBmiIcon(boolean selected) {
+        onView(withContentDescription(R.string.tool_bmi)).check((view,error) -> {
+            if(error!=null)throw error;
+            android.widget.ImageView image=(android.widget.ImageView)view;
+            assertEquals(selected,image.isSelected());assertTrue(image.isClickable());
+            Rect visible=new Rect();assertTrue(image.getGlobalVisibleRect(visible));
+            assertEquals(image.getWidth(),visible.width());assertEquals(image.getHeight(),visible.height());
+            android.graphics.drawable.Drawable d=image.getDrawable();
+            int px=Math.round(24*image.getResources().getDisplayMetrics().density);
+            assertEquals(px,d.getIntrinsicWidth());assertEquals(px,d.getIntrinsicHeight());
+            android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(px,px,android.graphics.Bitmap.Config.ARGB_8888);
+            Rect old=new Rect(d.getBounds());d.setBounds(0,0,px,px);d.draw(new android.graphics.Canvas(bitmap));d.setBounds(old);
+            int expected=androidx.core.content.ContextCompat.getColorStateList(image.getContext(),R.color.mode_segment_text_states)
+                .getColorForState(image.getDrawableState(),0);
+            boolean opaque=false;
+            for(int y=0;y<px;y++)for(int x=0;x<px;x++) {
+                int color=bitmap.getPixel(x,y);
+                if(android.graphics.Color.alpha(color)==255) {opaque=true;assertEquals("theme state tint",expected,color);}
+            }
+            assertTrue("scale vector rendered",opaque);bitmap.recycle();
+        });
+    }
     private int splitTask;
     private void enterRealSplit() throws Exception {
         scenario.onActivity(a -> splitTask=a.getTaskId());
@@ -559,6 +605,7 @@ public class WindowConfigurationTest {
         Map<String,String> model=modelSnapshot();Map<Integer,String> display=displaySnapshot();
         try {
             enterRealSplit();evidence("split-half-"+name);assertSplitUsable();
+            if(name==R.string.tool_bmi) assertBmiIcon(true);
             scenario.onActivity(a -> {
                 int height=a.getWindowManager().getCurrentWindowMetrics().getBounds().height();
                 float ratio=height/(float)device.getDisplayHeight();
