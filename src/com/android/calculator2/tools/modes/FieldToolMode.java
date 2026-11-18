@@ -491,8 +491,13 @@ public abstract class FieldToolMode implements ToolMode {
                 view.setTypeface(null, isActive ? Typeface.BOLD : Typeface.NORMAL);
                 view.setTextColor(isActive ? mActiveColor : mInactiveColor);
                 if (isActive) {
-                    // Restore cursor position within the value text, accounting for the label prefix.
-                    final int valueStart = label.length() + 2;
+                    // Restore cursor position within the value text, accounting for the label
+                    // prefix. The ": " separator is only written while a value is present, so on
+                    // an empty field the caret can only reach the end of the label itself -
+                    // assuming the separator pushes the index past the end of the text, which
+                    // setSelection() rejects with an IndexOutOfBoundsException. Clearing a field
+                    // (AC) or deleting from an already empty one used to crash the pad here.
+                    final int valueStart = value.isEmpty() ? label.length() : label.length() + 2;
                     int pos;
                     if (mCursorPos != null && mCursorPos[i] >= 0) {
                         pos = mCursorPos[i];
@@ -500,7 +505,8 @@ public abstract class FieldToolMode implements ToolMode {
                         pos = value.length();
                     }
                     if (pos > value.length()) pos = value.length();
-                    view.setSelection(valueStart + pos, valueStart + pos);
+                    final int caret = valueStart + pos;
+                    view.setSelection(caret, caret);
                 }
             }
         } finally {

@@ -45,8 +45,22 @@ jobs:
       - name: Compile debug and test APKs
         run: |
           echo "::notice title=Compilation check::Assembling debug and test APKs"
+          # build/ does not exist on a fresh checkout; without mkdir the shell redirection below
+          # fails instantly and the step reports "compilation failed" without ever running Gradle.
+          mkdir -p build
           if ! ./gradlew assembleDebug assembleDebugAndroidTest --stacktrace --console=plain > build/assemble-debug.log 2>&1; then
             echo "::error title=Compilation check failed::Test or main APK compilation failed"
+            # Echo the compiler output itself: a generic "compilation failed" annotation makes
+            # every failure look identical, and which symbol failed is the only useful part.
+            compile_errors=$(grep -nE 'error:|^e: |What went wrong:|Execution failed for task' build/assemble-debug.log | head -n 25 || true)
+            if [[ -z "$compile_errors" ]]; then
+              compile_errors=$(tail -n 25 build/assemble-debug.log)
+            fi
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              safe=$(printf '%s' "${line:0:300}" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | tr '\n' ' ')
+              echo "::error title=Compiler output::$safe"
+            done <<< "$compile_errors"
             exit 1
           fi
           echo "::notice title=Compilation check::Debug and test APKs assembled successfully"

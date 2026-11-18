@@ -12,21 +12,16 @@ import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
-import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import org.hamcrest.Matcher;
 
-import android.app.Activity;
 import android.content.Context;
 import android.os.SystemClock;
 import android.text.Layout;
-import android.view.InjectEventSecurityException;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
 import androidx.test.core.app.ActivityScenario;
-import androidx.test.core.app.ApplicationProvider;
+import androidx.test.espresso.InjectEventSecurityException;
 import androidx.test.espresso.UiController;
 import androidx.test.espresso.ViewAction;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -41,14 +36,15 @@ import org.junit.runner.RunWith;
 /**
  * Regression tests for cursor-aware digit input in tool input fields (BMI).
  *
- * <p>These tests simulate real user workflows: entering digits into a tool's input field, losing
- * focus, tapping at a specific position within the field's value, and pressing a calculator pad
- * key. The expected behavior is that the digit is inserted at the tapped position rather than
- * always appended to the end.
+ * <p>These tests drive the calculator pad the way a user would: a field is made active with a tap,
+ * the caret is placed either by a real touch on the value or by an explicit selection, and then a
+ * pad key is pressed. The expected behavior is that the key edits at the caret rather than always
+ * appending to the end.
  *
- * <p>Each test manages its own Activity lifecycle via {@link ActivityScenario}. The BMI tool
- * displays default values ("175" for height, "70" for weight); tests must not treat a newly
- * launched screen as an empty form.
+ * <p>Each test manages its own Activity lifecycle via {@link ActivityScenario}. The BMI tool opens
+ * with default values ("175" for height, "70" for weight), so a test that needs a specific value
+ * has to replace the default through the pad: select the value, then type the digits over it.
+ * Tests must not treat a newly opened form as empty, and must not write the model directly.
  *
  * <p>Run with: {@code ./gradlew connectedDebugAndroidTest}
  */
@@ -57,19 +53,17 @@ import org.junit.runner.RunWith;
 public class ToolInputCursorTest {
 
     private ActivityScenario<Calculator> mActivityScenario;
-    private Context mContext;
     private String mHeightLabel;
     private String mWeightLabel;
 
     @Before
     public void setUp() {
-        mContext = ApplicationProvider.getApplicationContext();
-        mHeightLabel = mContext.getString(com.android.calculator2.R.string.tool_bmi_field_height);
-        mWeightLabel = mContext.getString(com.android.calculator2.R.string.tool_bmi_field_weight);
+        final Context context =
+                InstrumentationRegistry.getInstrumentation().getTargetContext();
+        mHeightLabel = context.getString(com.android.calculator2.R.string.tool_bmi_field_height);
+        mWeightLabel = context.getString(com.android.calculator2.R.string.tool_bmi_field_weight);
 
         // Clear persistent tool preferences so digits from previous tests do not leak in.
-        final Context context = InstrumentationRegistry.getInstrumentation()
-                .getTargetContext();
         context.getSharedPreferences("calc_tools", Context.MODE_PRIVATE)
                 .edit().clear().commit();
 
@@ -93,118 +87,188 @@ public class ToolInputCursorTest {
         onView(withId(com.android.calculator2.R.id.tool_field_1)).check(matches(isDisplayed()));
     }
 
-    /** Prefix for field 0 (height): "label: ". */
-    private String field0Prefix() {
-        return mHeightLabel + ": ";
-    }
+    // ---- field text layout -------------------------------------------------
 
-    /** Prefix for field 1 (weight): "label: ". */
-    private String field1Prefix() {
-        return mWeightLabel + ": ";
+    /** The label the BMI tool shows in front of the given field's value. */
+    private String labelFor(int fieldId) {
+        return fieldId == com.android.calculator2.R.id.tool_field_0 ? mHeightLabel : mWeightLabel;
     }
 
     /**
-     * Verify that the given field has the expected selection range before a key press.
-     * This distinguishes between an incorrect tap location and a flaw in the insertion logic.
+     * Full text a field shows for a value: {@code "label: value"}, collapsing to the bare label
+     * once the value is empty.
      */
-    private void assertSelectionAtValuePos(int fieldId, int expectedValuePos) {
-        final String prefix = field0Prefix();
-        final int valueStart = prefix.length();
-        final int expectedAbs = valueStart + expectedValuePos;
+    private String expectedText(int fieldId, String value) {
+        final String label = labelFor(fieldId);
+        return value.isEmpty() ? label : label + ": " + value;
+    }
 
+    /**
+     * Offset of the value inside a field's text. The label is followed by ": ", but only while a
+     * value is present; an empty field shows just the label, so the caret can only sit at its end.
+     */
+    private int valueStart(String text, int fieldId) {
+        final int start = labelFor(fieldId).length() + 2;
+        return text.length() >= start ? start : text.length();
+    }
+
+    /** Length of the value currently shown in the field. */
+    private int valueLength(String text, int fieldId) {
+        return text.length() - valueStart(text, fieldId);
+    }
+
+    private int valueLengthOf(int fieldId) {
+        final int[] out = new int[1];
+        onField(fieldId, editText -> out[0] = valueLength(editText.getText().toString(), fieldId));
+        return out[0];
+    }
+
+    /** Action executed on the UI thread with one of the tool's input fields. */
+    private interface FieldAction {
+        void run(EditText editText);
+    }
+
+    private void onField(int fieldId, FieldAction action) {
         mActivityScenario.onActivity(activity -> {
             final View view = activity.findViewById(fieldId);
             if (!(view instanceof EditText)) {
                 throw new AssertionError("View " + fieldId + " is not an EditText");
             }
-            final EditText editText = (EditText) view;
-            final int start = editText.getSelectionStart();
-            final int end = editText.getSelectionEnd();
-            if (start != expectedAbs || end != expectedAbs) {
-                throw new AssertionError(
-                        "Field " + fieldId + ": expected selection at value pos "
-                                + expectedValuePos + " (abs " + expectedAbs
-                                + "), but got start=" + start + " end=" + end);
+            action.run((EditText) view);
+        });
+    }
+
+    // ---- selection ---------------------------------------------------------
+
+    /**
+     * Place the caret (or a selection range) at the given value offsets without tapping the field.
+     * Tapping would move the caret to wherever the touch landed and would destroy the position
+     * this call is meant to establish.
+     */
+    private void selectValue(int fieldId, int startValuePos, int endValuePos) {
+        onField(fieldId, editText -> {
+            final String text = editText.getText().toString();
+            final int valueStart = valueStart(text, fieldId);
+            final int start = Math.min(valueStart + startValuePos, text.length());
+            final int end = Math.min(valueStart + endValuePos, text.length());
+            if (!editText.isFocused()) {
+                editText.requestFocus();
+            }
+            editText.setSelection(start, end);
+            if (editText.getSelectionStart() != start || editText.getSelectionEnd() != end) {
+                throw new AssertionError("Field " + fieldId + ": could not select value range ["
+                        + startValuePos + ", " + endValuePos + "); wanted start=" + start
+                        + " end=" + end + ", got start=" + editText.getSelectionStart()
+                        + " end=" + editText.getSelectionEnd() + " text=\"" + text + "\"");
             }
         });
     }
 
-    /** Enter a string of digits into the given field using the calculator pad. */
-    private void typeDigitsIntoField(int fieldId, String digits) {
+    /**
+     * Tap the field so it becomes the pad's target. The caret ends up wherever the tap lands,
+     * which is not specified - use {@link #selectValue} when a position is required.
+     */
+    private void activateField(int fieldId) {
         onView(withId(fieldId)).perform(click());
+    }
+
+    /** Make the field the pad's target and then place the caret inside its value. */
+    private void activateAndSelectValue(int fieldId, int startValuePos, int endValuePos) {
+        activateField(fieldId);
+        selectValue(fieldId, startValuePos, endValuePos);
+    }
+
+    // ---- pad keys ----------------------------------------------------------
+
+    /** Press a run of digit keys. This never touches the fields, so a selection survives. */
+    private void pressDigits(String digits) {
         for (char c : digits.toCharArray()) {
-            int resId;
-            switch (c) {
-                case '0': resId = com.android.calculator2.R.id.digit_0; break;
-                case '1': resId = com.android.calculator2.R.id.digit_1; break;
-                case '2': resId = com.android.calculator2.R.id.digit_2; break;
-                case '3': resId = com.android.calculator2.R.id.digit_3; break;
-                case '4': resId = com.android.calculator2.R.id.digit_4; break;
-                case '5': resId = com.android.calculator2.R.id.digit_5; break;
-                case '6': resId = com.android.calculator2.R.id.digit_6; break;
-                case '7': resId = com.android.calculator2.R.id.digit_7; break;
-                case '8': resId = com.android.calculator2.R.id.digit_8; break;
-                case '9': resId = com.android.calculator2.R.id.digit_9; break;
-                default: throw new IllegalArgumentException("Unexpected digit: " + c);
-            }
-            onView(withId(resId)).perform(click());
+            onView(withId(digitResId(c))).perform(click());
         }
     }
 
-    /**
-     * Tap within an EditText at the boundary between two value characters using
-     * {@link UiController#injectMotionEvent} (the Espresso-mandated event-injection method).
-     *
-     * @param fieldId   the EditText resource id
-     * @param valueIndex the index within the value text where the tap lands
-     *                    (0 = before first char, 1 = between char 0 and 1, etc.)
-     */
-    private void tapAtValueBoundary(int fieldId, int valueIndex) {
-        final String prefix = field0Prefix();
-        final int textIndex = prefix.length() + valueIndex;
+    private static int digitResId(char c) {
+        switch (c) {
+            case '0': return com.android.calculator2.R.id.digit_0;
+            case '1': return com.android.calculator2.R.id.digit_1;
+            case '2': return com.android.calculator2.R.id.digit_2;
+            case '3': return com.android.calculator2.R.id.digit_3;
+            case '4': return com.android.calculator2.R.id.digit_4;
+            case '5': return com.android.calculator2.R.id.digit_5;
+            case '6': return com.android.calculator2.R.id.digit_6;
+            case '7': return com.android.calculator2.R.id.digit_7;
+            case '8': return com.android.calculator2.R.id.digit_8;
+            case '9': return com.android.calculator2.R.id.digit_9;
+            default: throw new IllegalArgumentException("Unexpected digit: " + c);
+        }
+    }
 
+    /** Press the delete key on the calculator pad. */
+    private void pressDelete() {
+        onView(withId(com.android.calculator2.R.id.del)).perform(click());
+    }
+
+    /** Press the AC (clear) key on the calculator pad. */
+    private void pressClear() {
+        onView(withId(com.android.calculator2.R.id.clr)).perform(click());
+    }
+
+    /**
+     * Give the field a known value using the pad alone: select the whole value first, so the first
+     * digit press replaces it instead of being appended to the default.
+     */
+    private void replaceValueWithDigits(int fieldId, String digits) {
+        activateAndSelectValue(fieldId, 0, valueLengthOf(fieldId));
+        pressDigits(digits);
+    }
+
+    // ---- real touches ------------------------------------------------------
+
+    /**
+     * Tap inside the value at the given value offset with a real touch, injected through Espresso's
+     * {@link UiController}. The x coordinate is the caret position the framework would draw for
+     * that offset, taken from the field's own {@link Layout} and converted to screen coordinates.
+     */
+    private void tapAtValuePos(int fieldId, int valuePos) {
         onView(withId(fieldId)).perform(new ViewAction() {
             @Override
             public Matcher<View> getConstraints() {
-                return null;
+                return isDisplayed();
             }
 
             @Override
             public String getDescription() {
-                return "Tap at value boundary index " + valueIndex;
+                return "tap in field at value position " + valuePos;
             }
 
             @Override
             public void perform(UiController uiController, View view) {
-                EditText editText = (EditText) view;
-                Layout layout = editText.getLayout();
+                final EditText editText = (EditText) view;
+                final Layout layout = editText.getLayout();
                 if (layout == null) {
-                    return;
+                    throw new AssertionError("Field " + fieldId + " has no Layout; cannot tap");
                 }
+                final String text = editText.getText().toString();
+                final int textIndex =
+                        Math.min(valueStart(text, fieldId) + valuePos, layout.getText().length());
 
-                // Clamp to valid character boundary range [0, length-1]
-                int clampedIndex = Math.max(0,
-                        Math.min(textIndex, layout.getText().length() - 1));
+                // The caret for offset i is drawn at the leading edge of character i, so tapping
+                // there lands exactly on that offset. Half a pixel of bias keeps a rounding error
+                // from dropping the caret one character to the left.
+                final float localX = editText.getCompoundPaddingLeft()
+                        + layout.getPrimaryHorizontal(textIndex)
+                        - editText.getScrollX()
+                        + 0.5f;
 
-                // Get x positions of the characters on either side of the boundary
-                float x;
-                if (clampedIndex == 0) {
-                    x = layout.getPrimaryHorizontal(0);
-                } else {
-                    float x1 = layout.getPrimaryHorizontal(clampedIndex - 1);
-                    float x2 = layout.getPrimaryHorizontal(clampedIndex);
-                    x = (x1 + x2) / 2f;
-                }
-
-                int[] location = new int[2];
+                final int[] location = new int[2];
                 view.getLocationOnScreen(location);
-                int screenX = location[0] + (int) x;
-                int screenY = location[1] + view.getHeight() / 2;
+                final int screenX = location[0] + Math.round(localX);
+                final int screenY = location[1] + view.getHeight() / 2;
 
-                long now = SystemClock.uptimeMillis();
-                MotionEvent down = MotionEvent.obtain(
+                final long now = SystemClock.uptimeMillis();
+                final MotionEvent down = MotionEvent.obtain(
                         now, now, MotionEvent.ACTION_DOWN, screenX, screenY, 0);
-                MotionEvent up = MotionEvent.obtain(
+                final MotionEvent up = MotionEvent.obtain(
                         now, now, MotionEvent.ACTION_UP, screenX, screenY, 0);
                 try {
                     uiController.injectMotionEvent(down);
@@ -220,129 +284,141 @@ public class ToolInputCursorTest {
         });
     }
 
-    /** Press the delete key on the calculator pad. */
-    private void pressDelete() {
-        onView(withId(com.android.calculator2.R.id.del)).perform(click());
+    // ---- assertions --------------------------------------------------------
+
+    private void assertFieldText(int fieldId, String value) {
+        onView(withId(fieldId)).check(matches(withText(expectedText(fieldId, value))));
     }
 
-    /** Press the AC (clear) key on the calculator pad. */
-    private void pressClear() {
-        onView(withId(com.android.calculator2.R.id.clr)).perform(click());
+    /** Fail unless the caret sits at the given offset inside the value, and is not a range. */
+    private void assertSelectionAtValuePos(int fieldId, int expectedValuePos) {
+        onField(fieldId, editText -> {
+            final String text = editText.getText().toString();
+            final int expectedStart =
+                    Math.min(valueStart(text, fieldId) + expectedValuePos, text.length());
+            final int start = editText.getSelectionStart();
+            final int end = editText.getSelectionEnd();
+            if (start != expectedStart || end != expectedStart) {
+                throw new AssertionError("Field " + fieldId + ": expected selection at value pos "
+                        + expectedValuePos + " (abs " + expectedStart + "), but got start=" + start
+                        + " end=" + end + " text=\"" + text + "\"");
+            }
+        });
     }
 
     /**
-     * Regression test: enter "1234" into field 0, lose focus, tap between "2" and "3", press "9",
-     * and assert the result is "12934" (not "12349") with cursor after "9".
+     * Fail unless the caret sits inside the value. Used after a plain centre tap, which lands
+     * wherever it lands: the only property worth asserting is that it is not inside the label.
+     */
+    private void assertSelectionWithinValue(int fieldId) {
+        onField(fieldId, editText -> {
+            final String text = editText.getText().toString();
+            final int valueStart = valueStart(text, fieldId);
+            final int start = editText.getSelectionStart();
+            final int end = editText.getSelectionEnd();
+            if (start < valueStart || end < start || end > text.length()) {
+                throw new AssertionError("Field " + fieldId + ": caret is outside the value ["
+                        + valueStart + ", " + text.length() + "]; got start=" + start
+                        + " end=" + end + " text=\"" + text + "\"");
+            }
+        });
+    }
+
+    // ---- tests -------------------------------------------------------------
+
+    /**
+     * Regression test: give field 0 the value "1234", let it lose focus, tap between "2" and "3"
+     * with a real touch, press "9", and assert the result is "12934" (not "12349") with the caret
+     * after the "9". The selection is asserted between the tap and the key press, so a wrong tap
+     * coordinate is distinguishable from a flaw in the insertion logic.
      */
     @Test
     public void testMiddleInsertionAfterFocusLoss() {
         openBmiTool();
 
-        // 1. Enter "1234" into field 0 (height)
-        typeDigitsIntoField(com.android.calculator2.R.id.tool_field_0, "1234");
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(field0Prefix() + "1234")));
+        // 1. Give field 0 (height) the value "1234", replacing the "175" default.
+        replaceValueWithDigits(com.android.calculator2.R.id.tool_field_0, "1234");
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "1234");
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 4);
 
-        // 2. Tap field 1 (weight) to cause field 0 to lose focus
-        onView(withId(com.android.calculator2.R.id.tool_field_1)).perform(click());
+        // 2. Tap field 1 (weight) to cause field 0 to lose focus.
+        activateField(com.android.calculator2.R.id.tool_field_1);
 
-        // 3. Tap between "2" and "3" within field 0's value
-        // Value "1234": boundary index 2 = between char 1 ('2') and char 2 ('3')
-        tapAtValueBoundary(com.android.calculator2.R.id.tool_field_0, 2);
+        // 3. Tap between "2" and "3" within field 0's value (value offset 2).
+        tapAtValuePos(com.android.calculator2.R.id.tool_field_0, 2);
 
-        // 4. Verify cursor is at value position 2 before pressing "9"
+        // 4. Verify the caret is at value position 2 before pressing "9".
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 2);
 
-        // 5. Press "9"
-        onView(withId(com.android.calculator2.R.id.digit_9)).perform(click());
+        // 5. Press "9".
+        pressDigits("9");
 
-        // 6. Verify result is "12934" (digit inserted in middle, not appended)
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(field0Prefix() + "12934")));
+        // 6. Verify result is "12934" (digit inserted in middle, not appended).
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "12934");
 
-        // 7. Verify cursor is after "9" (value position 3)
+        // 7. Verify the caret is after "9" (value position 3).
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 3);
     }
 
     /**
-     * Test that pressing delete with cursor at position 0 does nothing (does not delete the last
-     * digit).
+     * Test that pressing delete with the caret at position 0 does nothing (does not delete the
+     * last digit).
      */
     @Test
     public void testDeleteAtPosition0DoesNothing() {
         openBmiTool();
 
-        // 1. Enter "1234" into field 0
-        typeDigitsIntoField(com.android.calculator2.R.id.tool_field_0, "1234");
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(field0Prefix() + "1234")));
+        // 1. Give field 0 the value "1234".
+        replaceValueWithDigits(com.android.calculator2.R.id.tool_field_0, "1234");
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "1234");
 
-        // 2. Tap field 1 to lose focus from field 0
-        onView(withId(com.android.calculator2.R.id.tool_field_1)).perform(click());
-
-        // 3. Tap at value boundary index 0 (before "1")
-        tapAtValueBoundary(com.android.calculator2.R.id.tool_field_0, 0);
-
-        // 4. Verify cursor is at value position 0 before delete
+        // 2. Put the caret at value position 0 (before the "1").
+        activateAndSelectValue(com.android.calculator2.R.id.tool_field_0, 0, 0);
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 0);
 
-        // 5. Press delete - should do nothing since cursor is at position 0
+        // 3. Press delete - there is nothing before the caret, so nothing may change.
         pressDelete();
 
-        // 6. Assert field 0 still shows "Height cm: 1234" (unchanged)
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(field0Prefix() + "1234")));
+        // 4. Assert field 0 still shows "Height cm: 1234" (unchanged).
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "1234");
 
-        // 7. Verify cursor is still at value position 0
+        // 5. Verify the caret is still at value position 0.
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 0);
     }
 
     /**
      * Test consecutive cursor repositioning within the same field:
-     * Enter "1234", tap between "1" and "2", press "5" → "15234".
-     * Tap between "5" and "2", press "6" → "156234".
+     * "1234", caret after "1", press "5" -> "15234". Then caret after the "5", press "6" ->
+     * "156234".
      */
     @Test
     public void testConsecutiveCursorRepositioning() {
         openBmiTool();
 
-        // 1. Enter "1234" into field 0
-        typeDigitsIntoField(com.android.calculator2.R.id.tool_field_0, "1234");
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(field0Prefix() + "1234")));
+        // 1. Give field 0 the value "1234".
+        replaceValueWithDigits(com.android.calculator2.R.id.tool_field_0, "1234");
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "1234");
 
-        // 2. Tap field 1 to lose focus
-        onView(withId(com.android.calculator2.R.id.tool_field_1)).perform(click());
-
-        // 3. Tap between "1" and "2" (value boundary index 1)
-        tapAtValueBoundary(com.android.calculator2.R.id.tool_field_0, 1);
-
-        // 4. Verify cursor is at value position 1 before pressing "5"
+        // 2. Put the caret between "1" and "2" (value position 1).
+        activateAndSelectValue(com.android.calculator2.R.id.tool_field_0, 1, 1);
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 1);
 
-        // 5. Press "5" → "15234"
-        onView(withId(com.android.calculator2.R.id.digit_5)).perform(click());
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(field0Prefix() + "15234")));
+        // 3. Press "5" -> "15234".
+        pressDigits("5");
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "15234");
 
-        // 6. Verify cursor is after "5" (value position 2)
+        // 4. Verify the caret is after "5" (value position 2).
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 2);
 
-        // 7. Tap field 1 again to reset focus state
-        onView(withId(com.android.calculator2.R.id.tool_field_1)).perform(click());
-
-        // 8. Tap between "5" and "2" in "15234" (value boundary index 2)
-        tapAtValueBoundary(com.android.calculator2.R.id.tool_field_0, 2);
-
-        // 9. Verify cursor is at value position 2 before pressing "6"
+        // 5. Put the caret between "5" and "2" in "15234" (value position 2).
+        selectValue(com.android.calculator2.R.id.tool_field_0, 2, 2);
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 2);
 
-        // 10. Press "6" → "156234"
-        onView(withId(com.android.calculator2.R.id.digit_6)).perform(click());
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(field0Prefix() + "156234")));
+        // 6. Press "6" -> "156234".
+        pressDigits("6");
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "156234");
 
-        // 11. Verify cursor is after "6" (value position 3)
+        // 7. Verify the caret is after "6" (value position 3).
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 3);
     }
 
@@ -354,92 +430,73 @@ public class ToolInputCursorTest {
     public void testSwitchingBetweenFields() {
         openBmiTool();
 
-        // 1. Enter "1234" into field 0 (height)
-        typeDigitsIntoField(com.android.calculator2.R.id.tool_field_0, "1234");
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(field0Prefix() + "1234")));
+        // 1. Give field 0 (height) the value "1234".
+        replaceValueWithDigits(com.android.calculator2.R.id.tool_field_0, "1234");
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "1234");
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 4);
 
-        // 2. Switch to field 1 (weight) and enter "5678"
-        typeDigitsIntoField(com.android.calculator2.R.id.tool_field_1, "5678");
-        onView(withId(com.android.calculator2.R.id.tool_field_1))
-                .check(matches(withText(field1Prefix() + "5678")));
+        // 2. Switch to field 1 (weight) and give it "5678".
+        replaceValueWithDigits(com.android.calculator2.R.id.tool_field_1, "5678");
+        assertFieldText(com.android.calculator2.R.id.tool_field_1, "5678");
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_1, 4);
 
-        // 3. Switch back to field 0 - its data should still be "1234"
-        onView(withId(com.android.calculator2.R.id.tool_field_0)).perform(click());
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(field0Prefix() + "1234")));
-        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 4);
+        // 3. Switch back to field 0 - its data should still be "1234". A plain centre tap does not
+        // promise where the caret lands, only that the field is now the pad's target.
+        activateField(com.android.calculator2.R.id.tool_field_0);
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "1234");
+        assertSelectionWithinValue(com.android.calculator2.R.id.tool_field_0);
+        assertFieldText(com.android.calculator2.R.id.tool_field_1, "5678");
     }
 
     /**
-     * Test entering data after clearing a field: enter "1234", clear, then enter "99" and verify.
-     * After clear, displayed text is just the label (no ": " suffix); cursor should be at 0.
+     * Test entering data after clearing a field: from the default "175", clear it, then enter "99"
+     * and verify. After clearing, the field shows just its label (no ": " suffix) and the caret is
+     * at value position 0.
      */
     @Test
     public void testEnterAfterClear() {
         openBmiTool();
 
-        // 1. Enter "1234" into field 0
-        typeDigitsIntoField(com.android.calculator2.R.id.tool_field_0, "1234");
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(field0Prefix() + "1234")));
+        // 1. The BMI tool opens with its default height, and field 0 is the pad's target.
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "175");
+        activateField(com.android.calculator2.R.id.tool_field_0);
 
-        // 2. Clear field 0 (tap AC)
+        // 2. Clear field 0 (tap AC).
         pressClear();
 
-        // Field 0 should now show just the label (empty value, no ": " suffix)
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(mHeightLabel)));
+        // The field now shows just the label, and the caret is at value position 0.
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "");
+        assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 0);
 
-        // 3. Enter "99" into field 0
-        typeDigitsIntoField(com.android.calculator2.R.id.tool_field_0, "99");
+        // 3. Enter "99" into field 0.
+        pressDigits("99");
 
-        // 4. Assert field 0 shows "Height cm: 99" with cursor after "99" (value position 2)
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(field0Prefix() + "99")));
+        // 4. Assert field 0 shows "Height cm: 99" with the caret after "99" (value position 2).
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "99");
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 2);
     }
 
     /**
      * Minimal regression test: no touch coordinates, no field clearing.
-     * Opens BMI tool, verifies default height is "175", sets cursor to end,
-     * presses "9", and expects "1759" with cursor at position 4.
+     * Opens BMI tool, verifies default height is "175", sets the caret to the end of the value,
+     * presses "9", and expects "1759" with the caret at value position 4.
      */
     @Test
     public void testCursorAtEndAppendsDigit() {
         openBmiTool();
 
-        // 1. Assert default height value is "175"
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(field0Prefix() + "175")));
+        // 1. Assert default height value is "175".
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "175");
 
-        // 2. Set selection to end of value via UI thread
-        mActivityScenario.onActivity(activity -> {
-            final View view = activity.findViewById(com.android.calculator2.R.id.tool_field_0);
-            if (!(view instanceof EditText)) {
-                throw new AssertionError("tool_field_0 is not an EditText");
-            }
-            final EditText editText = (EditText) view;
-            // requestFocus to ensure the view can accept selection changes
-            assertTrue(editText.requestFocus());
-            // Absolute position: label prefix length + value position 3 (end of "175")
-            final int absolutePos = field0Prefix().length() + 3;
-            editText.setSelection(absolutePos);
-            assertEquals(absolutePos, editText.getSelectionStart());
-            assertEquals(absolutePos, editText.getSelectionEnd());
-        });
-
-        // 3. Verify selection is at value position 3 (end of "175") before editing
+        // 2. Put the caret at the end of the value (value position 3) via the UI thread.
+        selectValue(com.android.calculator2.R.id.tool_field_0, 3, 3);
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 3);
 
-        // 4. Press "9"
-        onView(withId(com.android.calculator2.R.id.digit_9)).perform(click());
+        // 3. Press "9".
+        pressDigits("9");
 
-        // 5. Verify text becomes "1759" and cursor at position 4
-        onView(withId(com.android.calculator2.R.id.tool_field_0))
-                .check(matches(withText(field0Prefix() + "1759")));
+        // 4. Verify the text becomes "1759" and the caret is at value position 4.
+        assertFieldText(com.android.calculator2.R.id.tool_field_0, "1759");
         assertSelectionAtValuePos(com.android.calculator2.R.id.tool_field_0, 4);
     }
 }
