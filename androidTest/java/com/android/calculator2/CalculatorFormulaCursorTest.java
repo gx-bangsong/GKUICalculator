@@ -51,6 +51,41 @@ public class CalculatorFormulaCursorTest {
         tap(2);key(R.id.op_add);formula("12+3");caret(3);
         key(R.id.digit_9);formula("12+93");caret(4);result("105");
     }
+    @Test public void semanticSymbolBoundariesAndRejection() {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        int[] inserted={R.id.lparen,R.id.fun_sin,R.id.fun_cos,R.id.fun_tan,
+            R.id.fun_arcsin,R.id.fun_arccos,R.id.fun_arctan,R.id.fun_ln,R.id.fun_log,
+            R.id.fun_exp,R.id.op_sqrt,R.id.const_pi,R.id.const_e};
+        for(int id:inserted) {
+            CalculatorExpr expression=new CalculatorExpr();
+            for(int k:new int[]{R.id.digit_1,R.id.op_add,R.id.digit_3,R.id.digit_0}) expression.add(k);
+            int at=expression.editAtDisplay(context,2,2,id,false);
+            String token=KeyMaps.toString(context,id);
+            assertEquals("1+"+token+"30",expression.toSpannableStringBuilder(context).toString());
+            assertEquals(2+token.length(),at);
+        }
+        for(int id:new int[]{R.id.op_sqr,R.id.op_fact,R.id.op_pct,R.id.op_pow}) {
+            CalculatorExpr expression=new CalculatorExpr();
+            for(int k:new int[]{R.id.digit_3,R.id.op_add,R.id.digit_4}) expression.add(k);
+            assertTrue(expression.editAtDisplay(context,1,1,id,false)>1);
+            // Use token rendering (square is a semantic suffix, not its button label x²).
+            CalculatorExpr prefix=new CalculatorExpr();prefix.add(R.id.digit_3);prefix.add(id);
+            assertEquals(prefix.toSpannableStringBuilder(context).toString()+"+4",
+                    expression.toSpannableStringBuilder(context).toString());
+        }
+        CalculatorExpr expression=new CalculatorExpr();expression.add(R.id.digit_3);
+        assertEquals(-1,expression.editAtDisplay(context,0,0,R.id.rparen,false));
+        assertEquals("3",expression.toSpannableStringBuilder(context).toString());
+        assertEquals(-1,expression.editAtDisplay(context,0,0,R.id.op_fact,false));
+        assertEquals("3",expression.toSpannableStringBuilder(context).toString());
+    }
+
+    @Test public void selectedOperatorReplacementEvaluates() {
+        input();
+        scenario.onActivity(a -> Selection.setSelection((Spannable)((TextView)a.findViewById(R.id.formula)).getText(),2,3));
+        key(R.id.op_mul);formula("12×3");caret(3);result("36");
+    }
+
     @After public void close() { if (scenario != null) scenario.close(); }
     private void key(int id) { onView(withId(id)).perform(click()); }
     private void input() {

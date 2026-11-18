@@ -250,6 +250,8 @@ required = {
         "formulaEditingSurvivesUnitRoundTrip",
         "mappingKeepsFunctionTokensAtomic",
         "middleArithmeticSymbolsRespectCaret",
+        "semanticSymbolBoundariesAndRejection",
+        "selectedOperatorReplacementEvaluates",
     ],
     "com.android.calculator2.CalculatorToolUiTest": [
         "firstRunUsesStandardKeypad",
@@ -435,6 +437,8 @@ required = {
         "formulaEditingSurvivesUnitRoundTrip",
         "mappingKeepsFunctionTokensAtomic",
         "middleArithmeticSymbolsRespectCaret",
+        "semanticSymbolBoundariesAndRejection",
+        "selectedOperatorReplacementEvaluates",
     ],
     "com.android.calculator2.CalculatorToolUiTest": [
         "firstRunUsesStandardKeypad",
