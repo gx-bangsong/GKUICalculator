@@ -112,6 +112,11 @@ phase_start=$SECONDS
 split_scope=${SPLIT_SCOPE:-representative}
 export SPLIT_SCOPE="$split_scope"
 runner_scope=()
+runner_classes="com.android.calculator2.WindowConfigurationTest,com.android.calculator2.tools.ToolRolesAndCurrencyTest,com.android.calculator2.CalculatorFormulaCursorTest,com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest,com.android.calculator2.tools.UnitInputCursorTest"
+if [[ "$split_scope" == "bmi-only" ]]; then
+    runner_classes="com.android.calculator2.WindowConfigurationTest#bmiSurvivesRealSplitAndResize"
+    echo "::notice title=Split execution scope::One BMI diagnostic only; no regression or eight-tool expansion claimed."
+fi
 if [[ "$split_scope" == "representative" ]]; then
     excluded=""
     for tool in date relationship programmer tax mortgage unit currency scientific; do
@@ -120,7 +125,7 @@ if [[ "$split_scope" == "representative" ]]; then
     runner_scope+=("-Pandroid.testInstrumentationRunnerArguments.notClass=$excluded")
     echo "::notice title=Split execution scope::BMI representative plus complete non-split regression; eight expansion cases deferred, not passed."
 fi
-if ./gradlew connectedDebugAndroidTest "${runner_scope[@]}" -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.WindowConfigurationTest,com.android.calculator2.tools.ToolRolesAndCurrencyTest,com.android.calculator2.CalculatorFormulaCursorTest,com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest,com.android.calculator2.tools.UnitInputCursorTest --stacktrace --console=plain --info >"$log_file" 2>&1; then
+if ./gradlew connectedDebugAndroidTest "${runner_scope[@]}" -Pandroid.testInstrumentationRunnerArguments.class="$runner_classes" --stacktrace --console=plain --info >"$log_file" 2>&1; then
     test_result=0
 else
     test_result=$?
@@ -361,6 +366,11 @@ if os.environ.get("SPLIT_SCOPE", "representative") == "representative":
     required[key] = [n for n in required[key] if n not in deferred]
     print("DEFERRED expansion (not executed, not passes): " + ", ".join(deferred))
 
+if os.environ.get("SPLIT_SCOPE") == "bmi-only":
+    print("DIAGNOSTIC ONLY: 1 BMI method; remaining acceptance and regression deferred, not passes")
+    required = {"com.android.calculator2.WindowConfigurationTest": ["bmiSurvivesRealSplitAndResize"]}
+
+
 executed = {}
 for xml in sorted(results_dir.rglob("TEST-*.xml")):
     try:
@@ -589,6 +599,11 @@ if os.environ.get("SPLIT_SCOPE", "representative") == "representative":
     required[key] = [n for n in required[key] if n not in deferred]
     print("DEFERRED expansion (not executed, not passes): " + ", ".join(deferred))
 
+if os.environ.get("SPLIT_SCOPE") == "bmi-only":
+    print("DIAGNOSTIC ONLY: 1 BMI method; remaining acceptance and regression deferred, not passes")
+    required = {"com.android.calculator2.WindowConfigurationTest": ["bmiSurvivesRealSplitAndResize"]}
+
+
 executed = {}
 for xml in sorted(results_dir.rglob("TEST-*.xml")):
     try:
@@ -795,7 +810,7 @@ if [[ ! -s build/ui-screenshots/calculator-default.png ]]; then
     fi
 fi
 
-if ((test_result == 0)) && [[ "$default_screenshot_is_from_test" != true ]]; then
+if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$default_screenshot_is_from_test" != true ]]; then
     test_result=1
     echo "::error title=Missing test-generated screenshot::The selected screenshot test passed without saving calculator-default.png."
 fi

@@ -551,12 +551,52 @@ public class WindowConfigurationTest {
     }
     private int splitTask;
     private void enterRealSplit() throws Exception {
-        scenario.onActivity(a -> splitTask=a.getTaskId());
-        Log.i("WindowEvidence","SPLIT companion="+device.executeShellCommand("am start -f 0x18000000 -a android.settings.SETTINGS"));
-        Log.i("WindowEvidence","SPLIT enter="+device.executeShellCommand(
-            "dumpsys activity service SystemUIService WMShell splitscreen moveToSideStage "+splitTask+" 0"));
-        device.executeShellCommand("am task focus "+splitTask);
-        awaitRealSplit();
+        scenario.onActivity(a -> {
+            splitTask=a.getTaskId();
+            android.content.Intent settings=new android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK|android.content.Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
+            a.startActivity(settings);
+        });
+        boolean paired=awaitVerifiedPair();
+        evidence("bmi-adjacent-attempt");
+        Log.i("SplitPhase","pair NEW_TASK|LAUNCH_ADJACENT "+(paired?"VERIFIED ":"NOT_VERIFIED ")+safeSplitSample());
+        if(!paired) {
+            // One bounded fallback through the launcher's real split picker, including app two.
+            device.executeShellCommand("am task focus "+splitTask);
+            assertTrue("open real recent tasks",device.pressRecentApps());
+            androidx.test.uiautomator.UiObject2 icon=device.wait(androidx.test.uiautomator.Until.findObject(
+                androidx.test.uiautomator.By.res("com.android.launcher3","icon")),3000);
+            if(icon==null)throw new AssertionError("ENVIRONMENT_BLOCKED: launcher task icon unavailable; adjacent launch not paired");
+            icon.click();
+            androidx.test.uiautomator.UiObject2 split=device.wait(androidx.test.uiautomator.Until.findObject(
+                androidx.test.uiautomator.By.text(java.util.regex.Pattern.compile("(?i)split(?: top| screen)?"))),3000);
+            if(split==null)throw new AssertionError("ENVIRONMENT_BLOCKED: no real Split entry in task menu");
+            split.click();
+            androidx.test.uiautomator.UiObject2 settings=device.wait(androidx.test.uiautomator.Until.findObject(
+                androidx.test.uiautomator.By.text("Settings")),3000);
+            if(settings==null)settings=device.findObject(androidx.test.uiautomator.By.desc("Settings"));
+            if(settings==null)throw new AssertionError("ENVIRONMENT_BLOCKED: Settings cannot be selected as app two");
+            settings.click();
+            paired=awaitVerifiedPair();evidence("bmi-recents-pair-attempt");
+            Log.i("SplitPhase","pair RECENTS app-two=Settings "+(paired?"VERIFIED ":"NOT_VERIFIED ")+safeSplitSample());
+            assertTrue("ENVIRONMENT_BLOCKED: neither adjacent launch nor completed recents selection produced a verifiable pair",paired);
+        }
+        // Focus an inert part of the verified calculator window, not the input field.
+        int[] point=new int[2];
+        scenario.onActivity(a -> {Rect r=new Rect();assertTrue(a.findViewById(R.id.toolbar).getGlobalVisibleRect(r));
+            point[0]=r.centerX();point[1]=r.centerY();});
+        device.click(point[0],point[1]);awaitRealSplit();
+    }
+    private boolean awaitVerifiedPair() throws Exception {
+        long until=SystemClock.uptimeMillis()+8000,since=0;String last="";
+        do {
+            SplitSample sample=splitSample();String key=sample.stableKey();long now=SystemClock.uptimeMillis();
+            if(sample.multi&&sample.verifiedCompanion()&&key.equals(last)) {
+                if(now-since>=700)return true;
+            } else {last=key;since=now;}
+            SystemClock.sleep(100);
+        } while(SystemClock.uptimeMillis()<until);
+        return false;
     }
     private void awaitRealSplit() {
         long until=SystemClock.uptimeMillis()+15000;
@@ -701,7 +741,7 @@ public class WindowConfigurationTest {
             Log.i("SplitPhase","full PASS "+full);completed.add("full");
             phase="entry";enterRealSplit();
             SplitSample half=stableSample(true,null);
-            Log.i("SplitPhase","entry IDENTITY "+half);
+            evidence("bmi-verified-half");Log.i("SplitPhase","entry IDENTITY "+half);
             assertTrue("real Settings companion required: "+half,half.verifiedCompanion());
             float ratio=half.app.height()/(float)device.getDisplayHeight();
             assertTrue("50:50 task ratio="+ratio,ratio>0.40f&&ratio<0.58f);
@@ -717,7 +757,7 @@ public class WindowConfigurationTest {
                 if(thirds==2)assertTrue("enlargement",after.app.height()>before.app.height());
                 else assertTrue("reduction",after.app.height()<before.app.height());
                 representativeLayout(input,selected,model,display);
-                Log.i("SplitPhase",phase+" PASS "+after);completed.add(phase);
+                evidence("bmi-"+phase);Log.i("SplitPhase",phase+" PASS "+after);completed.add(phase);
             }
         } catch(Throwable error) {
             primary=error;Log.i("SplitPhase",phase+" FAIL "+error.getClass().getSimpleName()+":"+shortMessage(error)+" STATE "+safeSplitSample());
@@ -756,10 +796,13 @@ public class WindowConfigurationTest {
     }
     private static class SplitSample {
         int task,width,height,otherTask=-1;boolean multi,focus;
-        Rect app=new Rect(),other=new Rect();String leaves="",otherApp="",focusedWindow="";
-        boolean verifiedCompanion(){return otherTask>=0&&otherApp.equals("com.android.settings")&&!other.isEmpty();}
+        Rect app=new Rect(),other=new Rect();boolean otherWindowVisible,otherAccessibilityRoot;
+        String leaves="",otherApp="",focusedWindow="";
+        boolean verifiedCompanion(){return otherTask>=0&&otherApp.equals("com.android.settings")
+            &&otherWindowVisible&&!other.isEmpty()&&!Rect.intersects(app,other);}
         public String toString(){return "task="+task+" bounds="+app+" dp="+width+"x"+height
-            +" multi="+multi+" focus="+focus+" other="+otherApp+"#"+otherTask+" bounds="+other+" focused="+focusedWindow+" leaves="+leaves;}
+            +" multi="+multi+" focus="+focus+" other="+otherApp+"#"+otherTask+" bounds="+other
+            +" WMvisible="+otherWindowVisible+" a11yRoot="+otherAccessibilityRoot+" focused="+focusedWindow+" leaves="+leaves;}
         String stableKey(){return task+":"+app+":"+width+":"+height+":"+multi+":"+focus+":"+otherTask+":"+other;}
     }
     private SplitSample splitSample() throws Exception {
@@ -787,9 +830,22 @@ public class WindowConfigurationTest {
         automation.setServiceInfo(flags);
         for(android.view.accessibility.AccessibilityWindowInfo window:automation.getWindows()) {
             android.view.accessibility.AccessibilityNodeInfo root=window.getRoot();
-            if(root!=null&&"com.android.settings".contentEquals(root.getPackageName()))window.getBoundsInScreen(s.other);
+            if(root!=null&&"com.android.settings".contentEquals(root.getPackageName()))s.otherAccessibilityRoot=true;
         }
-        String windows=device.executeShellCommand("dumpsys window");
+        String windows=device.executeShellCommand("dumpsys window -a");
+        // WindowManager visibility/frame evidence is independent of accessibility roots.
+        java.util.regex.Matcher blocks=java.util.regex.Pattern.compile(
+            "(?ms)^\\s*Window #\\d+ Window\\{([^\\n]*)\\}:\\s*\\n(.*?)(?=^\\s*Window #|\\z)").matcher(windows);
+        while(blocks.find()) {
+            String title=blocks.group(1),body=blocks.group(2);
+            if(!title.contains("com.android.settings/")||!body.contains("isVisible=true")||!body.contains("mHasSurface=true"))continue;
+            java.util.regex.Matcher frame=java.util.regex.Pattern.compile(
+                "\\bframe=\\[(-?\\d+),(-?\\d+)\\]\\[(-?\\d+),(-?\\d+)\\]").matcher(body);
+            if(frame.find()) {
+                s.other.set(Integer.parseInt(frame.group(1)),Integer.parseInt(frame.group(2)),Integer.parseInt(frame.group(3)),Integer.parseInt(frame.group(4)));
+                s.otherWindowVisible=true;
+            }
+        }
         for(String line:windows.split("\n"))if(line.contains("mCurrentFocus="))s.focusedWindow+=line.trim()+";";
         return s;
     }
