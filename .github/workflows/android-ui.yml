@@ -52,7 +52,7 @@ jobs:
             echo "::error title=Compilation check failed::Test or main APK compilation failed"
             # Echo the compiler output itself: a generic "compilation failed" annotation makes
             # every failure look identical, and which symbol failed is the only useful part.
-            compile_errors=$(grep -nE 'error:|^e: |What went wrong:|Execution failed for task' build/assemble-debug.log | head -n 25 || true)
+            compile_errors=$(grep -nE -A 24 'error:|^e: |What went wrong:|Execution failed for task' build/assemble-debug.log | head -n 65 || true)
             if [[ -z "$compile_errors" ]]; then
               compile_errors=$(tail -n 25 build/assemble-debug.log)
             fi
