@@ -686,7 +686,142 @@ public class WindowConfigurationTest {
         onView(withId(input)).check(matches(isDisplayed()));
         scenario.onActivity(a -> assertTrue("input retains nonzero measured height",a.findViewById(input).getHeight()>0));
     }
-    @Test public void bmiSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_bmi,false,false);}
+    /** A single gated diagnostic; no later layout check runs after an earlier transition fails. */
+    @Test public void bmiSurvivesRealSplitAndResize() throws Exception {
+        onView(withContentDescription(R.string.tool_bmi)).perform(click());
+        int input=prepareTool(R.string.tool_bmi);
+        scenario.onActivity(a -> splitTask=a.getTaskId());
+        Map<String,String> model=modelSnapshot();Map<Integer,String> display=displaySnapshot();
+        int[] selected=selection(input);
+        String phase="full";
+        java.util.Set<String> completed=new java.util.HashSet<>();
+        Throwable primary=null;
+        try {
+            SplitSample full=stableSample(false,null);
+            Log.i("SplitPhase","full PASS "+full);completed.add("full");
+            phase="entry";enterRealSplit();
+            SplitSample half=stableSample(true,null);
+            Log.i("SplitPhase","entry IDENTITY "+half);
+            assertTrue("real Settings companion required: "+half,half.verifiedCompanion());
+            float ratio=half.app.height()/(float)device.getDisplayHeight();
+            assertTrue("50:50 task ratio="+ratio,ratio>0.40f&&ratio<0.58f);
+            representativeLayout(input,selected,model,display);
+            Log.i("SplitPhase","entry PASS "+half);completed.add("entry");
+            for(int thirds:new int[]{2,1}) {
+                phase=thirds==2?"enlarge":"reduce";
+                SplitSample before=stableSample(true,null);
+                Rect divider=verifiedDivider();
+                assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),device.getDisplayHeight()*thirds/3,60));
+                SplitSample after=stableSample(true,before.app);
+                assertTrue("Settings remains the other app: "+after,after.verifiedCompanion());
+                if(thirds==2)assertTrue("enlargement",after.app.height()>before.app.height());
+                else assertTrue("reduction",after.app.height()<before.app.height());
+                representativeLayout(input,selected,model,display);
+                Log.i("SplitPhase",phase+" PASS "+after);completed.add(phase);
+            }
+        } catch(Throwable error) {
+            primary=error;Log.i("SplitPhase",phase+" FAIL "+error.getClass().getSimpleName()+":"+shortMessage(error)+" STATE "+safeSplitSample());
+        } finally {
+            for(String p:new String[]{"entry","enlarge","reduce"})
+                if(!completed.contains(p)&&!p.equals(phase))Log.i("SplitPhase",p+" NOT_RUN (blocked by "+phase+")");
+            try {
+                SplitSample current=splitSample();
+                if(current.multi) {
+                    Rect divider=verifiedDivider();
+                    assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),device.getDisplayHeight()-1,80));
+                }
+                SplitSample full=stableSample(false,null);
+                Log.i("SplitPhase","exit PASS "+full);
+            } catch(Throwable cleanup) {
+                Log.i("SplitPhase","exit FAIL "+cleanup.getClass().getSimpleName()+":"+shortMessage(cleanup)+" STATE "+safeSplitSample());
+                if(primary==null)primary=cleanup;else primary.addSuppressed(cleanup);
+            }
+        }
+        if(primary instanceof Exception)throw (Exception)primary;
+        if(primary instanceof Error)throw (Error)primary;
+    }
+    private void representativeLayout(int input,int[] selected,Map<String,String> model,Map<Integer,String> display) {
+        assertSplitUsable();assertSplitInput(input,selected);
+        assertEquals("BMI model",model,modelSnapshot());assertEquals("BMI outputs",display,displaySnapshot());
+        onView(withId(R.id.result)).check(matches(isDisplayed()));
+        scenario.onActivity(a -> {
+            float density=a.getResources().getDisplayMetrics().density;
+            for(int id:new int[]{R.id.digit_7,R.id.digit_9,R.id.clr,R.id.eq}) {
+                View key=a.findViewById(id);Rect r=new Rect();assertTrue(key.getGlobalVisibleRect(r));
+                assertTrue("key is clickable "+id,key.isEnabled()&&key.isClickable());
+                assertTrue("key must not collapse to a thin strip: "+id+" "+r,
+                    r.height()/density>=32&&r.width()/density>=32);
+            }
+        });
+    }
+    private static class SplitSample {
+        int task,width,height,otherTask=-1;boolean multi,focus;
+        Rect app=new Rect(),other=new Rect();String leaves="",otherApp="",focusedWindow="";
+        boolean verifiedCompanion(){return otherTask>=0&&otherApp.equals("com.android.settings")&&!other.isEmpty();}
+        public String toString(){return "task="+task+" bounds="+app+" dp="+width+"x"+height
+            +" multi="+multi+" focus="+focus+" other="+otherApp+"#"+otherTask+" bounds="+other+" focused="+focusedWindow+" leaves="+leaves;}
+        String stableKey(){return task+":"+app+":"+width+":"+height+":"+multi+":"+focus+":"+otherTask+":"+other;}
+    }
+    private SplitSample splitSample() throws Exception {
+        SplitSample s=new SplitSample();
+        scenario.onActivity(a -> {
+            s.task=a.getTaskId();s.multi=a.isInMultiWindowMode();s.focus=a.getWindow().getDecorView().hasWindowFocus();
+            Configuration c=a.getResources().getConfiguration();s.width=c.screenWidthDp;s.height=c.screenHeightDp;
+            s.app.set(a.getWindowManager().getCurrentWindowMetrics().getBounds());
+        });
+        android.app.UiAutomation automation=InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        automation.adoptShellPermissionIdentity("android.permission.REAL_GET_TASKS");
+        try {
+            Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+            android.app.ActivityManager am=(android.app.ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
+            for(android.app.ActivityManager.RunningTaskInfo info:am.getRunningTasks(30)) {
+                String pkg=info.topActivity==null?"":info.topActivity.getPackageName();
+                if(pkg.equals(context.getPackageName())||pkg.equals("com.android.settings")) {
+                    if(s.leaves.length()<220)s.leaves+=info.taskId+":"+info.topActivity.flattenToShortString()+";";
+                    if(pkg.equals("com.android.settings")&&s.otherTask<0){s.otherTask=info.taskId;s.otherApp=pkg;}
+                }
+            }
+        } finally {automation.dropShellPermissionIdentity();}
+        android.accessibilityservice.AccessibilityServiceInfo flags=automation.getServiceInfo();
+        flags.flags|=android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+        automation.setServiceInfo(flags);
+        for(android.view.accessibility.AccessibilityWindowInfo window:automation.getWindows()) {
+            android.view.accessibility.AccessibilityNodeInfo root=window.getRoot();
+            if(root!=null&&"com.android.settings".contentEquals(root.getPackageName()))window.getBoundsInScreen(s.other);
+        }
+        String windows=device.executeShellCommand("dumpsys window windows");
+        for(String line:windows.split("\n"))if(line.contains("mCurrentFocus="))s.focusedWindow+=line.trim()+";";
+        return s;
+    }
+    private String safeSplitSample() {
+        try {return splitSample().toString();}catch(Exception e){return "snapshot unavailable: "+e;}
+    }
+    private String shortMessage(Throwable e) {
+        String message=String.valueOf(e.getMessage());return message.substring(0,Math.min(250,message.length()));
+    }
+    private SplitSample stableSample(boolean multi,Rect previous) throws Exception {
+        long until=SystemClock.uptimeMillis()+15000,since=0;String last="";SplitSample s=null;
+        do {
+            s=splitSample();String key=s.stableKey();long now=SystemClock.uptimeMillis();
+            boolean matches=s.multi==multi&&s.focus&&(previous==null||Math.abs(s.app.height()-previous.height())>40);
+            if(matches&&key.equals(last)) {if(now-since>=700)return s;}
+            else {last=key;since=now;}
+            SystemClock.sleep(100);
+        } while(SystemClock.uptimeMillis()<until);
+        throw new AssertionError("stable actual window required: "+s);
+    }
+    private Rect verifiedDivider() throws Exception {
+        // Require a real system divider node/window. A gap alone is not a hit target.
+        androidx.test.uiautomator.UiObject2 handle=device.findObject(androidx.test.uiautomator.By.res(
+            java.util.regex.Pattern.compile(".*:id/docked_divider_handle")));
+        if(handle!=null)return handle.getVisibleBounds();
+        for(android.view.accessibility.AccessibilityWindowInfo w:InstrumentationRegistry.getInstrumentation().getUiAutomation().getWindows()) {
+            if(w.getType()==android.view.accessibility.AccessibilityWindowInfo.TYPE_SPLIT_SCREEN_DIVIDER) {
+                Rect r=new Rect();w.getBoundsInScreen(r);if(!r.isEmpty())return r;
+            }
+        }
+        throw new AssertionError("no verified system divider hit target; not substituting geometric gap");
+    }
     @Test public void dateSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_date,false,false);}
     @Test public void relationshipSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_relationship,false,false);}
     @Test public void programmerSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_programmer,false,false);}
