@@ -20,7 +20,6 @@ import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.UiDevice;
-import java.io.File;
 import org.junit.*;
 import org.junit.runner.RunWith;
 
@@ -65,7 +64,12 @@ public class WindowConfigurationTest {
                     +" decorDp="+(decor.getWidth()/density)+"x"+(decor.getHeight()/density)
                     +" multiWindow="+a.isInMultiWindowMode());
         });
-        assertTrue("screenshot "+name,device.takeScreenshot(new File("/sdcard/window-"+name+".png")));
+        // Shell screencap can write /sdcard under scoped storage; the instrumentation UID cannot.
+        try {
+            String path="/sdcard/window-"+name+".png";
+            device.executeShellCommand("screencap -p "+path);
+            assertTrue("screenshot "+name,device.executeShellCommand("test -s "+path+" && echo SAVED").contains("SAVED"));
+        } catch(java.io.IOException e) { throw new AssertionError("screenshot "+name,e); }
     }
     private void rotateTool(int name) throws Exception {
         onView(withContentDescription(name)).perform(click());
@@ -106,11 +110,28 @@ public class WindowConfigurationTest {
         onView(withId(R.id.toggle_inv)).perform(click());
         evidence("scientific-inverse");
         assertScientificBounds();
+        device.setOrientationNatural();awaitOrientation(Configuration.ORIENTATION_PORTRAIT);
+        evidence("scientific-returned-portrait");
+        device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
+        evidence("scientific-returned-landscape");
+        assertScientificBounds();
     }
     private void assertScientificBounds() {
         scenario.onActivity(a -> {
             ViewGroup pad=a.findViewById(R.id.advanced_pad);
             Rect parent=new Rect();assertTrue(pad.getGlobalVisibleRect(parent));
+            Rect input=new Rect(),bar=new Rect(),display=new Rect();
+            a.findViewById(R.id.input_pad).getGlobalVisibleRect(input);
+            a.findViewById(R.id.tool_bar).getGlobalVisibleRect(bar);
+            a.findViewById(R.id.display).getGlobalVisibleRect(display);
+            Log.i("WindowEvidence","scientific="+parent+" input="+input+" bar="+bar+" display="+display);
+            assertTrue("scientific panel must be BELOW tool bar",parent.top>=bar.bottom);
+            assertFalse("scientific panel overlaps display",Rect.intersects(parent,display));
+            assertFalse("scientific panel overlaps toolbar",Rect.intersects(parent,bar));
+            assertFalse("scientific panel overlaps main keypad",Rect.intersects(parent,input));
+            assertEquals("landscape keypads share top edge",input.top,parent.top);
+            assertEquals("landscape keypads share bottom edge",input.bottom,parent.bottom);
+            assertTrue("science panel left of main keypad",parent.right<=input.left);
             for(int i=0;i<pad.getChildCount();i++) {
                 View child=pad.getChildAt(i);
                 if(!(child instanceof TextView)||child.getVisibility()!=View.VISIBLE) continue;
