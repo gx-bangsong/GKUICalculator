@@ -45,10 +45,13 @@ public class DisplayMotionLayout extends MotionLayout {
         switch (motionEvent.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN:
-                // When a tool's control slot is visible, disable the history drag entirely so
-                // taps on interactive controls (currency/unit selectors, fields) pass through.
+                // Protect interactions INSIDE the tool controls, not the entire display.
+                // The history handle is a sibling below that slot and must still start a drag.
                 View controlSlot = findViewById(R.id.tool_control_slot);
-                if (controlSlot != null && controlSlot.getVisibility() == View.VISIBLE) {
+                Rect controls = new Rect();
+                if (controlSlot != null && controlSlot.getVisibility() == View.VISIBLE
+                        && controlSlot.getGlobalVisibleRect(controls)
+                        && controls.contains((int) motionEvent.getRawX(), (int) motionEvent.getRawY())) {
                     mPointerId = -1;
                     mIsScrolling = false;
                     mOutOfBounds = true;

@@ -13,6 +13,14 @@
 
     <include layout="@layout/toolbar" />
 
+    <!-- Content consumes the remaining display space even when shared rows are GONE.
+         Keep the history handle outside it, anchored to the display's bottom edge. -->
+    <LinearLayout
+        android:id="@+id/tool_display_content"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
     <!-- Slot into which the active tool mounts its mode-specific controls. Empty/GONE by default. -->
     <FrameLayout
         android:id="@+id/tool_control_slot"
@@ -60,6 +68,8 @@
                 android:singleLine="true"
                 android:textColor="@color/display_result_text_color"
                 android:textIsSelectable="true" />
+    </LinearLayout>
+
     </LinearLayout>
 
     <include layout="@layout/drag_handle" />
