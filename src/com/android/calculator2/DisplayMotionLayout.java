@@ -7,6 +7,7 @@ package com.android.calculator2;
 
 import android.content.Context;
 import android.graphics.PointF;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
@@ -49,17 +50,24 @@ public class DisplayMotionLayout extends MotionLayout {
                 // The history handle is a sibling below that slot and must still start a drag.
                 View controlSlot = findViewWithTag("field_tool_viewport");
                 if(controlSlot==null)controlSlot=findViewById(R.id.tool_control_slot);
-                Rect controls = new Rect();
-                if(controlSlot!=null&&controlSlot.getGlobalVisibleRect(controls)) {
-                    int[] screen=new int[2];controlSlot.getLocationOnScreen(screen);
-                    int[] root=new int[2];getRootView().getLocationOnScreen(root);
-                    android.util.Log.i("ToolTouchCoordinates","DOWN rootVisible="+controls+" viewScreen="+screen[0]+","+screen[1]
-                        +" rootScreen="+root[0]+","+root[1]+" raw="+motionEvent.getRawX()+","+motionEvent.getRawY()
-                        +" local="+motionEvent.getX()+","+motionEvent.getY()+" oldHit="+controls.contains((int)motionEvent.getRawX(),(int)motionEvent.getRawY()));
+                // getGlobalVisibleRect is ROOT-view-relative, not device-screen-relative.
+                // Convert the MotionLayout-local event to that same root coordinate system.
+                // The origin already accounts for all ancestors; self scroll is excluded from
+                // event viewport coordinates but included in getGlobalVisibleRect's offset.
+                Rect controls = new Rect(), parentVisible = new Rect();
+                Point origin = new Point();
+                boolean hasBounds=controlSlot!=null&&controlSlot.getVisibility()==View.VISIBLE
+                    &&controlSlot.getGlobalVisibleRect(controls)
+                    &&getGlobalVisibleRect(parentVisible,origin);
+                float rootX=motionEvent.getX()+origin.x+getScrollX();
+                float rootY=motionEvent.getY()+origin.y+getScrollY();
+                boolean inside=hasBounds&&controls.contains((int)rootX,(int)rootY);
+                if(hasBounds&&(getContext().getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0) {
+                    int[] rootScreen=new int[2];getRootView().getLocationOnScreen(rootScreen);
+                    android.util.Log.i("ToolTouchCoordinates","DOWN rootVisible="+controls+" rootScreen="+rootScreen[0]+","+rootScreen[1]
+                        +" raw="+motionEvent.getRawX()+","+motionEvent.getRawY()+" rootPoint="+rootX+","+rootY+" rootHit="+inside);
                 }
-                if (controlSlot != null && controlSlot.getVisibility() == View.VISIBLE
-                        && controlSlot.getGlobalVisibleRect(controls)
-                        && controls.contains((int) motionEvent.getRawX(), (int) motionEvent.getRawY())) {
+                if (inside) {
                     mPointerId = -1;
                     mIsScrolling = false;
                     mOutOfBounds = true;
