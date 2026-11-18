@@ -572,36 +572,16 @@ public class WindowConfigurationTest {
         device.executeShellCommand("dumpsys activity service SystemUIService WMShell splitscreen removeFromSideStage "+splitTask);
     }
     private void resizeRealSplit(int thirds) throws Exception {
-        // The visual handle is not consistently exposed as an accessibility node.
-        // Use the actual TYPE_SPLIT_SCREEN_DIVIDER window bounds instead of guessed offsets.
-        android.app.UiAutomation automation=InstrumentationRegistry.getInstrumentation().getUiAutomation();
-        android.accessibilityservice.AccessibilityServiceInfo info=automation.getServiceInfo();
-        info.flags|=android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
-        automation.setServiceInfo(info);
-        Rect r=new Rect();long deadline=SystemClock.uptimeMillis()+5000;
-        do {
-            for(android.view.accessibility.AccessibilityWindowInfo window:automation.getWindows()) {
-                if(window.getType()==android.view.accessibility.AccessibilityWindowInfo.TYPE_SPLIT_SCREEN_DIVIDER)
-                    window.getBoundsInScreen(r);
-            }
-            if(!r.isEmpty())break;SystemClock.sleep(100);
-        } while(SystemClock.uptimeMillis()<deadline);
-        if(r.isEmpty()) {
-            Rect app=new Rect(),companion=new Rect();
-            scenario.onActivity(a -> app.set(a.getWindowManager().getCurrentWindowMetrics().getBounds()));
-            for(android.view.accessibility.AccessibilityWindowInfo window:automation.getWindows()) {
-                android.view.accessibility.AccessibilityNodeInfo root=window.getRoot();
-                if(root!=null&&"com.android.settings".contentEquals(root.getPackageName()))
-                    window.getBoundsInScreen(companion);
-            }
-            assertFalse("actual companion window bounds",companion.isEmpty());
-            assertTrue("system divider gap between the two task bounds: "+app+" / "+companion,
-                app.bottom<=companion.top);
-            r.set(Math.max(app.left,companion.left),app.bottom,
-                Math.min(app.right,companion.right),companion.top);
-            Log.i("WindowEvidence","SPLIT task="+app+" companion="+companion+" divider="+r);
-        }
-        assertFalse("real system divider bounds",r.isEmpty());
+        // Embedded Shell divider nodes are not reliably in the accessibility tree.
+        // Read BOTH real task rectangles from ActivityManager; the gap is the divider.
+        String tasks=device.executeShellCommand("am stack list");
+        Rect app=taskBounds(tasks,"taskId="+splitTask+":"),companion=taskBounds(tasks,"com.android.settings/");
+        assertFalse("calculator task bounds: "+tasks,app.isEmpty());
+        assertFalse("companion task bounds: "+tasks,companion.isEmpty());
+        assertTrue("tasks separated by system divider: "+app+" / "+companion,app.bottom<companion.top);
+        Rect r=new Rect(Math.max(app.left,companion.left),app.bottom,
+            Math.min(app.right,companion.right),companion.top);
+        Log.i("WindowEvidence","SPLIT task="+app+" companion="+companion+" divider="+r);
         int[] size={0};scenario.onActivity(a -> size[0]=a.getResources().getConfiguration().screenHeightDp);
         // Drag the system divider to the adjacent snap target, without wm size/density changes.
         assertTrue(device.swipe(r.centerX(),r.centerY(),r.centerX(),device.getDisplayHeight()*thirds/3,45));
@@ -612,7 +592,20 @@ public class WindowConfigurationTest {
                 && Math.abs(a.getResources().getConfiguration().screenHeightDp-size[0])>30);
             if(changed[0]) break;SystemClock.sleep(150);
         } while(SystemClock.uptimeMillis()<until);
-        assertTrue("actual split window height changed by divider drag",changed[0]);
+        assertTrue("actual split window height changed by divider drag; tasks="+device.executeShellCommand("am stack list"),changed[0]);
+        // Wait for the snap animation/layout, not just its first intermediate configuration.
+        SystemClock.sleep(1200);
+        device.executeShellCommand("am task focus "+splitTask);awaitRealSplit();
+    }
+    private Rect taskBounds(String tasks,String marker) {
+        for(String line:tasks.split("\n")) {
+            if(!line.contains(marker)||!line.contains("visible=true"))continue;
+            java.util.regex.Matcher m=java.util.regex.Pattern.compile(
+                "bounds=\\[(-?\\d+),(-?\\d+)\\]\\[(-?\\d+),(-?\\d+)\\]").matcher(line);
+            if(m.find())return new Rect(Integer.parseInt(m.group(1)),Integer.parseInt(m.group(2)),
+                Integer.parseInt(m.group(3)),Integer.parseInt(m.group(4)));
+        }
+        return new Rect();
     }
     private void assertSplitUsable() {
         onView(withId(R.id.tool_bar)).check(matches(isDisplayed()));
