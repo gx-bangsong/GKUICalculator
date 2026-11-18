@@ -100,8 +100,13 @@ final class FieldToolViewport {
         int stackedPadHeight=Math.round(contentHeight*ratio.getFloat());
         boolean needsCompact=stackedPadHeight<minimumPad
             ||contentHeight<minimumPad+modeBar.getHeight()+line+handle;
-        int keyboardWidth=contentWidth/2;
-        boolean roomForColumns=keyboardWidth>=Math.round(4*40*density);
+        View inputPad=activity.findViewById(R.id.input_pad);
+        int horizontalMargin=activity.getResources().getDimensionPixelSize(R.dimen.button_horizontal_margin);
+        // ConstraintLayout's edge guidelines also consume the pad's start/end inset.
+        // Budget the edge columns, not just four bare button widths.
+        int edgeInset=Math.max(inputPad.getPaddingLeft(),inputPad.getPaddingRight());
+        int keyboardWidth=Math.max(contentWidth/2,4*(Math.round(40*density)+2*horizontalMargin+edgeInset)+2*edgeInset);
+        boolean roomForColumns=contentWidth-keyboardWidth>=Math.round(140*density);
         boolean target=needsCompact&&roomForColumns;
         int barHeight=activity.getResources().getDimensionPixelSize(R.dimen.mode_segment_height)
             +modeBar.getPaddingTop()+modeBar.getPaddingBottom();
