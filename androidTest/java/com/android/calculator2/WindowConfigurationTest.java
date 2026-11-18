@@ -979,11 +979,171 @@ public class WindowConfigurationTest {
         }
         throw new AssertionError("no verified system divider hit target; not substituting geometric gap");
     }
+    /** No focus setters or scrollTo: locate every control by real finger swipes in this window. */
+    private void mortgageWholeFormSplit() throws Exception {
+        onView(withContentDescription(R.string.tool_mortgage)).perform(click());
+        for(int id:new int[]{R.id.tool_field_0,R.id.tool_field_1,R.id.tool_field_2})
+            assertMortgageTextVisible(id);
+        evidence("mortgage-full-core");
+        scenario.onActivity(a -> splitTask=a.getTaskId());
+        java.util.List<Throwable> issues=new java.util.ArrayList<>();
+        try {
+            enterRealSplit();SplitSample half=stableSample(true,null);
+            assertTrue(half.toString(),half.verifiedCompanion());
+            Log.i("MortgageForm","half "+half);
+            mortgageTouchSequence("half");
+            // Every applicable conditional field, not just one prepared active field.
+            fingerTap(R.id.mortgage_type_combined);fingerTap(R.id.mortgage_basis_toggle);
+            assertEquals("2",modelSnapshot().get("mLoanType"));
+            assertEquals("true",modelSnapshot().get("mLprBasis"));
+            mortgageEdit(3,"25");mortgageEdit(4,"300000");mortgageEdit(1,"3.5");
+            fingerTap(R.id.mortgage_type_fund);
+            assertEquals("1",modelSnapshot().get("mLoanType"));
+            mortgageEdit(1,"3.1");
+            fingerTap(R.id.mortgage_type_commercial);
+            // Return to benchmark for a second whole sequence in the SAME resized task.
+            if("true".equals(modelSnapshot().get("mLprBasis")))fingerTap(R.id.mortgage_basis_toggle);
+            Map<String,String> before=modelSnapshot();Map<Integer,String> outputs=displaySnapshot();
+            Rect divider=verifiedDivider();
+            assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),device.getDisplayHeight()/3,60));
+            SplitSample shortWindow=stableSample(true,half.app);
+            assertTrue(shortWindow.toString(),shortWindow.verifiedCompanion());
+            assertEquals(before,modelSnapshot());assertEquals(outputs,displaySnapshot());
+            Log.i("MortgageForm","short "+shortWindow);
+            mortgageTouchSequence("short");
+        } catch(Throwable failure) {issues.add(failure);evidence("mortgage-failure");}
+        finally {
+            try {
+                SplitSample current=splitSample();
+                if(current.multi) {
+                    Rect divider=verifiedDivider();
+                    assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),device.getDisplayHeight()-1,80));
+                }
+                Log.i("MortgageForm","EXIT_PASS "+stableSample(false,null));
+            } catch(Throwable failure) {Log.i("MortgageForm","EXIT_FAIL "+failure);issues.add(failure);}
+        }
+        if(!issues.isEmpty()) {
+            Throwable first=issues.get(0);for(int i=1;i<issues.size();i++)first.addSuppressed(issues.get(i));
+            if(first instanceof Exception)throw (Exception)first;
+            if(first instanceof Error)throw (Error)first;
+        }
+    }
+    private void mortgageTouchSequence(String stage) throws Exception {
+        mortgageEdit(0,"1200000");evidence("mortgage-"+stage+"-core");
+        mortgageEdit(1,"4.2");mortgageEdit(2,"25");evidence("mortgage-"+stage+"-years");
+        String old=modelSnapshot().get("mEqualPayment");Map<Integer,String> previous=displaySnapshot();
+        fingerTap(R.id.mortgage_method);
+        assertNotEquals(old,modelSnapshot().get("mEqualPayment"));
+        assertNotEquals(previous,displaySnapshot());assertMortgageComputation();
+        fingerFind(R.id.formula);evidence("mortgage-"+stage+"-results");
+        mortgageFingerCopy(R.id.formula);mortgageFingerCopy(R.id.result);
+        mortgageEdit(1,"4.1");
+        assertSplitUsable();
+        Log.i("MortgageForm",stage+" ALL_CORE_FIELDS_TOUCH_EDIT_METHOD_COPY_RETURN_RATE_PASS "+modelSnapshot());
+    }
+    private Rect mortgageViewport() {
+        Rect rect=new Rect();scenario.onActivity(a -> assertTrue(a.findViewById(R.id.main_calculator)
+            .findViewWithTag("field_tool_viewport").getGlobalVisibleRect(rect)));return rect;
+    }
+    private void fingerFind(int id) {
+        for(int attempt=0;attempt<24;attempt++) {
+            boolean[] complete={false};int[] target={0};Rect viewport=mortgageViewport();
+            scenario.onActivity(a -> {
+                View view=a.findViewById(id);assertEquals("applicable control "+id,View.VISIBLE,view.getVisibility());
+                Rect visible=new Rect();int[] at=new int[2];view.getLocationOnScreen(at);target[0]=at[1];
+                complete[0]=view.getGlobalVisibleRect(visible)&&visible.height()==view.getHeight()
+                    &&visible.width()>=Math.min(view.getWidth(),viewport.width())
+                    &&visible.top>=viewport.top&&visible.bottom<=viewport.bottom;
+            });
+            if(complete[0]) {assertMortgageTextVisible(id);return;}
+            int top=viewport.top+Math.max(8,viewport.height()/6),bottom=viewport.bottom-Math.max(8,viewport.height()/6);
+            boolean above=target[0]<viewport.top;
+            assertTrue("finger scroll "+id,device.swipe(viewport.right-6,above?top:bottom,
+                viewport.right-6,above?bottom:top,35));
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();awaitMotionState(R.id.start_state);
+        }
+        fail("control cannot be reached with finger scroll: "+id);
+    }
+    private void assertMortgageTextVisible(int id) {
+        scenario.onActivity(a -> {
+            TextView view=a.findViewById(id);Rect visible=new Rect();assertTrue("visible "+id,view.getGlobalVisibleRect(visible));
+            assertEquals("whole row vertically visible "+id,view.getHeight(),visible.height());
+            assertNotNull(view.getLayout());
+            assertTrue("no vertical text truncation "+id,view.getHeight()>=view.getLayout().getHeight()+view.getCompoundPaddingTop()+view.getCompoundPaddingBottom());
+            if(id!=R.id.formula&&id!=R.id.result) {
+                assertEquals("entire form row width "+id,view.getWidth(),visible.width());
+                for(int line=0;line<view.getLayout().getLineCount();line++)
+                    assertTrue("no hidden form text horizontally "+id,view.getLayout().getLineWidth(line)<=view.getWidth()-view.getCompoundPaddingLeft()-view.getCompoundPaddingRight()+1);
+            }
+        });
+    }
+    private void fingerTap(int id) {
+        fingerFind(id);Rect rect=new Rect();scenario.onActivity(a -> a.findViewById(id).getGlobalVisibleRect(rect));
+        assertTrue(device.click(rect.centerX(),rect.centerY()));
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+    }
+    private void mortgageEdit(int index,String number) {
+        int id=new int[]{R.id.tool_field_0,R.id.tool_field_1,R.id.tool_field_2,R.id.tool_field_3,R.id.tool_field_4}[index];
+        fingerTap(id);assertEquals("actual touched field",String.valueOf(index),modelSnapshot().get("activeField"));
+        key(R.id.clr);assertEquals("",modelSnapshot().get("field"+index));
+        String typed="";
+        for(char c:number.toCharArray()) {
+            if(c=='.')key(R.id.dec_point);else digits(String.valueOf(c));typed+=c;
+            assertEquals("key changes true field model",typed,modelSnapshot().get("field"+index));
+            assertMortgageTextVisible(id);
+            scenario.onActivity(a -> {
+                TextView field=a.findViewById(id);int caret=field.getSelectionEnd();assertTrue(caret>=0);
+                int line=field.getLayout().getLineForOffset(caret);
+                assertTrue("caret stays in edited field",field.getLayout().getLineBottom(line)+field.getCompoundPaddingTop()<=field.getHeight()-field.getCompoundPaddingBottom());
+            });
+        }
+        assertMortgageComputation();
+        Log.i("MortgageForm","EDIT field="+index+" value="+number+" model="+modelSnapshot());
+    }
+    private void assertMortgageComputation() {
+        Map<String,String> state=modelSnapshot();
+        java.math.MathContext mc=new java.math.MathContext(20,java.math.RoundingMode.HALF_UP);
+        java.math.BigDecimal principal=new java.math.BigDecimal(state.get("field0"));
+        java.math.BigDecimal rate=new java.math.BigDecimal(state.get("field1"));
+        int years=new java.math.BigDecimal(state.get("field2")).intValue();
+        boolean equal=Boolean.parseBoolean(state.get("mEqualPayment"));
+        if("true".equals(state.get("mLprBasis"))&&!"1".equals(state.get("mLoanType")))
+            rate=com.android.calculator2.tools.model.MortgageCalculator.lprRate(rate,new java.math.BigDecimal(state.get("field3")),mc);
+        com.android.calculator2.tools.model.MortgageCalculator.Result expected;
+        if("2".equals(state.get("mLoanType"))) {
+            java.math.BigDecimal fund=new java.math.BigDecimal(state.get("field4"));
+            expected=com.android.calculator2.tools.model.MortgageCalculator.combined(principal.subtract(fund),rate,fund,new java.math.BigDecimal("3.1"),years,equal,mc);
+        } else expected=equal?com.android.calculator2.tools.model.MortgageCalculator.equalPayment(principal,rate,years,mc)
+            :com.android.calculator2.tools.model.MortgageCalculator.equalPrincipal(principal,rate,years,mc);
+        String monthly=new java.text.DecimalFormat("0.##").format(expected.monthlyPayment.setScale(2,java.math.RoundingMode.HALF_UP));
+        String formula=displaySnapshot().get(R.id.formula).replace(",","");
+        assertTrue("real monthly computation "+monthly+" vs "+formula,formula.contains(monthly));
+    }
+    private void mortgageFingerCopy(int id) throws Exception {
+        fingerFind(id);Rect rect=new Rect();scenario.onActivity(a -> a.findViewById(id).getGlobalVisibleRect(rect));
+        String expected=displaySnapshot().get(id);
+        assertTrue(device.swipe(rect.centerX(),rect.centerY(),rect.centerX(),rect.centerY(),90));
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        if(id==R.id.formula) {
+            androidx.test.uiautomator.UiObject2 all=device.wait(androidx.test.uiautomator.Until.findObject(
+                androidx.test.uiautomator.By.text(context.getString(android.R.string.selectAll))),2000);
+            if(all!=null)all.click();
+        }
+        androidx.test.uiautomator.UiObject2 copy=device.wait(androidx.test.uiautomator.Until.findObject(
+            androidx.test.uiautomator.By.text(context.getString(android.R.string.copy))),5000);
+        assertNotNull("actual floating Copy menu",copy);copy.click();
+        scenario.onActivity(a -> {
+            android.content.ClipboardManager clipboard=(android.content.ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE);
+            assertEquals("entire result copied with user menu",expected,clipboard.getPrimaryClip().getItemAt(0).coerceToText(a).toString());
+        });
+        awaitMotionState(R.id.start_state);
+        assertTrue(device.wait(androidx.test.uiautomator.Until.gone(androidx.test.uiautomator.By.res("com.android.systemui","clipboard_ui")),20000));
+    }
     @Test public void dateSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_date,false,false);}
     @Test public void relationshipSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_relationship,false,false);}
     @Test public void programmerSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_programmer,false,false);}
     @Test public void taxSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_tax,false,false);}
-    @Test public void mortgageSurvivesRealSplitAndResize() throws Exception {fieldToolSplit(R.string.tool_mortgage);}
+    @Test public void mortgageSurvivesRealSplitAndResize() throws Exception {mortgageWholeFormSplit();}
     @Test public void unitSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_unit,true,false);}
     @Test public void currencySurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_currency,true,true);}
     @Test public void scientificSurvivesRealSplitAndResize() throws Exception {

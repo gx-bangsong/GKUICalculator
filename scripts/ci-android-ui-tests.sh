@@ -244,7 +244,10 @@ for p in Path("build/outputs/androidTest-results").rglob("TEST-*.xml"):
 text="; ".join(rows).replace("%","%25")
 print("::warning title=Window functional results::"+text)
 PYWINDOW
-adb logcat -d -v brief WindowEvidence:I SplitPhase:I '*:S' > build/ui-screenshots/window-evidence.log || true
+adb logcat -d -v brief WindowEvidence:I SplitPhase:I MortgageForm:I '*:S' > build/ui-screenshots/window-evidence.log || true
+mortgage_phases=$(grep 'MortgageForm' build/ui-screenshots/window-evidence.log | tail -n 20 | tr '\n' ' ' || true)
+mortgage_phases=${mortgage_phases//%/%25}
+echo "::warning title=Mortgage form touch steps::${mortgage_phases:0:3800}"
 split_phases=$(grep 'SplitPhase' build/ui-screenshots/window-evidence.log | tail -n 12 | tr '\n' ' ' || true)
 split_phases=${split_phases//%/%25}
 echo "::warning title=BMI split phases::${split_phases:0:3800}"
