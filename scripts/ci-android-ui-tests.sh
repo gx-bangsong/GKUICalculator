@@ -126,7 +126,7 @@ if ((test_result != 0)); then
     fi
 fi
 connected_seconds=$((SECONDS-phase_start))
-echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 46 tests) took ${connected_seconds}s"
+echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 51 tests) took ${connected_seconds}s"
 
 # Per-test wall times from the instrumentation XML, so slow tests are visible in the check
 # annotations instead of hidden inside one monolithic step log.
@@ -213,7 +213,7 @@ fi
 
 # ---- Required-method validation -------------------------------------------
 # Definitive list of required test methods based on the current source code:
-#   15 for CalculatorToolUiTest + 6 BMI cursor + 5 unit cursor/read-only + 7 formula + 7 tool roles/currency = 46 total.
+#   15 for CalculatorToolUiTest + 6 BMI cursor + 5 unit cursor/read-only + 7 formula + 7 tool roles/currency = 51 total.
 # Any missing, absent, or skipped required method triggers a validation failure.
 validation_failed=0
 summary_lines=()
@@ -229,7 +229,7 @@ if not results_dir.exists():
     print("ERROR: No androidTest-results directory found.")
     raise SystemExit(1)
 
-# Required methods: 15 CalculatorToolUiTest + 6 ToolInputCursorTest + 5 UnitInputCursorTest + 7 CalculatorFormulaCursorTest + 7 ToolRolesAndCurrencyTest = 46
+# Required methods: 15 CalculatorToolUiTest + 6 ToolInputCursorTest + 5 UnitInputCursorTest + 7 CalculatorFormulaCursorTest + 7 ToolRolesAndCurrencyTest = 51
 required = {
     "com.android.calculator2.tools.ToolRolesAndCurrencyTest": [
         "sharedOutputsAreReadOnlyAcrossTools",
@@ -252,6 +252,11 @@ required = {
         "middleArithmeticSymbolsRespectCaret",
         "semanticSymbolBoundariesAndRejection",
         "scientificFunctionTouchInsertionEvaluates",
+        "scientificSuffixTouchInsertionEvaluates",
+        "scientificModelFunctionsAndConstantsEvaluate",
+        "modelParenthesesAndLocalOperatorContext",
+        "invalidSymbolTouchPreservesSelection",
+        "smartParenthesesTouchInsertionEvaluates",
         "selectedOperatorReplacementEvaluates",
     ],
     "com.android.calculator2.CalculatorToolUiTest": [
@@ -440,6 +445,11 @@ required = {
         "middleArithmeticSymbolsRespectCaret",
         "semanticSymbolBoundariesAndRejection",
         "scientificFunctionTouchInsertionEvaluates",
+        "scientificSuffixTouchInsertionEvaluates",
+        "scientificModelFunctionsAndConstantsEvaluate",
+        "modelParenthesesAndLocalOperatorContext",
+        "invalidSymbolTouchPreservesSelection",
+        "smartParenthesesTouchInsertionEvaluates",
         "selectedOperatorReplacementEvaluates",
     ],
     "com.android.calculator2.CalculatorToolUiTest": [

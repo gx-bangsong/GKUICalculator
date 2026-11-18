@@ -1,4 +1,4 @@
-# Expression-position input acceptance (work in progress)
+# Expression-position input acceptance
 
 This extends digit insertion; it does not replace the existing 40-test result-role,
 programmer, relationship, BMI, unit and currency acceptance suite.
@@ -32,6 +32,44 @@ programmer, relationship, BMI, unit and currency acceptance suite.
 - New symbol regressions first committed before production changes:
   ddcb5d4 (ordinary/currency), 6be885a (unit and required-method gates),
   d6947c5 (semantic token boundaries, rejection, selected operator replacement).
-- New acceptance is NOT yet declared passed. Runtime results and same-SHA APK
-  must be recorded after the full expanded suite. No new physical-device
-  verification has been performed by the agent.
+- Candidate accepted for physical-device testing:
+  `29e990ce1c50823ffc4abc92e6bfde855e3c7b79`.
+  UI #165 / run [44233795709](https://github.com/gx-bangsong/GKUICalculator/actions/runs/44233795709):
+  debug and test APK compilation passed; **46 executed, 0 skipped, 0 failed**.
+  Build #369 / run [44233795708](https://github.com/gx-bangsong/GKUICalculator/actions/runs/44233795708): success.
+  [Candidate APK artifact 14395469677](https://github.com/gx-bangsong/GKUICalculator/actions/runs/44233795708/artifacts/14395469677).
+  The artifact is a ZIP containing the APK; its reported archive size is 5,666,602 bytes.
+  Download into the sandbox failed with network EOF; the original artifact link is supplied.
+- User accepts the candidate automation result. Physical-device verification remains
+  pending; no physical-device result is claimed by the agent. Final acceptance SHA
+  awaits user device results and the complete supplemental regression.
+
+## Short coverage inventory
+
+Candidate **real UI tests** (ActivityScenario/Espresso, emulator, not a physical device):
+- Ordinary/unit/currency four operators at `12|3`, each independently prepared;
+  text, caret and evaluation/conversion; continuous `+` then `9` without repositioning.
+- Selected `+` replaced by multiply in all three paths; real conversion results,
+  with deterministic rates for currency.
+- Scientific sin/cos/log/sqrt at a real touched insertion point, then evaluated.
+- Existing result read-only/copy, relationship-input-role restoration, programmer
+  single display/status/long binary, BMI and unit regressions retained.
+
+Candidate **model-only tests running inside instrumentation**:
+- `semanticSymbolBoundariesAndRejection`: function/prefix/constant insertion,
+  suffix/power token placement and basic invalid right-paren/factorial rejection.
+  This test checks model text/boundaries, not every scientific key's evaluated value.
+
+Supplemental **test-only** changes (separate from candidate; not passed until CI confirms):
+- UI `scientificSuffixTouchInsertionEvaluates`: square `3²+4=13`, factorial,
+  percent and power; real touch/caret assertions; power then digit without repositioning.
+- UI `smartParenthesesTouchInsertionEvaluates`: open/close at prefix boundaries,
+  `1+(23)+4=28`.
+- UI `invalidSymbolTouchPreservesSelection`: rejected factorial/multiply at the
+  start preserves both displayed text and caret, then evaluates unchanged expression.
+- Model `scientificModelFunctionsAndConstantsEvaluate`: sin/cos/tan, inverse trig,
+  ln/log/exp, sqrt, pi/e; insertion text/caret and production evaluator numeric values.
+- Model `modelParenthesesAndLocalOperatorContext`: explicit and smart parentheses,
+  local adjacent-operator replacement/minus correction and evaluated values.
+- Required-method lists include all five supplemental methods: **51 total**.
+  No production code, focus handling, layout or workflow refactoring in this supplement.

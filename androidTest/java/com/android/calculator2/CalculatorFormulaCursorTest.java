@@ -102,6 +102,85 @@ public class CalculatorFormulaCursorTest {
         }
     }
 
+    /** Real UI pad presses, including the inverse layer which exposes square. */
+    @Test public void scientificSuffixTouchInsertionEvaluates() {
+        key(R.id.mode_segment_scientific);
+        int[] suffixes={R.id.op_sqr,R.id.op_fact,R.id.op_pct,R.id.op_pow};
+        String[] text={"3²+4","3!+4","3%+4","3^+4"};
+        String[] values={"13","10","4.03","13"};
+        for(int i=0;i<suffixes.length;i++) {
+            key(R.id.clr);key(R.id.digit_3);key(R.id.op_add);key(R.id.digit_4);
+            if(i==0) key(R.id.toggle_inv);
+            tap(1);key(suffixes[i]);formula(text[i]);caret(2);
+            if(i==3) { key(R.id.digit_2);formula("3^2+4");caret(3); }
+            result(values[i]);
+            if(i==0) key(R.id.toggle_inv);
+        }
+    }
+
+    /** Model-only: exact semantic insertion followed by the production evaluator. */
+    @Test public void scientificModelFunctionsAndConstantsEvaluate() throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        int[] functions={R.id.fun_sin,R.id.fun_cos,R.id.fun_tan,R.id.fun_arcsin,
+            R.id.fun_arccos,R.id.fun_arctan,R.id.fun_ln,R.id.fun_log,R.id.fun_exp,
+            R.id.op_sqrt,R.id.const_pi,R.id.const_e};
+        int[][] arguments={{0},{0},{0},{0},{1},{0},{1},{1,0},{0},{9},{1},{1}};
+        double[] expected={1,2,1,1,1,1,1,2,2,4,1+Math.PI,1+Math.E};
+        for(int i=0;i<functions.length;i++) {
+            CalculatorExpr expression=new CalculatorExpr();
+            expression.add(R.id.digit_1);expression.add(R.id.op_add);
+            for(int digit:arguments[i]) expression.add(modelDigit(digit));
+            String before=expression.toSpannableStringBuilder(context).toString();
+            String token=KeyMaps.toString(context,functions[i]);
+            assertEquals(2+token.length(),expression.editAtDisplay(context,2,2,functions[i],false));
+            assertEquals(before.substring(0,2)+token+before.substring(2),
+                    expression.toSpannableStringBuilder(context).toString());
+            assertEquals(expected[i],Double.parseDouble(expression.eval(true,null).toStringTruncated(8)),0.000001);
+        }
+    }
+
+    private int modelDigit(int digit) {
+        return new int[]{R.id.digit_0,R.id.digit_1,R.id.digit_2,R.id.digit_3,R.id.digit_4,
+            R.id.digit_5,R.id.digit_6,R.id.digit_7,R.id.digit_8,R.id.digit_9}[digit];
+    }
+
+    /** Model-only: explicit and smart parentheses use the prefix, not the expression end. */
+    @Test public void modelParenthesesAndLocalOperatorContext() throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        for(int open:new int[]{R.id.lparen,R.id.paren}) {
+            CalculatorExpr expression=new CalculatorExpr();
+            for(int k:new int[]{R.id.digit_1,R.id.op_add,R.id.digit_2,R.id.digit_3,R.id.op_add,R.id.digit_4}) expression.add(k);
+            assertEquals(3,expression.editAtDisplay(context,2,2,open,false));
+            assertEquals("1+(23+4",expression.toSpannableStringBuilder(context).toString());
+            assertEquals(6,expression.editAtDisplay(context,5,5,open==R.id.paren?R.id.paren:R.id.rparen,false));
+            assertEquals("1+(23)+4",expression.toSpannableStringBuilder(context).toString());
+            assertEquals("28",expression.eval(true,null).toNiceString());
+        }
+        for(int operator:new int[]{R.id.op_mul,R.id.op_sub}) {
+            CalculatorExpr expression=new CalculatorExpr();
+            for(int k:new int[]{R.id.digit_1,R.id.digit_2,R.id.op_add,R.id.digit_3}) expression.add(k);
+            assertEquals(3,expression.editAtDisplay(context,3,3,operator,false));
+            assertEquals(operator==R.id.op_mul?"12×3":"12−3",expression.toSpannableStringBuilder(context).toString());
+            assertEquals(operator==R.id.op_mul?"36":"9",expression.eval(true,null).toNiceString());
+        }
+    }
+
+    @Test public void smartParenthesesTouchInsertionEvaluates() {
+        key(R.id.digit_1);key(R.id.op_add);key(R.id.digit_2);key(R.id.digit_3);
+        key(R.id.op_add);key(R.id.digit_4);
+        tap(2);key(R.id.paren);formula("1+(23+4");caret(3);
+        tap(5);key(R.id.paren);formula("1+(23)+4");caret(6);result("28");
+    }
+
+    /** Real touch, then rejected suffix input must preserve both content and selection. */
+    @Test public void invalidSymbolTouchPreservesSelection() {
+        key(R.id.mode_segment_scientific);
+        key(R.id.digit_3);key(R.id.op_add);key(R.id.digit_4);tap(0);
+        key(R.id.op_fact);formula("3+4");caret(0);
+        key(R.id.op_mul);formula("3+4");caret(0);
+        result("7");
+    }
+
     @After public void close() { if (scenario != null) scenario.close(); }
     private void key(int id) { onView(withId(id)).perform(click()); }
     private void input() {
