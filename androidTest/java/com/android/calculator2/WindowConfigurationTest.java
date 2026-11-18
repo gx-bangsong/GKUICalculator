@@ -68,7 +68,8 @@ public class WindowConfigurationTest {
         try {
             String path="/sdcard/window-"+name+".png";
             device.executeShellCommand("screencap -p "+path);
-            assertTrue("screenshot "+name,device.executeShellCommand("test -s "+path+" && echo SAVED").contains("SAVED"));
+            String size=device.executeShellCommand("stat -c %s "+path).trim();
+            assertTrue("nonempty screenshot "+name+": "+size,Long.parseLong(size)>0);
         } catch(java.io.IOException e) { throw new AssertionError("screenshot "+name,e); }
     }
     private void rotateTool(int name) throws Exception {
