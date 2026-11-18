@@ -727,9 +727,10 @@ public class WindowConfigurationTest {
         scenario.onActivity(a -> assertTrue("input retains nonzero measured height",a.findViewById(input).getHeight()>0));
     }
     /** A single gated diagnostic; no later layout check runs after an earlier transition fails. */
-    @Test public void bmiSurvivesRealSplitAndResize() throws Exception {
-        onView(withContentDescription(R.string.tool_bmi)).perform(click());
-        int input=prepareTool(R.string.tool_bmi);
+    @Test public void bmiSurvivesRealSplitAndResize() throws Exception { fieldToolSplit(R.string.tool_bmi); }
+    private void fieldToolSplit(int tool) throws Exception {
+        onView(withContentDescription(tool)).perform(click());
+        int input=prepareTool(tool);
         scenario.onActivity(a -> splitTask=a.getTaskId());
         Map<String,String> model=modelSnapshot();Map<Integer,String> display=displaySnapshot();
         int[] selected=selection(input);
@@ -770,6 +771,9 @@ public class WindowConfigurationTest {
                     assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),device.getDisplayHeight()-1,80));
                 }
                 SplitSample full=stableSample(false,null);
+                assertEquals("model after returning fullscreen",model,modelSnapshot());
+                assertEquals("outputs after returning fullscreen",display,displaySnapshot());
+                assertArrayEquals("selection after returning fullscreen",selected,selection(input));
                 Log.i("SplitPhase","exit PASS "+full);
             } catch(Throwable cleanup) {
                 Log.i("SplitPhase","exit FAIL "+cleanup.getClass().getSimpleName()+":"+shortMessage(cleanup)+" STATE "+safeSplitSample());
@@ -790,8 +794,25 @@ public class WindowConfigurationTest {
             assertArrayEquals("BMI selection",selected,selection(input));
             assertEquals("BMI model",model,modelSnapshot());assertEquals("BMI outputs",display,displaySnapshot());
         } catch(Throwable error) {issues.add(error);data="FAIL";}
-        try {representativeLayout(input,selected,model,display);}
-        catch(Throwable error) {issues.add(error);layout="FAIL";}
+        try {
+            representativeLayout(input,selected,model,display);
+            copyFieldToolOutput(R.id.formula);copyFieldToolOutput(R.id.result);
+            if(phase.equals("reduce")) {
+                assertTextReachable(input);assertArrayEquals(selected,selection(input));
+                String field="field"+model.get("activeField");
+                String old=model.get(field);String oldResult=display.get(R.id.formula);
+                // Use the real keypad WITHOUT clicking or repositioning the restored field.
+                key(R.id.digit_9);
+                assertEquals("key edits original selected range",old.substring(0,old.length()-1)+"9",modelSnapshot().get(field));
+                if(field.equals("field1")) { // BMI shared-input representative: consecutive input.
+                    key(R.id.digit_2);assertEquals(old.substring(0,old.length()-1)+"92",modelSnapshot().get(field));
+                }
+                assertNotEquals("real result recomputed",oldResult,displaySnapshot().get(R.id.formula));
+                Map<String,String> next=modelSnapshot();Map<Integer,String> outputs=displaySnapshot();
+                model.clear();model.putAll(next);display.clear();display.putAll(outputs);
+                int[] caret=selection(input);selected[0]=caret[0];selected[1]=caret[1];
+            }
+        } catch(Throwable error) {issues.add(error);layout="FAIL";}
         int[] heights=new int[2];scenario.onActivity(a -> {
             heights[0]=a.findViewById(input).getHeight();heights[1]=a.findViewById(R.id.result).getHeight();
         });
@@ -818,6 +839,23 @@ public class WindowConfigurationTest {
                 +" keypad="+a.findViewById(R.id.pad_stack).getHeight());
         });
         awaitMotionState(R.id.start_state);
+    }
+    private void copyFieldToolOutput(int id) throws Exception {
+        assertTextReachable(id);
+        onView(withId(id)).perform(androidx.test.espresso.action.ViewActions.longClick());
+        awaitMotionState(R.id.start_state);
+        scenario.onActivity(a -> {
+            TextView out=a.findViewById(id);String expected=out.getText().toString();
+            assertFalse(expected.isEmpty());
+            Selection.selectAll((Spannable)out.getText());
+            assertTrue("copy complete tool output",out.onTextContextMenuItem(android.R.id.copy));
+            android.content.ClipboardManager clipboard=(android.content.ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE);
+            assertEquals(expected,clipboard.getPrimaryClip().getItemAt(0).coerceToText(a).toString());
+            if(out instanceof CalculatorResult)((CalculatorResult)out).stopActionModeOrContextMenu();
+            if(out instanceof CalculatorFormula)((CalculatorFormula)out).stopActionModeOrContextMenu();
+        });
+        awaitMotionState(R.id.start_state);
+        device.wait(androidx.test.uiautomator.Until.gone(androidx.test.uiautomator.By.res("com.android.systemui","clipboard_ui")),20000);
     }
     private void assertTextReachable(int id) {
         onView(withId(id)).perform(androidx.test.espresso.action.ViewActions.scrollTo()).check((view,error) -> {
@@ -917,7 +955,7 @@ public class WindowConfigurationTest {
     @Test public void relationshipSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_relationship,false,false);}
     @Test public void programmerSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_programmer,false,false);}
     @Test public void taxSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_tax,false,false);}
-    @Test public void mortgageSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_mortgage,false,false);}
+    @Test public void mortgageSurvivesRealSplitAndResize() throws Exception {fieldToolSplit(R.string.tool_mortgage);}
     @Test public void unitSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_unit,true,false);}
     @Test public void currencySurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_currency,true,true);}
     @Test public void scientificSurvivesRealSplitAndResize() throws Exception {
