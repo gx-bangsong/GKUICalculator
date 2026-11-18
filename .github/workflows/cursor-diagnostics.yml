@@ -1,5 +1,8 @@
 name: Cursor isolation diagnostics
 on:
+  push:
+    branches: ['arena/e012c45b-gkuicalculator']
+    paths: ['.github/workflows/cursor-diagnostics.yml']
   workflow_dispatch:
     inputs:
       source_sha:
@@ -32,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ inputs.source_sha || '97dda69e8d4312f4d5d42db08836d83244b84c21' }}
       - uses: actions/setup-java@v5
         with:
           distribution: zulu
@@ -71,7 +74,7 @@ jobs:
         if: always()
         env:
           CLASSES: ${{ matrix.classes }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
+          SOURCE_SHA: ${{ inputs.source_sha || '97dda69e8d4312f4d5d42db08836d83244b84c21' }}
         run: |
           python3 - <<'PY'
           import os, re, pathlib, xml.etree.ElementTree as ET
@@ -108,7 +111,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cursor-isolation-${{ strategy.job-index }}-${{ inputs.source_sha }}
+          name: cursor-isolation-${{ strategy.job-index }}-${{ inputs.source_sha || '97dda69e8d4312f4d5d42db08836d83244b84c21' }}
           path: |
             build/outputs/androidTest-results/
             build/reports/androidTests/
