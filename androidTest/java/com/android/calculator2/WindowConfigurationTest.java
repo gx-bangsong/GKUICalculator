@@ -369,9 +369,13 @@ public class WindowConfigurationTest {
         scenario.onActivity(a -> {
             Rect display=new Rect(),handle=new Rect(),bar=new Rect();
             assertTrue(a.findViewById(R.id.display).getGlobalVisibleRect(display));
-            assertTrue(a.findViewById(R.id.drag_handle_view).getGlobalVisibleRect(handle));
+            View view=a.findViewById(R.id.drag_handle_view);
+            boolean visible=view.getGlobalVisibleRect(handle);
+            int[] location=new int[2];view.getLocationOnScreen(location);
+            Rect measured=new Rect(location[0],location[1],location[0]+view.getWidth(),location[1]+view.getHeight());
             a.findViewById(R.id.tool_bar).getGlobalVisibleRect(bar);
-            Log.i("WindowEvidence","HANDLE "+name+" display="+display+" handle="+handle+" toolbar="+bar);
+            Log.i("WindowEvidence","HANDLE "+name+" display="+display+" measured="+measured+" visible="+handle+" toolbar="+bar);
+            assertTrue("visible handle "+name+" measured="+measured+" display="+display,visible);
             assertTrue("handle inside display",display.contains(handle));
             assertTrue("handle above toolbar",handle.bottom<=bar.top);
             gap[0]=display.bottom-handle.bottom;

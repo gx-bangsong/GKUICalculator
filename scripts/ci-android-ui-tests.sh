@@ -226,7 +226,7 @@ text="; ".join(rows).replace("%","%25")
 print("::warning title=Window functional results::"+text)
 PYWINDOW
 adb logcat -d -v brief WindowEvidence:I '*:S' > build/ui-screenshots/window-evidence.log || true
-window_evidence=$(grep -E 'CAPTURE_(OK|FAIL)|configDp=' build/ui-screenshots/window-evidence.log | tail -n 30 | tr '\n' ' ' || true)
+window_evidence=$(grep -E 'CAPTURE_(OK|FAIL)|configDp=|HANDLE ' build/ui-screenshots/window-evidence.log | tail -n 30 | tr '\n' ' ' || true)
 window_evidence=${window_evidence//%/%25}
 echo "::warning title=Window evidence status::${window_evidence:0:3800}"
 
