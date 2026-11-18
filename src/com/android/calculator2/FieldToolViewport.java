@@ -56,7 +56,21 @@ final class FieldToolViewport {
             mortgage=activity.isMortgageViewport();
             ((CalculatorFormula)formulaText).setWrapToolOutput(mortgage);
             ((CalculatorScrollView)formula).setWrapChildToViewport(mortgage);
-            viewport=new ScrollView(activity);
+            viewport=new ScrollView(activity) {
+                @Override public boolean requestChildRectangleOnScreen(View child,android.graphics.Rect rectangle,boolean immediate) {
+                    View focused=findFocus();
+                    if(focused instanceof com.android.calculator2.tools.ToolFieldEditText
+                            &&child instanceof ViewGroup&&focused.getHeight()<=getHeight()-getPaddingTop()-getPaddingBottom()) {
+                        // TextView's caret-only request can leave the field's last few pixels
+                        // behind the handle. Keep the whole focused row visible, without ever
+                        // requesting focus, changing its selection, or jumping to a result.
+                        android.graphics.Rect row=new android.graphics.Rect(0,0,focused.getWidth(),focused.getHeight());
+                        ((ViewGroup)child).offsetDescendantRectToMyCoords(focused,row);
+                        return super.requestChildRectangleOnScreen(child,row,true);
+                    }
+                    return super.requestChildRectangleOnScreen(child,rectangle,immediate);
+                }
+            };
             viewport.setTag("field_tool_viewport");
             viewport.setFillViewport(false);
             viewport.setClipChildren(true);
