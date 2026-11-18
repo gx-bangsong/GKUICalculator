@@ -562,14 +562,25 @@ public class WindowConfigurationTest {
     private void leaveRealSplit() throws Exception {
         device.executeShellCommand("dumpsys activity service SystemUIService WMShell splitscreen removeFromSideStage "+splitTask);
     }
-    private void resizeRealSplit() throws Exception {
-        androidx.test.uiautomator.UiObject2 divider=device.wait(androidx.test.uiautomator.Until.findObject(
-            androidx.test.uiautomator.By.res(java.util.regex.Pattern.compile(".*:id/docked_divider_handle"))),5000);
-        assertNotNull("real system split divider",divider);
-        Rect r=divider.getVisibleBounds();
+    private void resizeRealSplit(int thirds) throws Exception {
+        // The visual handle is not consistently exposed as an accessibility node.
+        // Use the actual TYPE_SPLIT_SCREEN_DIVIDER window bounds instead of guessed offsets.
+        android.app.UiAutomation automation=InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        android.accessibilityservice.AccessibilityServiceInfo info=automation.getServiceInfo();
+        info.flags|=android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+        automation.setServiceInfo(info);
+        Rect r=new Rect();long deadline=SystemClock.uptimeMillis()+5000;
+        do {
+            for(android.view.accessibility.AccessibilityWindowInfo window:automation.getWindows()) {
+                if(window.getType()==android.view.accessibility.AccessibilityWindowInfo.TYPE_SPLIT_SCREEN_DIVIDER)
+                    window.getBoundsInScreen(r);
+            }
+            if(!r.isEmpty())break;SystemClock.sleep(100);
+        } while(SystemClock.uptimeMillis()<deadline);
+        assertFalse("real system split divider window",r.isEmpty());
         int[] size={0};scenario.onActivity(a -> size[0]=a.getResources().getConfiguration().screenHeightDp);
         // Drag the system divider to the adjacent snap target, without wm size/density changes.
-        assertTrue(device.swipe(r.centerX(),r.centerY(),r.centerX(),device.getDisplayHeight()*2/3,45));
+        assertTrue(device.swipe(r.centerX(),r.centerY(),r.centerX(),device.getDisplayHeight()*thirds/3,45));
         long until=SystemClock.uptimeMillis()+10000;
         boolean[] changed={false};
         do {
@@ -613,9 +624,11 @@ public class WindowConfigurationTest {
             });
             assertEquals("model at 50:50",model,modelSnapshot());
             assertEquals("results at 50:50",display,displaySnapshot());
-            resizeRealSplit();evidence("split-resized-"+name);assertSplitUsable();
-            assertEquals("model after real divider resize",model,modelSnapshot());
-            assertEquals("results after real divider resize",display,displaySnapshot());
+            for(int thirds:new int[]{2,1}) {
+                resizeRealSplit(thirds);evidence("split-resized-"+thirds+"-"+name);assertSplitUsable();
+                assertEquals("model after real divider resize",model,modelSnapshot());
+                assertEquals("results after real divider resize",display,displaySnapshot());
+            }
         } finally { leaveRealSplit(); }
     }
     @Test public void bmiSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_bmi,false,false);}
@@ -630,8 +643,11 @@ public class WindowConfigurationTest {
         key(R.id.mode_segment_scientific);digits("123");
         try {
             enterRealSplit();assertSplitUsable();evidence("split-half-scientific");
-            assertScientificInWindow();resizeRealSplit();assertSplitUsable();
-            evidence("split-resized-scientific");assertScientificInWindow();
+            assertScientificInWindow();
+            for(int thirds:new int[]{2,1}) {
+                resizeRealSplit(thirds);assertSplitUsable();
+                evidence("split-resized-"+thirds+"-scientific");assertScientificInWindow();
+            }
             onView(withId(R.id.formula)).check(matches(withText("123")));
         } finally {leaveRealSplit();}
     }
