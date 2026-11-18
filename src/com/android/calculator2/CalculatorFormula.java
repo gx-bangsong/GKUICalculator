@@ -165,6 +165,7 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
         super.onTextChanged(text, start, lengthBefore, lengthAfter);
 
         setTextSize(TypedValue.COMPLEX_UNIT_PX, getVariableTextSize(text.toString()));
+        if (!mInputEnabled) setLongClickable(text.length() > 0);
     }
 
     private void setTextSizeInternal(int unit, float size, boolean notifyListener) {
@@ -455,11 +456,11 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
 
     @Override
     public void onPrimaryClipChanged() {
-        setLongClickable(isPasteEnabled() || isMemoryEnabled());
+        setLongClickable(!mInputEnabled ? length() > 0 : isPasteEnabled() || isMemoryEnabled());
     }
 
     public void onMemoryStateChanged() {
-        setLongClickable(isPasteEnabled() || isMemoryEnabled());
+        setLongClickable(!mInputEnabled ? length() > 0 : isPasteEnabled() || isMemoryEnabled());
     }
 
     private boolean isMemoryEnabled() {
