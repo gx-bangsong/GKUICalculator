@@ -202,7 +202,8 @@ public class UnitInputCursorTest {
 
     @Test public void unitResultsAreReadOnlyAndSelectable() {
         for (int id : new int[]{R.id.unit_result_text, R.id.unit_result_2_text}) {
-            onView(withId(id)).check(matches(isDisplayed())).perform(longClick())
+            onView(withId(id)).perform(androidx.test.espresso.action.ViewActions.scrollTo())
+                    .check(matches(isDisplayed())).perform(longClick())
                     .check((view, error) -> {
                 if (error != null) throw error;
                 TextView output = (TextView) view;
