@@ -107,7 +107,7 @@ adb logcat -G 16M || true
 # guards (pillShowsEveryToolWithoutScrolling, scientificPadDoesNotMoveDisplay, ...) only protect
 # the UI if they actually execute on the emulator.
 phase_start=$SECONDS
-if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest,com.android.calculator2.tools.UnitInputCursorTest --stacktrace --console=plain --info >"$log_file" 2>&1; then
+if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorFormulaCursorTest,com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest,com.android.calculator2.tools.UnitInputCursorTest --stacktrace --console=plain --info >"$log_file" 2>&1; then
     test_result=0
 else
     test_result=$?
@@ -126,7 +126,7 @@ if ((test_result != 0)); then
     fi
 fi
 connected_seconds=$((SECONDS-phase_start))
-echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 26 tests) took ${connected_seconds}s"
+echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 33 tests) took ${connected_seconds}s"
 
 # Per-test wall times from the instrumentation XML, so slow tests are visible in the check
 # annotations instead of hidden inside one monolithic step log.
@@ -213,7 +213,7 @@ fi
 
 # ---- Required-method validation -------------------------------------------
 # Definitive list of required test methods based on the current source code:
-#   15 for CalculatorToolUiTest + 6 BMI cursor + 5 unit cursor/read-only = 26 total.
+#   15 for CalculatorToolUiTest + 6 BMI cursor + 5 unit cursor/read-only + 7 formula = 33 total.
 # Any missing, absent, or skipped required method triggers a validation failure.
 validation_failed=0
 summary_lines=()
@@ -229,8 +229,17 @@ if not results_dir.exists():
     print("ERROR: No androidTest-results directory found.")
     raise SystemExit(1)
 
-# Required methods: 15 CalculatorToolUiTest + 6 ToolInputCursorTest + 5 UnitInputCursorTest = 26
+# Required methods: 15 CalculatorToolUiTest + 6 ToolInputCursorTest + 5 UnitInputCursorTest + 7 CalculatorFormulaCursorTest = 33
 required = {
+    "com.android.calculator2.CalculatorFormulaCursorTest": [
+        "realTapMiddleInsertionEvaluatesModel",
+        "consecutiveInsertionKeepsCaretAcrossGrouping",
+        "middleBackspaceEditsModel",
+        "selectedRangeIsReplacedInModel",
+        "ordinaryResultIsReadOnlyAndCopyable",
+        "formulaEditingSurvivesUnitRoundTrip",
+        "mappingKeepsFunctionTokensAtomic",
+    ],
     "com.android.calculator2.CalculatorToolUiTest": [
         "firstRunUsesStandardKeypad",
         "scientificSegmentTogglesPad",
@@ -395,6 +404,15 @@ import xml.etree.ElementTree as ET
 
 results_dir = Path("build/outputs/androidTest-results")
 required = {
+    "com.android.calculator2.CalculatorFormulaCursorTest": [
+        "realTapMiddleInsertionEvaluatesModel",
+        "consecutiveInsertionKeepsCaretAcrossGrouping",
+        "middleBackspaceEditsModel",
+        "selectedRangeIsReplacedInModel",
+        "ordinaryResultIsReadOnlyAndCopyable",
+        "formulaEditingSurvivesUnitRoundTrip",
+        "mappingKeepsFunctionTokensAtomic",
+    ],
     "com.android.calculator2.CalculatorToolUiTest": [
         "firstRunUsesStandardKeypad",
         "scientificSegmentTogglesPad",

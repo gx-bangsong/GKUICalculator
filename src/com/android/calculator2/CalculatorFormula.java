@@ -75,6 +75,9 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
         super(context, attrs, defStyleAttr);
 
         mClipboardManager = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+        setTextIsSelectable(true);
+        setCursorVisible(true);
+        setShowSoftInputOnFocus(false);
 
         final TypedArray a = context.obtainStyledAttributes(
                 attrs, R.styleable.CalculatorFormula, defStyleAttr, 0);

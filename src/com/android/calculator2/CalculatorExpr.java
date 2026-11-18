@@ -1155,6 +1155,100 @@ class CalculatorExpr {
         }
     }
 
+    /** A model edit unit: a plain numeric character, or an indivisible semantic token. */
+    private static final class EditUnit {
+        final Token token;
+        final int key;
+        EditUnit(Token token, int key) { this.token = token; this.key = key; }
+    }
+
+    private static final int[] DIGIT_KEYS = {R.id.digit_0, R.id.digit_1, R.id.digit_2,
+            R.id.digit_3, R.id.digit_4, R.id.digit_5, R.id.digit_6, R.id.digit_7,
+            R.id.digit_8, R.id.digit_9};
+
+    /** Mapping is produced from the SAME token rendering used by the formula, not a parser
+     * over the rendered text. Grouping characters have zero model width; functions, PreEval
+     * references and exponent constants stay atomic, preserving their semantics/degree mode.
+     */
+    private final class EditLayout {
+        final ArrayList<EditUnit> units = new ArrayList<>();
+        final ArrayList<Integer> boundaries = new ArrayList<>();
+        EditLayout(Context context) {
+            boundaries.add(0);
+            int displayOffset = 0;
+            String separator = KeyMaps.translateResult(",");
+            for (Token token : mExpr) {
+                String rendered = token.toCharSequence(context).toString();
+                if (token instanceof Constant && ((Constant) token).mExponent == 0) {
+                    Constant c = (Constant) token;
+                    String raw = c.mWhole + (c.mSawDecimal ? "." + c.mFraction : "");
+                    int rawIndex = 0;
+                    for (int j = 0; j < rendered.length(); j++) {
+                        if (rendered.startsWith(separator, j) && !separator.isEmpty()) {
+                            j += separator.length() - 1;
+                            boundaries.set(boundaries.size() - 1, displayOffset + j + 1);
+                            continue;
+                        }
+                        char ch = raw.charAt(rawIndex++);
+                        units.add(new EditUnit(null, ch == '.' ? R.id.dec_point : DIGIT_KEYS[ch - '0']));
+                        boundaries.add(displayOffset + j + 1);
+                    }
+                } else {
+                    units.add(new EditUnit(token, 0));
+                    boundaries.add(displayOffset + rendered.length());
+                }
+                displayOffset += rendered.length();
+            }
+        }
+        int modelOffset(int displayOffset) {
+            int nearest = 0;
+            for (int i = 1; i < boundaries.size(); i++) {
+                if (Math.abs(boundaries.get(i) - displayOffset)
+                        < Math.abs(boundaries.get(nearest) - displayOffset)) nearest = i;
+            }
+            return nearest;
+        }
+    }
+
+    /** Apply an edit transaction to tokens and return its new displayed caret; -1 rejects it.
+     * Only digit/decimal insertion and backspace are handled here; append operator correction
+     * and calculator RESULT-state entry retain the existing paths.
+     */
+    int editAtDisplay(Context context, int selectionStart, int selectionEnd, int key,
+            boolean backspace) {
+        EditLayout layout = new EditLayout(context);
+        int start = layout.modelOffset(Math.min(selectionStart, selectionEnd));
+        int end = layout.modelOffset(Math.max(selectionStart, selectionEnd));
+        if (backspace && start == end && start > 0) start--;
+        ArrayList<EditUnit> edited = new ArrayList<>(layout.units);
+        edited.subList(start, end).clear();
+        if (!backspace) {
+            if (KeyMaps.digVal(key) == KeyMaps.NOT_DIGIT && key != R.id.dec_point) return -1;
+            edited.add(start, new EditUnit(null, key));
+        }
+        ArrayList<Token> rebuilt = new ArrayList<>();
+        for (EditUnit unit : edited) {
+            if (unit.token != null) {
+                rebuilt.add(unit.token instanceof Constant
+                        ? (Constant) ((Constant) unit.token).clone() : unit.token);
+            } else {
+                Token last = rebuilt.isEmpty() ? null : rebuilt.get(rebuilt.size() - 1);
+                Constant number;
+                if (last instanceof Constant && ((Constant) last).mExponent == 0) {
+                    number = (Constant) last;
+                } else {
+                    number = new Constant();
+                    rebuilt.add(number);
+                }
+                // Reject a duplicate decimal without partially mutating the live model.
+                if (!number.add(unit.key)) return -1;
+            }
+        }
+        mExpr = rebuilt;
+        EditLayout after = new EditLayout(context);
+        return after.boundaries.get(Math.min(start + (backspace ? 0 : 1), after.units.size()));
+    }
+
     // Produce a string representation of the expression itself
     SpannableStringBuilder toSpannableStringBuilder(Context context) {
         SpannableStringBuilder ssb = new SpannableStringBuilder();

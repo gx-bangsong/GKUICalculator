@@ -30,6 +30,8 @@ import android.os.Looper;
 import android.text.Editable;
 import android.text.Layout;
 import android.text.SpannableStringBuilder;
+import android.text.Spannable;
+import android.text.Selection;
 import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.TextUtils;
@@ -153,7 +155,15 @@ public class Calculator extends AppCompatActivity
             new ViewTreeObserver.OnPreDrawListener() {
         @Override
         public boolean onPreDraw() {
-            mFormulaContainer.scrollTo(mFormulaText.getRight(), 0);
+            int caret = mFormulaText.getSelectionStart();
+            if (!toolOwnsDisplay() && caret >= 0 && caret < mFormulaText.length()
+                    && mFormulaText.getLayout() != null) {
+                int x = (int) mFormulaText.getLayout().getPrimaryHorizontal(caret)
+                        + mFormulaText.getCompoundPaddingLeft();
+                mFormulaContainer.scrollTo(Math.max(0, x - mFormulaContainer.getWidth() / 2), 0);
+            } else {
+                mFormulaContainer.scrollTo(mFormulaText.getRight(), 0);
+            }
             final ViewTreeObserver observer = mFormulaContainer.getViewTreeObserver();
             if (observer.isAlive()) {
                 observer.removeOnPreDrawListener(this);
@@ -245,6 +255,10 @@ public class Calculator extends AppCompatActivity
     private CalculatorFormula mFormulaText;
     private HapticButton mDeleteButton;
     private CalculatorResult mResultText;
+    // Formula selection before ACTION_DOWN dismisses any selection toolbar.
+    private int mPadFormulaStart = -1;
+    private int mPadFormulaEnd = -1;
+
     private HorizontalScrollView mFormulaContainer;
     private MotionLayout mMainCalculator;
 
@@ -611,6 +625,11 @@ public class Calculator extends AppCompatActivity
     @Override
     public boolean dispatchTouchEvent(MotionEvent e) {
         if (e.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            if (mFormulaText != null && !toolOwnsDisplay()
+                    && mCurrentState == CalculatorState.INPUT && !haveUnprocessed()) {
+                mPadFormulaStart = mFormulaText.getSelectionStart();
+                mPadFormulaEnd = mFormulaText.getSelectionEnd();
+            }
             stopActionModeOrContextMenu();
 
             final HistoryFragment historyFragment = getHistoryFragment();
@@ -866,6 +885,11 @@ public class Calculator extends AppCompatActivity
     }
 
     public void onButtonClick(View view) {
+        final int editStart = mPadFormulaStart >= 0
+                ? mPadFormulaStart : mFormulaText.getSelectionStart();
+        final int editEnd = mPadFormulaEnd >= 0
+                ? mPadFormulaEnd : mFormulaText.getSelectionEnd();
+        mPadFormulaStart = mPadFormulaEnd = -1;
         // Any animation is ended before we get here.
         stopActionModeOrContextMenu();
 
@@ -879,6 +903,18 @@ public class Calculator extends AppCompatActivity
         }
 
         final int id = view.getId();
+        final boolean numeric = KeyMaps.digVal(id) != KeyMaps.NOT_DIGIT || id == R.id.dec_point;
+        if (mCurrentState == CalculatorState.INPUT && !haveUnprocessed()
+                && editStart >= 0 && editEnd >= 0
+                && (editStart != mFormulaText.length() || editEnd != editStart)
+                && (numeric || id == R.id.del)) {
+            int caret = mEvaluator.editAtDisplay(editStart, editEnd, id, id == R.id.del);
+            if (caret >= 0) {
+                redisplayAfterFormulaChange();
+                Selection.setSelection((Spannable) mFormulaText.getText(), caret);
+            }
+            return;
+        }
         if (id == R.id.eq) {
             onEquals();
         } else if (id == R.id.del) {
@@ -947,6 +983,9 @@ public class Calculator extends AppCompatActivity
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
         mFormulaText.changeTextTo(formula);
+        if (mFormulaText.getText() instanceof Spannable) {
+            Selection.setSelection((Spannable) mFormulaText.getText(), formula.length());
+        }
         mFormulaText.setContentDescription(TextUtils.isEmpty(formula)
                 ? getString(R.string.desc_formula) : null);
     }

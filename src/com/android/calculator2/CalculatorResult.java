@@ -243,7 +243,9 @@ public class CalculatorResult extends AlignedTextView implements MenuItem.OnMenu
             setupContextMenu();
         }
 
-        setCursorVisible(true);
+        // Results support selection/copy and their existing horizontal scrolling, not editing.
+        setKeyListener(null);
+        setCursorVisible(false);
         setShowSoftInputOnFocus(false);
         setContentDescription(context.getString(R.string.desc_result));
     }
