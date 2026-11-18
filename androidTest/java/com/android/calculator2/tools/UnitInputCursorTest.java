@@ -3,6 +3,7 @@ package com.android.calculator2.tools;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.action.ViewActions.longClick;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.*;
 import static org.junit.Assert.*;
@@ -175,7 +176,8 @@ public class UnitInputCursorTest {
 
     @Test public void unitResultsAreReadOnlyAndSelectable() {
         for (int id : new int[]{R.id.unit_result_text, R.id.unit_result_2_text}) {
-            onView(withId(id)).check(matches(isDisplayed())).check((view, error) -> {
+            onView(withId(id)).check(matches(isDisplayed())).perform(longClick())
+                    .check((view, error) -> {
                 if (error != null) throw error;
                 TextView output = (TextView) view;
                 assertFalse("result must not be an input", output instanceof EditText);
@@ -185,6 +187,8 @@ public class UnitInputCursorTest {
                 assertNull("no editable key listener", output.getKeyListener());
                 assertFalse(output.getText() instanceof Editable);
                 assertNull("IME cannot commit, delete or paste", output.onCreateInputConnection(new EditorInfo()));
+                assertTrue("real long press selects output text",
+                        output.getSelectionEnd() > output.getSelectionStart());
                 String before = output.getText().toString();
                 output.requestFocus();
                 Selection.setSelection((android.text.Spannable) output.getText(), 0, before.length());
