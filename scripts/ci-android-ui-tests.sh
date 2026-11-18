@@ -110,7 +110,7 @@ else
 fi
 cat "$log_file"
 connected_seconds=$((SECONDS-phase_start))
-echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 24 tests) took ${connected_seconds}s"
+echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 25 tests) took ${connected_seconds}s"
 
 # Per-test wall times from the instrumentation XML, so slow tests are visible in the check
 # annotations instead of hidden inside one monolithic step log.
@@ -197,7 +197,7 @@ fi
 
 # ---- Required-method validation -------------------------------------------
 # Definitive list of required test methods based on the current source code:
-#   15 for CalculatorToolUiTest + 6 BMI cursor + 3 unit cursor/read-only = 24 total.
+#   15 for CalculatorToolUiTest + 6 BMI cursor + 4 unit cursor/read-only = 25 total.
 # Any missing, absent, or skipped required method triggers a validation failure.
 validation_failed=0
 summary_lines=()
@@ -213,7 +213,7 @@ if not results_dir.exists():
     print("ERROR: No androidTest-results directory found.")
     raise SystemExit(1)
 
-# Required methods: 15 CalculatorToolUiTest + 6 ToolInputCursorTest + 3 UnitInputCursorTest = 24
+# Required methods: 15 CalculatorToolUiTest + 6 ToolInputCursorTest + 4 UnitInputCursorTest = 25
 required = {
     "com.android.calculator2.CalculatorToolUiTest": [
         "firstRunUsesStandardKeypad",
@@ -236,6 +236,7 @@ required = {
         "unitMiddleInsertionUpdatesConversion",
         "unitMiddleDeleteAndRangeReplacement",
         "unitResultsAreReadOnlyAndSelectable",
+        "unitSharedDisplayRowsAreHidden",
     ],
     "com.android.calculator2.tools.ToolInputCursorTest": [
         "testMiddleInsertionAfterFocusLoss",
@@ -398,6 +399,7 @@ required = {
         "unitMiddleInsertionUpdatesConversion",
         "unitMiddleDeleteAndRangeReplacement",
         "unitResultsAreReadOnlyAndSelectable",
+        "unitSharedDisplayRowsAreHidden",
     ],
     "com.android.calculator2.tools.ToolInputCursorTest": [
         "testMiddleInsertionAfterFocusLoss",

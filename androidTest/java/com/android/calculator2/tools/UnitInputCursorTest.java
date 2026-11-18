@@ -119,6 +119,31 @@ public class UnitInputCursorTest {
         onView(withId(R.id.unit_result_text)).check(matches(withText("9000")));
     }
 
+    @Test public void unitSharedDisplayRowsAreHidden() {
+        // Include every candidate in a single diagnostic: do not identify a caret by screen
+        // position alone. Bounds are screen coordinates for comparison with a device capture.
+        StringBuilder snapshot = new StringBuilder();
+        scenario.onActivity(activity -> {
+            for (int id : new int[]{R.id.unit_result_text, R.id.unit_result_2_text,
+                    R.id.formula, R.id.result}) {
+                TextView view = activity.findViewById(id);
+                int[] xy = new int[2];
+                view.getLocationOnScreen(xy);
+                snapshot.append(activity.getResources().getResourceEntryName(id))
+                        .append(" shown=").append(view.isShown())
+                        .append(" focus=").append(view.hasFocus())
+                        .append(" cursorVisible=").append(view.isCursorVisible())
+                        .append(" text=[").append(view.getText()).append("] bounds=")
+                        .append(xy[0]).append(',').append(xy[1]).append(',')
+                        .append(view.getWidth()).append(',').append(view.getHeight()).append("; ");
+            }
+        });
+        onView(withId(R.id.formula)).check((v, e) ->
+                assertFalse(snapshot.toString(), v.isShown()));
+        onView(withId(R.id.result)).check((v, e) ->
+                assertFalse(snapshot.toString(), v.isShown()));
+    }
+
     @Test public void unitResultsAreReadOnlyAndSelectable() {
         for (int id : new int[]{R.id.unit_result_text, R.id.unit_result_2_text}) {
             onView(withId(id)).check(matches(isDisplayed())).check((view, error) -> {
