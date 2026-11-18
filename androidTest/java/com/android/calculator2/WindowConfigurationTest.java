@@ -1056,9 +1056,15 @@ public class WindowConfigurationTest {
         });
         Log.i("MortgageForm",stage+" ALL_CORE_FIELDS_TOUCH_EDIT_METHOD_COPY_RETURN_RATE_PASS active="+modelSnapshot().get("activeField")+" rate="+modelSnapshot().get("field1"));
     }
+    private boolean visibleOnScreen(View view,Rect out) {
+        if(!view.getLocalVisibleRect(out))return false;
+        int[] origin=new int[2];view.getLocationOnScreen(origin);
+        out.offset(origin[0]-view.getScrollX(),origin[1]-view.getScrollY());
+        return !out.isEmpty();
+    }
     private Rect mortgageViewport() {
-        Rect rect=new Rect();scenario.onActivity(a -> assertTrue(a.findViewById(R.id.main_calculator)
-            .findViewWithTag("field_tool_viewport").getGlobalVisibleRect(rect)));return rect;
+        Rect rect=new Rect();scenario.onActivity(a -> assertTrue(visibleOnScreen(a.findViewById(R.id.main_calculator)
+            .findViewWithTag("field_tool_viewport"),rect)));return rect;
     }
     private void fingerFind(int id) {
         for(int attempt=0;attempt<24;attempt++) {
@@ -1066,7 +1072,7 @@ public class WindowConfigurationTest {
             scenario.onActivity(a -> {
                 View view=a.findViewById(id);assertEquals("applicable control "+id,View.VISIBLE,view.getVisibility());
                 Rect visible=new Rect();int[] at=new int[2];view.getLocationOnScreen(at);target[0]=at[1];
-                complete[0]=view.getGlobalVisibleRect(visible)&&visible.height()==view.getHeight()
+                complete[0]=visibleOnScreen(view,visible)&&visible.height()==view.getHeight()
                     &&visible.width()>=Math.min(view.getWidth(),viewport.width())
                     &&visible.top>=viewport.top&&visible.bottom<=viewport.bottom;
             });
@@ -1074,7 +1080,7 @@ public class WindowConfigurationTest {
                 device.waitForIdle(2000);
                 boolean[] stable={false};
                 scenario.onActivity(a -> {
-                    View view=a.findViewById(id);Rect actual=new Rect();view.getGlobalVisibleRect(actual);
+                    View view=a.findViewById(id);Rect actual=new Rect();visibleOnScreen(view,actual);
                     stable[0]=actual.top>=viewport.top&&actual.bottom<=viewport.bottom&&actual.height()==view.getHeight();
                 });
                 if(stable[0]) {assertMortgageTextVisible(id);return;}
@@ -1105,7 +1111,7 @@ public class WindowConfigurationTest {
         });
     }
     private void fingerTap(int id) {
-        fingerFind(id);Rect rect=new Rect();scenario.onActivity(a -> a.findViewById(id).getGlobalVisibleRect(rect));
+        fingerFind(id);Rect rect=new Rect();scenario.onActivity(a -> visibleOnScreen(a.findViewById(id),rect));
         Log.i("MortgageForm","TAP id="+id+" bounds="+rect+" before="+modelSnapshot().get("mEqualPayment"));
         assertTrue(device.click(rect.centerX(),rect.centerY()));
         device.waitForIdle(2000);
@@ -1153,7 +1159,7 @@ public class WindowConfigurationTest {
         assertTrue("real auxiliary amount recomputed",auxiliary.contains(money.format((equal?expected.totalPayment:expected.monthlyDecrease).setScale(2,java.math.RoundingMode.HALF_UP))));
     }
     private void mortgageFingerCopy(int id) throws Exception {
-        fingerFind(id);Rect rect=new Rect();scenario.onActivity(a -> a.findViewById(id).getGlobalVisibleRect(rect));
+        fingerFind(id);Rect rect=new Rect();scenario.onActivity(a -> visibleOnScreen(a.findViewById(id),rect));
         String expected=displaySnapshot().get(id);
         assertTrue(device.swipe(rect.centerX(),rect.centerY(),rect.centerX(),rect.centerY(),90));
         Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -1176,6 +1182,127 @@ public class WindowConfigurationTest {
     @Test public void relationshipSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_relationship,false,false);}
     @Test public void programmerSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_programmer,false,false);}
     @Test public void taxSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_tax,false,false);}
+    @Test public void mortgageScrollAtBothWindowPositions() throws Exception {
+        onView(withContentDescription(R.string.tool_mortgage)).perform(click());
+        evidence("mortgage-position-full");
+        java.util.List<Throwable> issues=new java.util.ArrayList<>();
+        try {
+            enterRealSplit();
+            SplitSample topHalf=stableSample(true,null);logPosition("upper-50",topHalf);
+            assertTrue(topHalf.app.top<topHalf.other.top);
+            positionMortgageScroll("upper-50");
+            resizePosition(false,0.25f);SplitSample topQuarter=stableSample(true,null);
+            logPosition("upper-calculator-25-settings-75",topQuarter);
+            positionMortgageScroll("upper-25");
+            swapSplitPosition(true);
+            resizePosition(true,0.25f);SplitSample bottomQuarter=stableSample(true,null);
+            logPosition("lower-calculator-25-settings-75",bottomQuarter);
+            assertTrue("same-sized upper/lower comparison "+topQuarter+" vs "+bottomQuarter,
+                Math.abs(topQuarter.app.height()-bottomQuarter.app.height())<=4);
+            positionMortgageScroll("lower-25");
+            resizePosition(true,0.5f);SplitSample bottomHalf=stableSample(true,null);
+            logPosition("lower-50",bottomHalf);
+            assertTrue("same-sized 50:50 windows",Math.abs(topHalf.app.height()-bottomHalf.app.height())<=4);
+            positionMortgageScroll("lower-50");
+            swapSplitPosition(false);logPosition("upper-return-50",stableSample(true,null));
+            positionMortgageScroll("upper-return-50");
+        } catch(Throwable failure) {issues.add(failure);evidence("mortgage-position-failure");}
+        finally {
+            try {
+                if(splitSample().multi) {
+                    Rect divider=verifiedDivider();boolean bottom=splitSample().app.top>splitSample().other.top;
+                    assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),bottom?1:device.getDisplayHeight()-1,90));
+                }
+                logPosition("EXIT_PASS",stableSample(false,null));
+            } catch(Throwable failure) {issues.add(failure);Log.i("MortgagePosition","EXIT_FAIL "+failure);}
+        }
+        if(!issues.isEmpty()) {
+            Throwable first=issues.get(0);for(int i=1;i<issues.size();i++)first.addSuppressed(issues.get(i));
+            if(first instanceof Exception)throw (Exception)first;
+            if(first instanceof Error)throw (Error)first;
+        }
+    }
+    private void logPosition(String stage,SplitSample sample) {
+        float ratio=sample.app.height()/(float)(sample.app.height()+sample.other.height());
+        Log.i("MortgagePosition",stage+" calcPairFraction="+ratio+" calcDisplayFraction="
+            +sample.app.height()/(float)device.getDisplayHeight()+" displayPx="+device.getDisplayWidth()+"x"+device.getDisplayHeight()+" "+sample);
+    }
+    private void resizePosition(boolean bottom,float fraction) throws Exception {
+        SplitSample before=splitSample();
+        float current=before.app.height()/(float)(before.app.height()+before.other.height());
+        if(Math.abs(current-fraction)<0.015&&(before.app.top>before.other.top)==bottom)return;
+        Rect divider=verifiedDivider();
+        int y=Math.round(device.getDisplayHeight()*(bottom?1-fraction:fraction));
+        assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),y,65));
+        SplitSample after=stableSample(true,before.app);
+        float actual=after.app.height()/(float)(after.app.height()+after.other.height());
+        assertTrue("requested calculator share="+fraction+" actual="+actual+" "+after,Math.abs(actual-fraction)<0.04);
+        assertEquals("requested calculator screen position "+after,bottom,after.app.top>after.other.top);
+    }
+    private void swapSplitPosition(boolean bottom) throws Exception {
+        Rect divider=verifiedDivider();
+        assertTrue(device.click(divider.centerX(),divider.centerY()));SystemClock.sleep(90);
+        assertTrue(device.click(divider.centerX(),divider.centerY()));
+        long until=SystemClock.uptimeMillis()+10000;boolean swapped=false;
+        do {
+            SplitSample now=splitSample();
+            if(now.multi&&now.verifiedCompanion()&&(now.app.top>now.other.top)==bottom) {swapped=true;break;}
+            SystemClock.sleep(100);
+        } while(SystemClock.uptimeMillis()<until);
+        assertTrue("real divider double-tap swaps verified task positions: "+safeSplitSample(),swapped);
+        // Re-focus an inert toolbar area only if the system moved focus to the companion.
+        if(!splitSample().focus) {
+            Rect toolbar=new Rect();scenario.onActivity(a -> assertTrue(visibleOnScreen(a.findViewById(R.id.toolbar),toolbar)));
+            assertTrue(device.click(toolbar.centerX(),toolbar.centerY()));
+        }
+        stableSample(true,null);
+    }
+    private void positionMortgageScroll(String stage) throws Exception {
+        Rect viewport=mortgageViewport();int[] sizes=new int[4];
+        scenario.onActivity(a -> {
+            android.widget.ScrollView scroll=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport");
+            sizes[0]=scroll.getChildAt(0).getHeight();sizes[1]=scroll.getHeight()-scroll.getPaddingTop()-scroll.getPaddingBottom();
+            sizes[2]=scroll.getScrollY();sizes[3]=((DisplayMotionLayout)a.findViewById(R.id.main_calculator)).getCurrentState();
+        });
+        int range=sizes[0]-sizes[1];
+        Log.i("MortgagePosition",stage+" CONTENT childPx="+sizes[0]+" viewportPx="+sizes[1]+" rangePx="+range+" scrollY="+sizes[2]+" fingerViewportScreen="+viewport);
+        assertTrue("fixture actually needs vertical scrolling",range>0);
+        // Reach the top through real downward finger drags, not scrollTo or focus setters.
+        for(int n=0;n<20;n++) {
+            boolean[] up={false};scenario.onActivity(a -> up[0]=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport").canScrollVertically(-1));
+            if(!up[0])break;
+            swipeMortgageViewport(false);awaitMotionState(R.id.start_state);
+        }
+        int[] y=new int[2];scenario.onActivity(a -> y[0]=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport").getScrollY());
+        assertEquals("finger reaches content top",0,y[0]);
+        swipeMortgageViewport(true);
+        scenario.onActivity(a -> y[1]=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport").getScrollY());
+        Log.i("MortgagePosition",stage+" REAL_SWIPE before="+y[0]+" after="+y[1]+" "+safeMotionState());
+        assertTrue("content must scroll when it has range; "+stage+" before="+y[0]+" after="+y[1],y[1]>y[0]);
+        awaitMotionState(R.id.start_state);
+        fingerFind(R.id.result);evidence("mortgage-"+stage+"-scroll-result");
+        fingerFind(R.id.tool_field_0);evidence("mortgage-"+stage+"-scroll-input");
+        if(!"0".equals(modelSnapshot().get("mLoanType")))fingerTap(R.id.mortgage_type_commercial);
+        if("true".equals(modelSnapshot().get("mLprBasis")))fingerTap(R.id.mortgage_basis_toggle);
+        mortgageTouchSequence(stage);
+        if(stage.endsWith("25"))mortgageConditionalTypes(stage);
+        // Leave the toolbar reachable for a possible system focus change during a swap.
+        for(int n=0;n<20;n++) {
+            boolean[] up={false};scenario.onActivity(a -> up[0]=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport").canScrollVertically(-1));
+            if(!up[0])break;swipeMortgageViewport(false);awaitMotionState(R.id.start_state);
+        }
+        Log.i("MortgagePosition",stage+" SCROLL_EDIT_COPY_RETURN_PASS");
+    }
+    private String safeMotionState() {
+        int[] state={0};scenario.onActivity(a -> state[0]=((DisplayMotionLayout)a.findViewById(R.id.main_calculator)).getCurrentState());
+        return "motion="+state[0];
+    }
+    private void swipeMortgageViewport(boolean up) {
+        Rect viewport=mortgageViewport();
+        int top=viewport.top+viewport.height()/4,bottom=viewport.bottom-viewport.height()/4;
+        assertTrue(device.swipe(viewport.right-12,up?bottom:top,viewport.right-12,up?top:bottom,40));
+        device.waitForIdle(2000);InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+    }
     @Test public void mortgageSurvivesRealSplitAndResize() throws Exception {mortgageWholeFormSplit();}
     @Test public void unitSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_unit,true,false);}
     @Test public void currencySurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_currency,true,true);}

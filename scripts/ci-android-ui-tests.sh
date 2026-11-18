@@ -99,7 +99,10 @@ done
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent KEYCODE_WAKEUP || true
 
-if [[ "${SPLIT_SCOPE:-}" == "mortgage-only" ]]; then
+if [[ "${SPLIT_SCOPE:-}" == "mortgage-position-only" ]]; then
+    adb shell wm size 720x2240
+fi
+if [[ "${SPLIT_SCOPE:-}" == "mortgage-only" || "${SPLIT_SCOPE:-}" == "mortgage-position-only" ]]; then
     adb shell cmd locale set-app-locales com.android.calculator2.dev --locales zh-CN
 fi
 
@@ -117,9 +120,12 @@ split_scope=${SPLIT_SCOPE:-representative}
 export SPLIT_SCOPE="$split_scope"
 runner_scope=()
 runner_classes="com.android.calculator2.WindowConfigurationTest,com.android.calculator2.tools.ToolRolesAndCurrencyTest,com.android.calculator2.CalculatorFormulaCursorTest,com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest,com.android.calculator2.tools.UnitInputCursorTest"
-if [[ "$split_scope" == "bmi-only" || "$split_scope" == "mortgage-only" ]]; then
+if [[ "$split_scope" == "bmi-only" || "$split_scope" == "mortgage-only" || "$split_scope" == "mortgage-position-only" ]]; then
     tool=${split_scope%-only}
     runner_classes="com.android.calculator2.WindowConfigurationTest#${tool}SurvivesRealSplitAndResize"
+    if [[ "$split_scope" == "mortgage-position-only" ]]; then
+        runner_classes="com.android.calculator2.WindowConfigurationTest#mortgageScrollAtBothWindowPositions"
+    fi
     echo "::notice title=Split execution scope::One $tool diagnostic only; remaining acceptance and regression deferred, not passed."
 fi
 if [[ "$split_scope" == "representative" ]]; then
@@ -248,10 +254,16 @@ for p in Path("build/outputs/androidTest-results").rglob("TEST-*.xml"):
 text="; ".join(rows).replace("%","%25")
 print("::warning title=Window functional results::"+text)
 PYWINDOW
-adb logcat -d -v brief WindowEvidence:I SplitPhase:I MortgageForm:I '*:S' > build/ui-screenshots/window-evidence.log || true
+adb logcat -d -v brief WindowEvidence:I SplitPhase:I MortgageForm:I MortgagePosition:I ToolTouchCoordinates:I '*:S' > build/ui-screenshots/window-evidence.log || true
 mortgage_phases=$(grep -E 'MortgageForm.*(ALL_CORE_FIELDS|CONDITIONAL_TYPES|EXIT_|half task=|short task=)' build/ui-screenshots/window-evidence.log | tail -n 12 | tr '\n' ' ' || true)
 mortgage_phases=${mortgage_phases//%/%25}
 echo "::warning title=Mortgage form touch steps::${mortgage_phases:0:3800}"
+position_steps=$(grep 'MortgagePosition' build/ui-screenshots/window-evidence.log | tail -n 24 | tr '\n' ' ' || true)
+position_steps=${position_steps//%/%25}
+echo "::warning title=Mortgage window positions::${position_steps:0:12000}"
+coordinate_steps=$(grep 'ToolTouchCoordinates' build/ui-screenshots/window-evidence.log | tail -n 4 | tr '\n' ' ' || true)
+coordinate_steps=${coordinate_steps//%/%25}
+echo "::warning title=Tool touch coordinates::${coordinate_steps:0:3800}"
 split_phases=$(grep 'SplitPhase' build/ui-screenshots/window-evidence.log | tail -n 12 | tr '\n' ' ' || true)
 split_phases=${split_phases//%/%25}
 echo "::warning title=BMI split phases::${split_phases:0:3800}"
@@ -374,10 +386,11 @@ if os.environ.get("SPLIT_SCOPE", "representative") == "representative":
     required[key] = [n for n in required[key] if n not in deferred]
     print("DEFERRED expansion (not executed, not passes): " + ", ".join(deferred))
 
-if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only"):
+if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-position-only"):
     tool = os.environ["SPLIT_SCOPE"].split("-")[0]
     print("DIAGNOSTIC ONLY: 1 " + tool + " method; remaining acceptance and regression deferred, not passes")
-    required = {"com.android.calculator2.WindowConfigurationTest": [tool + "SurvivesRealSplitAndResize"]}
+    method = "mortgageScrollAtBothWindowPositions" if os.environ["SPLIT_SCOPE"] == "mortgage-position-only" else tool + "SurvivesRealSplitAndResize"
+    required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
 
 executed = {}
@@ -608,10 +621,11 @@ if os.environ.get("SPLIT_SCOPE", "representative") == "representative":
     required[key] = [n for n in required[key] if n not in deferred]
     print("DEFERRED expansion (not executed, not passes): " + ", ".join(deferred))
 
-if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only"):
+if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-position-only"):
     tool = os.environ["SPLIT_SCOPE"].split("-")[0]
     print("DIAGNOSTIC ONLY: 1 " + tool + " method; remaining acceptance and regression deferred, not passes")
-    required = {"com.android.calculator2.WindowConfigurationTest": [tool + "SurvivesRealSplitAndResize"]}
+    method = "mortgageScrollAtBothWindowPositions" if os.environ["SPLIT_SCOPE"] == "mortgage-position-only" else tool + "SurvivesRealSplitAndResize"
+    required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
 
 executed = {}
@@ -820,7 +834,7 @@ if [[ ! -s build/ui-screenshots/calculator-default.png ]]; then
     fi
 fi
 
-if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$split_scope" != "mortgage-only" && "$default_screenshot_is_from_test" != true ]]; then
+if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$split_scope" != "mortgage-only" && "$split_scope" != "mortgage-position-only" && "$default_screenshot_is_from_test" != true ]]; then
     test_result=1
     echo "::error title=Missing test-generated screenshot::The selected screenshot test passed without saving calculator-default.png."
 fi

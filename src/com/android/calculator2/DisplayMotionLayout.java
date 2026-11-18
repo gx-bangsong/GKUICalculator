@@ -50,6 +50,13 @@ public class DisplayMotionLayout extends MotionLayout {
                 View controlSlot = findViewWithTag("field_tool_viewport");
                 if(controlSlot==null)controlSlot=findViewById(R.id.tool_control_slot);
                 Rect controls = new Rect();
+                if(controlSlot!=null&&controlSlot.getGlobalVisibleRect(controls)) {
+                    int[] screen=new int[2];controlSlot.getLocationOnScreen(screen);
+                    int[] root=new int[2];getRootView().getLocationOnScreen(root);
+                    android.util.Log.i("ToolTouchCoordinates","DOWN rootVisible="+controls+" viewScreen="+screen[0]+","+screen[1]
+                        +" rootScreen="+root[0]+","+root[1]+" raw="+motionEvent.getRawX()+","+motionEvent.getRawY()
+                        +" local="+motionEvent.getX()+","+motionEvent.getY()+" oldHit="+controls.contains((int)motionEvent.getRawX(),(int)motionEvent.getRawY()));
+                }
                 if (controlSlot != null && controlSlot.getVisibility() == View.VISIBLE
                         && controlSlot.getGlobalVisibleRect(controls)
                         && controls.contains((int) motionEvent.getRawX(), (int) motionEvent.getRawY())) {
