@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Preserve the accepted landscape keypad proportion when actual window height permits. -->
+    <item type="dimen" format="float" name="layout_pads_ratio">0.58</item>
+</resources>
