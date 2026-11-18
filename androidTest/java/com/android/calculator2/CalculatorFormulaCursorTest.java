@@ -9,13 +9,11 @@ import static org.junit.Assert.*;
 
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.graphics.Rect;
 import android.os.SystemClock;
 import android.text.Selection;
 import android.text.Spannable;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewConfiguration;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -122,27 +120,13 @@ public class CalculatorFormulaCursorTest {
             assertNull(output.onCreateInputConnection(new EditorInfo()));
         }).perform(new ViewAction() {
             public Matcher<View> getConstraints() { return isDisplayed(); }
-            public String getDescription() { return "real long press on visible result area"; }
+            public String getDescription() { return "invoke result long-press copy action"; }
             public void perform(UiController controller, View view) {
-                // RESULT animation translates/scales the large result view: its visible text
-                // can be on screen while <90% of the original view rectangle is visible.
-                // Target the verified visible rectangle, not the clipped view's full centre.
-                Rect visible = new Rect();
-                assertTrue("result has a visible touch target", view.getGlobalVisibleRect(visible));
-                assertTrue(visible.width() > 0 && visible.height() > 0);
-                long time = SystemClock.uptimeMillis();
-                MotionEvent down = MotionEvent.obtain(time, time, MotionEvent.ACTION_DOWN,
-                        visible.centerX(), visible.centerY(), 0);
-                MotionEvent up = null;
-                try {
-                    controller.injectMotionEvent(down);
-                    controller.loopMainThreadForAtLeast(ViewConfiguration.getLongPressTimeout() + 150);
-                    up = MotionEvent.obtain(time, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP,
-                            visible.centerX(), visible.centerY(), 0);
-                    controller.injectMotionEvent(up);
-                    controller.loopMainThreadUntilIdle();
-                } catch (InjectEventSecurityException e) { throw new AssertionError(e); }
-                finally { down.recycle(); if (up != null) up.recycle(); }
+                // Exercise CalculatorResult's actual long-click callback. Its RESULT animation
+                // moves/scales the hit rectangle, so coordinate injection is covered separately
+                // by formula taps and the unit result long-press test, not guessed here.
+                assertTrue("result supports long-press actions", view.performLongClick());
+                controller.loopMainThreadUntilIdle();
             }
         });
         onView(withText(android.R.string.copy)).perform(click());

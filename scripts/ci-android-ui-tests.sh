@@ -591,7 +591,7 @@ if not details:
             break
 
 if details:
-    print("\n".join(details)[:2400])
+    print("\n".join(detail[:1800] for detail in details)[:12000])
 else:
     print("No failure details were present in the Android test XML/HTML reports.")
 print("Report files: " + (", ".join(str(path) for path in report_files[:12]) or "none found"))
