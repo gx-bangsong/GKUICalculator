@@ -94,6 +94,9 @@ public class DisplayMotionLayout extends MotionLayout {
                 }
                 break;
         }
+        // Keep the complete gesture with the child after a DOWN inside its controls.
+        // MotionLayout's own OnSwipe must not intercept a later MOVE behind our gate.
+        if (mOutOfBounds) return false;
         if (super.onInterceptTouchEvent(motionEvent)) {
             return true;
         }
