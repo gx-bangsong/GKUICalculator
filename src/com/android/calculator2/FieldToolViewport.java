@@ -97,14 +97,16 @@ final class FieldToolViewport {
         int keyboardWidth=motion.getWidth()/2;
         boolean roomForColumns=keyboardWidth>=Math.round(4*40*density);
         boolean target=needsCompact&&roomForColumns;
-        int availableHeight=motion.getHeight()-modeBar.getHeight();
+        int barHeight=activity.getResources().getDimensionPixelSize(R.dimen.mode_segment_height)
+            +modeBar.getPaddingTop()+modeBar.getPaddingBottom();
+        int availableHeight=motion.getHeight()-barHeight;
         if(target==compact&&(!target||(keyboardWidth==compactWidth&&availableHeight==compactHeight)))return;
         if(original==null) {original=new ConstraintSet();original.clone(motion.getConstraintSet(R.id.start_state));}
         ConstraintSet state=new ConstraintSet();state.clone(original);
         if(target) {
             state.clear(R.id.tool_bar,ConstraintSet.TOP);state.clear(R.id.tool_bar,ConstraintSet.BOTTOM);
             state.connect(R.id.tool_bar,ConstraintSet.BOTTOM,ConstraintSet.PARENT_ID,ConstraintSet.BOTTOM);
-            state.constrainHeight(R.id.tool_bar,ViewGroup.LayoutParams.WRAP_CONTENT);
+            state.constrainHeight(R.id.tool_bar,barHeight);
             state.clear(R.id.pad_stack,ConstraintSet.START);state.clear(R.id.pad_stack,ConstraintSet.TOP);
             state.clear(R.id.pad_stack,ConstraintSet.BOTTOM);
             state.connect(R.id.pad_stack,ConstraintSet.TOP,ConstraintSet.PARENT_ID,ConstraintSet.TOP);
