@@ -206,20 +206,20 @@ public class CurrencyConverterMode implements ToolMode {
 
     @Override
     public boolean onPadKey(int viewId) {
-        if (viewId == R.id.op_add) {
-            mInput.onOperator(Operation.ADD);
-        } else if (viewId == R.id.op_sub) {
-            mInput.onOperator(Operation.SUBTRACT);
-        } else if (viewId == R.id.op_mul) {
-            mInput.onOperator(Operation.MULTIPLY);
-        } else if (viewId == R.id.op_div) {
-            mInput.onOperator(Operation.DIVIDE);
-        } else if (viewId == R.id.eq) {
+        Operation operation;
+        if (viewId == R.id.op_add) operation = Operation.ADD;
+        else if (viewId == R.id.op_sub) operation = Operation.SUBTRACT;
+        else if (viewId == R.id.op_mul) operation = Operation.MULTIPLY;
+        else if (viewId == R.id.op_div) operation = Operation.DIVIDE;
+        else if (viewId == R.id.eq) {
             mInput.onEquals();
-        } else {
-            return false;
-        }
-        mPendingCaret = mInput.getDisplayText().length();
+            mPendingCaret = mInput.getDisplayText().length();
+            redisplay();
+            return true;
+        } else return false;
+        int edited = mInput.insertOperator(operation, selectionStart(), selectionEnd());
+        if (edited < 0) return true;
+        mPendingCaret = edited;
         redisplay();
         return true;
     }

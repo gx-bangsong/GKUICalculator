@@ -132,6 +132,28 @@ public final class DecimalExpression {
         mExpression.append('.');
     }
 
+    /** Transactional operator edit. A negative return rejects without changing text or selection. */
+    public int insertOperator(@NonNull Operation operation, int start, int end) {
+        start = Math.max(0, Math.min(start, mExpression.length()));
+        end = Math.max(start, Math.min(end, mExpression.length()));
+        String left = mExpression.substring(0, start);
+        String right = mExpression.substring(end);
+        if (left.isEmpty()) {
+            if (operation != Operation.SUBTRACT) return -1;
+        } else if (isOperator(left.charAt(left.length()-1))) {
+            // Correction is local to the insertion boundary, never the expression tail.
+            if (left.length()==1 && isMinus(left.charAt(0))) return -1;
+            left = left.substring(0,left.length()-1);
+        }
+        if (!right.isEmpty() && isOperator(right.charAt(0))) return -1;
+        if (left.endsWith(".")) left += "0";
+        String candidate = left + operation.symbol + right;
+        if (candidate.length()>MAX_INPUT_LENGTH) return -1;
+        mExpression.replace(0,mExpression.length(),candidate);
+        mReplaceOnDigit = false;
+        return left.length()+1;
+    }
+
     public void onOperator(@NonNull Operation operation) {
         mReplaceOnDigit = false;
         if (mExpression.length() == 0) {
