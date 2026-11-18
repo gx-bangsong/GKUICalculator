@@ -552,7 +552,7 @@ public class WindowConfigurationTest {
     private int splitTask;
     private void enterRealSplit() throws Exception {
         scenario.onActivity(a -> splitTask=a.getTaskId());
-        Log.i("WindowEvidence","SPLIT companion="+device.executeShellCommand("am start -a android.settings.SETTINGS"));
+        Log.i("WindowEvidence","SPLIT companion="+device.executeShellCommand("am start -f 0x18000000 -a android.settings.SETTINGS"));
         Log.i("WindowEvidence","SPLIT enter="+device.executeShellCommand(
             "dumpsys activity service SystemUIService WMShell splitscreen moveToSideStage "+splitTask+" 0"));
         device.executeShellCommand("am task focus "+splitTask);
@@ -564,18 +564,36 @@ public class WindowConfigurationTest {
         do {
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
             scenario.onActivity(a -> ready[0]=a.isInMultiWindowMode()&&a.getWindow().getDecorView().hasWindowFocus());
-            if(ready[0]) return;SystemClock.sleep(150);
+            if(ready[0]) return;
+            try {device.executeShellCommand("am task focus "+splitTask);}
+            catch(java.io.IOException e) {throw new AssertionError(e);}
+            SystemClock.sleep(250);
         } while(SystemClock.uptimeMillis()<until);
         evidence("split-entry-failed");fail("real system split-screen and app focus required");
     }
     private void leaveRealSplit() throws Exception {
         device.executeShellCommand("dumpsys activity service SystemUIService WMShell splitscreen removeFromSideStage "+splitTask);
+        long until=SystemClock.uptimeMillis()+10000;boolean[] split={true};
+        do {
+            scenario.onActivity(a -> split[0]=a.isInMultiWindowMode());
+            if(!split[0])break;SystemClock.sleep(150);
+        } while(SystemClock.uptimeMillis()<until);
+        assertFalse("exit real split before closing scenario",split[0]);
+        SystemClock.sleep(700);
     }
     private void resizeRealSplit(int thirds) throws Exception {
         // Embedded Shell divider nodes are not reliably in the accessibility tree.
         // Read BOTH real task rectangles from ActivityManager; the gap is the divider.
         String tasks=device.executeShellCommand("am stack list");
-        Rect app=taskBounds(tasks,"taskId="+splitTask+":"),companion=taskBounds(tasks,"com.android.settings/");
+        Rect app=taskBounds(tasks,"taskId="+splitTask+":"),companion=new Rect();
+        // ActivityManager may name the companion STAGE "unknown", not the leaf app.
+        // Select the visible task immediately below our top stage by its measured bounds.
+        for(String line:tasks.split("\n")) {
+            Rect candidate=taskBounds(line,"taskId=");
+            if(!candidate.isEmpty()&&candidate.top>=app.bottom&&candidate.left==app.left
+                    &&candidate.right==app.right&&(companion.isEmpty()||candidate.top<companion.top))
+                companion.set(candidate);
+        }
         assertFalse("calculator task bounds: "+tasks,app.isEmpty());
         assertFalse("companion task bounds: "+tasks,companion.isEmpty());
         assertTrue("tasks separated by system divider: "+app+" / "+companion,app.bottom<companion.top);
