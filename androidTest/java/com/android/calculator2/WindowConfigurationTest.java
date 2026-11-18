@@ -572,7 +572,12 @@ public class WindowConfigurationTest {
         evidence("split-entry-failed");fail("real system split-screen and app focus required");
     }
     private void leaveRealSplit() throws Exception {
-        device.executeShellCommand("dumpsys activity service SystemUIService WMShell splitscreen removeFromSideStage "+splitTask);
+        // The Shell removeFromSideStage command reparents into main stage on this image;
+        // it does not reliably leave multiwindow. Dismiss via the actual system divider.
+        boolean[] activeSplit={false};scenario.onActivity(a -> activeSplit[0]=a.isInMultiWindowMode());
+        if(!activeSplit[0])return;
+        Rect divider=realDividerBounds();
+        assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),device.getDisplayHeight()-1,80));
         long until=SystemClock.uptimeMillis()+10000;boolean[] split={true};
         do {
             scenario.onActivity(a -> split[0]=a.isInMultiWindowMode());
@@ -581,7 +586,7 @@ public class WindowConfigurationTest {
         assertFalse("exit real split before closing scenario",split[0]);
         SystemClock.sleep(700);
     }
-    private void resizeRealSplit(int thirds) throws Exception {
+    private Rect realDividerBounds() throws Exception {
         // Embedded Shell divider nodes are not reliably in the accessibility tree.
         // Read BOTH real task rectangles from ActivityManager; the gap is the divider.
         String tasks=device.executeShellCommand("am stack list");
@@ -600,6 +605,10 @@ public class WindowConfigurationTest {
         Rect r=new Rect(Math.max(app.left,companion.left),app.bottom,
             Math.min(app.right,companion.right),companion.top);
         Log.i("WindowEvidence","SPLIT task="+app+" companion="+companion+" divider="+r);
+        return r;
+    }
+    private void resizeRealSplit(int thirds) throws Exception {
+        Rect r=realDividerBounds();
         int[] size={0};scenario.onActivity(a -> size[0]=a.getResources().getConfiguration().screenHeightDp);
         // Drag the system divider to the adjacent snap target, without wm size/density changes.
         assertTrue(device.swipe(r.centerX(),r.centerY(),r.centerX(),device.getDisplayHeight()*thirds/3,45));
@@ -652,7 +661,7 @@ public class WindowConfigurationTest {
         } else { onView(withContentDescription(name)).perform(click());input=prepareTool(name); }
         int[] selected=input==0?null:selection(input);
         Map<String,String> model=modelSnapshot();Map<Integer,String> display=displaySnapshot();
-        try {
+        try (AutoCloseable split=() -> leaveRealSplit()) {
             enterRealSplit();evidence("split-half-"+name);assertSplitUsable();
             if(name==R.string.tool_bmi) assertBmiIcon(true);
             scenario.onActivity(a -> {
@@ -669,7 +678,7 @@ public class WindowConfigurationTest {
                 assertEquals("model after real divider resize",model,modelSnapshot());
                 assertEquals("results after real divider resize",display,displaySnapshot());
             }
-        } finally { leaveRealSplit(); }
+        }
     }
     private void assertSplitInput(int input,int[] selected) {
         if(input==0)return;
@@ -687,7 +696,7 @@ public class WindowConfigurationTest {
     @Test public void currencySurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_currency,true,true);}
     @Test public void scientificSurvivesRealSplitAndResize() throws Exception {
         key(R.id.mode_segment_scientific);digits("123");
-        try {
+        try (AutoCloseable split=() -> leaveRealSplit()) {
             enterRealSplit();assertSplitUsable();evidence("split-half-scientific");
             assertScientificInWindow();
             for(int thirds:new int[]{2,1}) {
@@ -695,7 +704,7 @@ public class WindowConfigurationTest {
                 evidence("split-resized-"+thirds+"-scientific");assertScientificInWindow();
             }
             onView(withId(R.id.formula)).check(matches(withText("123")));
-        } finally {leaveRealSplit();}
+        }
     }
     private void assertScientificInWindow() {
         scenario.onActivity(a -> {
