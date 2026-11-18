@@ -1695,8 +1695,13 @@ public class Calculator extends AppCompatActivity
         // setup changes its size and padding, so disable that request before touching the view;
         // otherwise a pending (not-yet-equals) calculator result can be redrawn over the tool.
         mResultText.setToolOutput(true);
-        mFormulaText.setInputEnabled(mToolManager != null && mToolManager.getActive() != null
-                && ToolId.RELATIONSHIP.equals(mToolManager.getActive().getId()));
+        final boolean chainInput = mToolManager != null && mToolManager.getActive() != null
+                && ToolId.RELATIONSHIP.equals(mToolManager.getActive().getId());
+        // TextView promotes even SPANNABLE text to Editable when a TextWatcher is present.
+        // The formula watcher is an INPUT auto-scroll hook; detach it for output roles.
+        mFormulaText.removeTextChangedListener(mFormulaTextWatcher);
+        if (chainInput) mFormulaText.addTextChangedListener(mFormulaTextWatcher);
+        mFormulaText.setInputEnabled(chainInput);
         mResultText.setShouldEvaluateResult(CalculatorResult.SHOULD_NOT_EVALUATE, null);
         // Cancel optional and explicitly requested evaluations alike. Their asynchronous
         // callbacks are also ignored while toolOwnsDisplay() is true.
@@ -1738,6 +1743,8 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void restoreCalculatorDisplay() {
+        mFormulaText.removeTextChangedListener(mFormulaTextWatcher);
+        mFormulaText.addTextChangedListener(mFormulaTextWatcher);
         mFormulaText.setInputEnabled(true);
         mResultText.setToolOutput(false);
         findViewById(R.id.shared_display_rows).setVisibility(View.VISIBLE);
