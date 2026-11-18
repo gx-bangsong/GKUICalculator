@@ -2206,6 +2206,8 @@ public class Calculator extends AppCompatActivity
             // hiding the scientific pad gives its rows to the digit pad. In landscape they sit
             // side by side in a horizontal chain and keep separate fills.
             if (lp instanceof LinearLayout.LayoutParams
+                    && input.getParent() instanceof LinearLayout
+                    && ((LinearLayout) input.getParent()).getOrientation() == LinearLayout.VERTICAL
                     && ((LinearLayout.LayoutParams) lp).weight > 0) {
                 final LinearLayout.LayoutParams weight = (LinearLayout.LayoutParams) lp;
                 weight.weight = getResources().getInteger(visible
@@ -2214,13 +2216,10 @@ public class Calculator extends AppCompatActivity
             }
         }
         if (mMainCalculator != null) {
-            final int visibility = visible ? View.VISIBLE : View.GONE;
-            for (int stateId : new int[]{R.id.start_state, R.id.end_state}) {
-                androidx.constraintlayout.widget.ConstraintSet set = mMainCalculator.getConstraintSet(stateId);
-                if (set != null) {
-                    set.setVisibility(R.id.advanced_pad, visibility);
-                }
-            }
+            // Both orientations put the pads inside pad_stack. A visibility-only constraint
+            // for advanced_pad in MotionLayout creates an independent, positionless state;
+            // the panel can then jump to (0,0). Move the stack via the scene and let its
+            // LinearLayout lay out visible children instead of adding child constraints here.
             mMainCalculator.requestLayout();
             mMainCalculator.post(() -> mMainCalculator.requestLayout());
         }

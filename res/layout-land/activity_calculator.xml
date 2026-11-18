@@ -44,35 +44,38 @@
             layout="@layout/tool_bar"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            app:layout_constraintBottom_toTopOf="@id/advanced_pad"
+            app:layout_constraintBottom_toTopOf="@id/pad_stack"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHeight_percent="@dimen/layout_tool_bar_ratio"
             app:layout_constraintStart_toStartOf="parent" />
 
-        <include
-            android:id="@+id/advanced_pad"
-            layout="@layout/advanced_pad"
+        <!-- One keyboard region below the toolbar. Scientific visibility only changes a child;
+             MotionLayout moves the complete region, never an incompletely specified pad. -->
+        <LinearLayout
+            android:id="@+id/pad_stack"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/input_pad"
-            app:layout_constraintHeight_percent="@dimen/layout_pads_ratio"
-            app:layout_constraintHorizontal_chainStyle="spread"
-            app:layout_constraintHorizontal_weight="0.33"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tool_bar" />
-
-        <include
-            android:id="@+id/input_pad"
-            layout="@layout/input_pad"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
+            android:orientation="horizontal"
+            android:baselineAligned="false"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHeight_percent="@dimen/layout_pads_ratio"
-            app:layout_constraintHorizontal_weight="0.67"
-            app:layout_constraintStart_toEndOf="@id/advanced_pad"
-            app:layout_constraintTop_toBottomOf="@id/tool_bar" />
+            app:layout_constraintStart_toStartOf="parent">
+
+            <include
+                android:id="@+id/advanced_pad"
+                layout="@layout/advanced_pad"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1" />
+
+            <include
+                android:id="@+id/input_pad"
+                layout="@layout/input_pad"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="2" />
+        </LinearLayout>
 
         <FrameLayout
             android:id="@+id/animation_helper"
