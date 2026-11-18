@@ -107,7 +107,7 @@ adb logcat -G 16M || true
 # guards (pillShowsEveryToolWithoutScrolling, scientificPadDoesNotMoveDisplay, ...) only protect
 # the UI if they actually execute on the emulator.
 phase_start=$SECONDS
-if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.tools.ToolRolesAndCurrencyTest,com.android.calculator2.CalculatorFormulaCursorTest,com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest,com.android.calculator2.tools.UnitInputCursorTest --stacktrace --console=plain --info >"$log_file" 2>&1; then
+if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.WindowConfigurationTest,com.android.calculator2.tools.ToolRolesAndCurrencyTest,com.android.calculator2.CalculatorFormulaCursorTest,com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest,com.android.calculator2.tools.UnitInputCursorTest --stacktrace --console=plain --info >"$log_file" 2>&1; then
     test_result=0
 else
     test_result=$?
@@ -231,6 +231,13 @@ if not results_dir.exists():
 
 # Required methods: 15 CalculatorToolUiTest + 6 ToolInputCursorTest + 5 UnitInputCursorTest + 7 CalculatorFormulaCursorTest + 7 ToolRolesAndCurrencyTest = 51
 required = {
+    "com.android.calculator2.WindowConfigurationTest": [
+        "bmiSurvivesActualRotation", "dateSurvivesActualRotation",
+        "relationshipSurvivesActualRotation", "programmerSurvivesActualRotation",
+        "taxSurvivesActualRotation", "mortgageSurvivesActualRotation",
+        "unitSurvivesActualRotation", "currencySurvivesActualRotation",
+        "landscapeScientificKeyBounds",
+    ],
     "com.android.calculator2.tools.ToolRolesAndCurrencyTest": [
         "sharedOutputsAreReadOnlyAcrossTools",
         "relationshipAndCalculatorRestoreInputRoles",
@@ -424,6 +431,13 @@ import xml.etree.ElementTree as ET
 
 results_dir = Path("build/outputs/androidTest-results")
 required = {
+    "com.android.calculator2.WindowConfigurationTest": [
+        "bmiSurvivesActualRotation", "dateSurvivesActualRotation",
+        "relationshipSurvivesActualRotation", "programmerSurvivesActualRotation",
+        "taxSurvivesActualRotation", "mortgageSurvivesActualRotation",
+        "unitSurvivesActualRotation", "currencySurvivesActualRotation",
+        "landscapeScientificKeyBounds",
+    ],
     "com.android.calculator2.tools.ToolRolesAndCurrencyTest": [
         "sharedOutputsAreReadOnlyAcrossTools",
         "relationshipAndCalculatorRestoreInputRoles",
@@ -669,6 +683,13 @@ fi
 
 adb pull "$screenshot_dir/calculator-default.png" build/ui-screenshots/ || true
 adb pull "$screenshot_dir/calculator-units.png" build/ui-screenshots/ || true
+# Preserve actual-rotation evidence even when a mode-restoration assertion fails.
+while IFS= read -r image; do
+    image=${image//$'\r'/}
+    [[ "$image" == /sdcard/window-*.png ]] || continue
+    adb pull "$image" build/ui-screenshots/ || true
+done < <(adb shell 'ls /sdcard/window-*.png' 2>/dev/null || true)
+
 
 default_screenshot_is_from_test=false
 if [[ -s build/ui-screenshots/calculator-default.png ]]; then
