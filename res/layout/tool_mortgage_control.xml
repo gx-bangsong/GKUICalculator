@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Mortgage: loan-type + rate-basis chips, then 贷款额 / 利率 + 年限 + 方式 / 加点 + 公积金额 -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="false"
+    android:scrollbars="vertical">
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -126,3 +131,5 @@
     </LinearLayout>
 
 </LinearLayout>
+
+</ScrollView>
