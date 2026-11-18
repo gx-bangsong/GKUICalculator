@@ -260,6 +260,8 @@ required = {
         "landscapeHistoryExpandCollapseKeepsKeyboardRegion",
         "historyHandleAnchorsToDisplayAcrossPanelModes",
         "historyHandleRespondsToActualDragAcrossPanelModes",
+        "restoredFieldContinuesEditingWithoutRetargeting",
+        "toolGesturesDoNotOpenHistory",
     ],
     "com.android.calculator2.tools.ToolRolesAndCurrencyTest": [
         "sharedOutputsAreReadOnlyAcrossTools",
@@ -463,6 +465,8 @@ required = {
         "landscapeHistoryExpandCollapseKeepsKeyboardRegion",
         "historyHandleAnchorsToDisplayAcrossPanelModes",
         "historyHandleRespondsToActualDragAcrossPanelModes",
+        "restoredFieldContinuesEditingWithoutRetargeting",
+        "toolGesturesDoNotOpenHistory",
     ],
     "com.android.calculator2.tools.ToolRolesAndCurrencyTest": [
         "sharedOutputsAreReadOnlyAcrossTools",

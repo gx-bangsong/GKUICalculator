@@ -219,6 +219,11 @@ public class WindowConfigurationTest {
         assertEquals("real tool model after portrait return",model,modelSnapshot());
         assertEquals("tool results after portrait return",display,displaySnapshot());
         if(input!=0) assertArrayEquals(selected,selection(input));
+        if(name==R.string.tool_date) {
+            // Re-open a real picker AFTER restoration; retaining labels alone is insufficient.
+            date(R.id.date_start,2024,6,7);
+            assertNotEquals("picker still edits restored date model",model.get("mStart"),modelSnapshot().get("mStart"));
+        }
     }
     @Test public void bmiSurvivesActualRotation() throws Exception { rotateTool(R.string.tool_bmi); }
     @Test public void dateSurvivesActualRotation() throws Exception { rotateTool(R.string.tool_date); }
@@ -234,7 +239,10 @@ public class WindowConfigurationTest {
         onView(withId(input)).check(matches(isDisplayed()));
         key(R.id.clr);digits("123");key(R.id.op_add);digits("45");
         key(currency?R.id.currency_swap:R.id.unit_swap);
-        selectTail(input,2);
+        scenario.onActivity(a -> {
+            TextView v=a.findViewById(input);v.requestFocus();
+            Selection.setSelection((Spannable)v.getText(),1,2);
+        });
         Map<String,String> model=modelSnapshot();Map<Integer,String> display=displaySnapshot();
         int[] selected=selection(input);
         device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
@@ -246,9 +254,75 @@ public class WindowConfigurationTest {
         device.setOrientationNatural();awaitOrientation(Configuration.ORIENTATION_PORTRAIT);
         assertEquals(model,modelSnapshot());assertEquals(display,displaySnapshot());
         assertArrayEquals(selected,selection(input));
+        // Do not click/refocus/reposition the input after rotation. Use the real keypad.
+        digits("9");
+        assertEquals("key edits restored middle range in real expression","193+45",modelSnapshot().get("expression"));
+        onView(withId(input)).check(matches(withText("193+45")));
+        int output=currency?R.id.currency_result_text:R.id.unit_result_text;
+        assertNotEquals("conversion result updates from changed model",display.get(output),displaySnapshot().get(output));
+        scenario.onActivity(a -> assertTrue("restored input has usable measured height",a.findViewById(input).getHeight()>0));
     }
     @Test public void unitSurvivesActualRotation() throws Exception { rotateConverter(false); }
     @Test public void currencySurvivesActualRotation() throws Exception { rotateConverter(true); }
+    @Test public void restoredFieldContinuesEditingWithoutRetargeting() throws Exception {
+        onView(withContentDescription(R.string.tool_bmi)).perform(click());
+        key(R.id.tool_field_1);key(R.id.clr);digits("183");
+        scenario.onActivity(a -> {
+            TextView v=a.findViewById(R.id.tool_field_1);
+            Selection.setSelection((Spannable)v.getText(),v.length()-2,v.length()-1);
+        });
+        int[] before=selection(R.id.tool_field_1);
+        Map<String,String> model=modelSnapshot();
+        String result=displaySnapshot().get(R.id.result);
+        device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
+        assertArrayEquals(before,selection(R.id.tool_field_1));
+        digits("9");
+        Map<String,String> after=modelSnapshot();
+        assertEquals("193",after.get("field1"));
+        assertEquals("active field retained",model.get("activeField"),after.get("activeField"));
+        assertEquals("other field unchanged",model.get("field0"),after.get("field0"));
+        assertNotEquals("BMI recomputed",result,displaySnapshot().get(R.id.result));
+    }
+    @Test public void toolGesturesDoNotOpenHistory() throws Exception {
+        key(R.id.mode_segment_convert);
+        key(R.id.clr);digits("12345");
+        int[] rect=new int[4];
+        scenario.onActivity(a -> {
+            Rect r=new Rect();assertTrue(a.findViewById(R.id.unit_input_text).getGlobalVisibleRect(r));
+            rect[0]=r.left;rect[1]=r.top;rect[2]=r.right;rect[3]=r.bottom;
+        });
+        // A real long press selects input text without exposing history.
+        assertTrue(device.swipe(rect[2]-20,(rect[1]+rect[3])/2,rect[2]-20,(rect[1]+rect[3])/2,90));
+        awaitMotionState(R.id.start_state);
+        scenario.onActivity(a -> {
+            TextView v=a.findViewById(R.id.unit_input_text);
+            assertTrue("long press produces text selection",v.getSelectionStart()!=v.getSelectionEnd());
+        });
+        device.pressBack();
+        onView(withId(R.id.unit_result_text)).perform(androidx.test.espresso.action.ViewActions.scrollTo(),
+            androidx.test.espresso.action.ViewActions.longClick());
+        awaitMotionState(R.id.start_state);
+        scenario.onActivity(a -> {
+            TextView v=a.findViewById(R.id.unit_result_text);
+            assertTrue("output remains selectable for copy",v.getSelectionStart()!=v.getSelectionEnd());
+        });
+        onView(withId(android.R.id.copy)).perform(click());
+        awaitMotionState(R.id.start_state);
+        scenario.onActivity(a -> {
+            android.content.ClipboardManager cb=(android.content.ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE);
+            assertTrue("real copy populated clipboard",cb.hasPrimaryClip());
+        });
+        // Vertical scroll starts inside tool content, not from the handle.
+        scenario.onActivity(a -> {
+            Rect r=new Rect();assertTrue(a.findViewById(R.id.tool_control_slot).getGlobalVisibleRect(r));
+            rect[0]=r.centerX();rect[1]=r.top+r.height()/4;rect[2]=r.bottom-r.height()/4;
+        });
+        assertTrue(device.swipe(rect[0],rect[2],rect[0],rect[1],30));
+        awaitMotionState(R.id.start_state);
+        assertTrue(device.swipe(rect[0],rect[1],rect[0],rect[2],30));
+        awaitMotionState(R.id.start_state);
+        dragHistoryFromVisibleHandle();
+    }
     @Test public void landscapeScientificKeyBounds() throws Exception {
         onView(withId(R.id.mode_segment_scientific)).perform(click());
         device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
