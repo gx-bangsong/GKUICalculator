@@ -1040,6 +1040,13 @@ public class WindowConfigurationTest {
         mortgageFingerCopy(R.id.formula);mortgageFingerCopy(R.id.result);
         mortgageEdit(1,"4.1");
         assertSplitUsable();
+        scenario.onActivity(a -> {
+            float density=a.getResources().getDisplayMetrics().density;
+            for(int id:new int[]{R.id.digit_7,R.id.digit_9,R.id.clr,R.id.eq}) {
+                Rect r=new Rect();assertTrue(a.findViewById(id).getGlobalVisibleRect(r));
+                assertTrue("readable full keypad target "+r,r.width()/density>=39&&r.height()/density>=32);
+            }
+        });
         Log.i("MortgageForm",stage+" ALL_CORE_FIELDS_TOUCH_EDIT_METHOD_COPY_RETURN_RATE_PASS active="+modelSnapshot().get("activeField")+" rate="+modelSnapshot().get("field1"));
     }
     private Rect mortgageViewport() {

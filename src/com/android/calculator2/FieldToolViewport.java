@@ -100,7 +100,9 @@ final class FieldToolViewport {
         if(formula.getMinimumHeight()<textHeight)formula.setMinimumHeight(textHeight);
         float density=activity.getResources().getDisplayMetrics().density;
         int margin=activity.getResources().getDimensionPixelSize(R.dimen.button_vertical_margin);
-        int minimumPad=5*(Math.round(32*density)+2*margin);
+        int columns=mortgage&&inputPad.findViewById(R.id.columnGuide4)!=null?5:4;
+        int rows=mortgage?20/columns:5;
+        int minimumPad=rows*(Math.round(32*density)+2*margin);
         int line=Math.max(((android.widget.TextView)result).getLineHeight(),((android.widget.TextView)formulaText).getLineHeight());
         int handle=activity.findViewById(R.id.drag_handle_view).getHeight()
             +2*activity.getResources().getDimensionPixelSize(R.dimen.drag_handle_margin);
@@ -126,13 +128,24 @@ final class FieldToolViewport {
                     R.id.tool_field_3,R.id.tool_field_4,R.id.mortgage_method}) {
                 android.widget.TextView field=activity.findViewById(id);
                 if(field!=null&&field.getVisibility()==View.VISIBLE) {
-                    int width=(int)Math.ceil(android.text.Layout.getDesiredWidth(field.getText(),field.getPaint()))
-                        +field.getPaddingLeft()+field.getPaddingRight();
-                    requiredFormWidth=Math.max(requiredFormWidth,width);
+                    // Full-width field rows can wrap label/value at a word boundary; they
+                    // must not be squeezed into the old weighted three-item horizontal row.
+                    for(String word:field.getText().toString().split("\\s+")) {
+                        int width=(int)Math.ceil(android.text.Layout.getDesiredWidth(word,field.getPaint()))
+                            +field.getPaddingLeft()+field.getPaddingRight();
+                        requiredFormWidth=Math.max(requiredFormWidth,width);
+                    }
                 }
             }
             // Remove only surplus outside keypad gutters, not key targets or label sizes.
-            keyboardWidth=4*(Math.round(40*density)+2*horizontalMargin);
+            keyboardWidth=columns*(Math.round(40*density)+2*horizontalMargin);
+            int typeWidth=0;
+            for(int id:new int[]{R.id.mortgage_type_commercial,R.id.mortgage_type_fund,R.id.mortgage_type_combined}) {
+                android.widget.TextView button=activity.findViewById(id);
+                if(button!=null)typeWidth+=(int)Math.ceil(android.text.Layout.getDesiredWidth(button.getText(),button.getPaint()))
+                    +button.getPaddingLeft()+button.getPaddingRight();
+            }
+            requiredFormWidth=Math.max(requiredFormWidth,typeWidth);
         }
         boolean roomForColumns=contentWidth-keyboardWidth>=requiredFormWidth;
         boolean target=needsCompact&&roomForColumns;
