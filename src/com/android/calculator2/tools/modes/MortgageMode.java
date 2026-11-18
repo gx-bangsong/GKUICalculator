@@ -6,6 +6,7 @@
 package com.android.calculator2.tools.modes;
 
 import android.content.Context;
+import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
@@ -45,6 +46,9 @@ public class MortgageMode extends FieldToolMode {
     private static final String FUND_RATE_PERCENT = "3.1";
 
     @NonNull
+    @Override protected void saveOptions(Bundle state) { state.putBoolean("equal",mEqualPayment);state.putInt("loan",mLoanType);state.putBoolean("lpr",mLprBasis); }
+    @Override protected void restoreOptions(Bundle state) { mEqualPayment=state.getBoolean("equal");mLoanType=state.getInt("loan");mLprBasis=state.getBoolean("lpr"); }
+
     @Override
     public String getId() {
         return ToolId.MORTGAGE;
@@ -112,6 +116,9 @@ public class MortgageMode extends FieldToolMode {
         }
         final MaterialButtonToggleGroup types = root.findViewById(R.id.mortgage_type_group);
         if (types != null) {
+            // Reflect the restored loan model before attaching the user-change listener.
+            types.check(mLoanType==LOAN_COMBINED?R.id.mortgage_type_combined:
+                    mLoanType==LOAN_FUND?R.id.mortgage_type_fund:R.id.mortgage_type_commercial);
             types.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
                 if (!isChecked) {
                     return;

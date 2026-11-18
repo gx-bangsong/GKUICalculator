@@ -6,6 +6,8 @@
 package com.android.calculator2.tools.modes;
 
 import android.content.Context;
+import android.os.Bundle;
+import com.android.calculator2.tools.ToolState;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.View;
@@ -142,8 +144,17 @@ public class UnitConverterMode implements ToolMode {
         redisplay();
     }
 
-    @Override
-    public void onActivate(@NonNull ToolHost host, @Nullable String carryValue) {
+    @Override public Bundle saveState() {
+        Bundle state=new Bundle();state.putStringArray("input",mInput.saveEditingState());
+        state.putInt("from",mFromIndex);state.putInt("to",mToIndex);state.putInt("secondary",mToSecondaryIndex);
+        state.putBoolean("secondaryEnabled",mSecondaryEnabled);
+        state.putBundle("selection",ToolState.selection(mInputView));
+        state.putInt("category",mCategoryIndex);
+        return state;
+    }
+    @Override public void onRestore(ToolHost host,Bundle state) { activate(host,null,state); }
+    @Override public void onActivate(ToolHost host,String carryValue) { activate(host,carryValue,null); }
+    private void activate(ToolHost host,String carryValue,Bundle state) {
         mHost = host;
         final Context context = host.getContext();
         if (mRepository == null) {
@@ -151,6 +162,7 @@ public class UnitConverterMode implements ToolMode {
         }
         mCategories = mRepository.getCategories();
 
+        if(state==null) {
         mCaret = -1;
         mInput.set(carryValue != null ? carryValue : DEFAULT_INPUT);
         mCategoryIndex = 0;
@@ -159,12 +171,19 @@ public class UnitConverterMode implements ToolMode {
         mToSecondaryIndex = Math.min(2, Math.max(0, currentUnitCount() - 1));
         mSecondaryEnabled = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .getBoolean(PREF_SECONDARY, false);
+        } else {
+            mCaret=-1;mInput.restoreEditingState(state.getStringArray("input"));
+            mCategoryIndex=state.getInt("category");mFromIndex=state.getInt("from");
+            mToIndex=state.getInt("to");mToSecondaryIndex=state.getInt("secondary");
+            mSecondaryEnabled=state.getBoolean("secondaryEnabled");
+        }
         if (mSecondaryEnabled) {
             host.setExpandedDisplay(true);
         }
 
         mountControls(context);
         redisplay();
+        if(state!=null) ToolState.restoreSelection(mInputView,state.getBundle("selection"));
     }
 
     @Override

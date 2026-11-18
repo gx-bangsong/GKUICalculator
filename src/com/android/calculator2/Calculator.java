@@ -526,8 +526,31 @@ public class Calculator extends AppCompatActivity
     }
 
     @Override
+    protected void onDestroy() {
+        // Release only this Activity's controls/callbacks; state was copied by onSaveInstanceState.
+        if(mToolManager!=null&&mToolManager.isActive())
+            mToolManager.getActive().onDeactivate(this);
+        super.onDestroy();
+    }
+
+    @Override
+    protected void onRestoreInstanceState(@NonNull Bundle state) {
+        // Restore static calculator views first. Dynamic tool views are then mounted from their
+        // real model snapshots, not Android's saved, potentially formatted TextView contents.
+        super.onRestoreInstanceState(state);
+        mUppercaseNumbers=state.getBoolean(NAME + "_tool_uppercase");
+        mToolManager.restoreState(state.getBundle(NAME + "_tools"));
+        if(mToolManager.isActive() && ToolId.RELATIONSHIP.equals(mToolManager.getActive().getId()))
+            com.android.calculator2.tools.ToolState.restoreSelection(mFormulaText,state.getBundle(NAME + "_tool_selection"));
+    }
+
+    @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         mEvaluator.cancelAll(true);
+        outState.putBundle(NAME + "_tools", mToolManager.saveState());
+        outState.putBoolean(NAME + "_tool_uppercase",mUppercaseNumbers);
+        if(mToolManager.isActive()) outState.putBundle(NAME + "_tool_selection",
+                com.android.calculator2.tools.ToolState.selection(mFormulaText));
 
         super.onSaveInstanceState(outState);
         outState.putInt(KEY_DISPLAY_STATE, mCurrentState.ordinal());

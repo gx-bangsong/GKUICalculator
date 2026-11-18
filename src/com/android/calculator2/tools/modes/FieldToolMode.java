@@ -8,6 +8,8 @@ package com.android.calculator2.tools.modes;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.os.Bundle;
+import com.android.calculator2.tools.ToolState;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.text.Selection;
@@ -124,12 +126,36 @@ public abstract class FieldToolMode implements ToolMode {
     /** Recompute outputs from the current inputs and update the shared display. */
     protected abstract void recomputeAndDisplay();
 
-    @Override
-    public void onActivate(@NonNull ToolHost host, @Nullable String carryValue) {
+    protected void saveOptions(Bundle state) {}
+    protected void restoreOptions(Bundle state) {}
+
+    @Override public Bundle saveState() {
+        Bundle state=new Bundle();
+        if(mFields!=null) {
+            String[] values=new String[mFields.count()];
+            for(int i=0;i<values.length;i++) values[i]=mFields.get(i);
+            state.putStringArray("fields",values);state.putInt("active",mFields.getActive());
+        }
+        state.putBoolean("uppercase",mUppercaseNumbers);
+        if(mFieldViews!=null) for(int i=0;i<mFieldViews.length;i++)
+            state.putBundle("selection"+i,ToolState.selection(mFieldViews[i]));
+        saveOptions(state);return state;
+    }
+    @Override public void onRestore(ToolHost host,Bundle state) { activate(host,null,state); }
+    @Override public void onActivate(ToolHost host,String carryValue) { activate(host,carryValue,null); }
+
+    private void activate(ToolHost host,String carryValue,Bundle state) {
         mHost = host;
         final Context context = host.getContext();
         mActiveColor = resolveThemeColor(context, android.R.attr.colorPrimary, Color.BLACK);
         mInactiveColor = ContextCompat.getColor(context, R.color.tool_field_text_color);
+        if(state!=null) {
+            restoreOptions(state);
+            mUppercaseNumbers=state.getBoolean("uppercase");
+            String[] fields=state.getStringArray("fields");
+            mFields=new ToolInputFields(fieldCount(),fields);
+            mFields.setActive(state.getInt("active"));
+        }
         if (mFields == null) {
             mFields = new ToolInputFields(fieldCount(), fieldDefaults());
         }
@@ -150,7 +176,24 @@ public abstract class FieldToolMode implements ToolMode {
         host.setToolResultTextSizeSp(sp > 0f ? sp : TOOL_RESULT_TEXT_SP);
         configureFormulaTextSize();
         mountControls(context);
+        if(state!=null) mFields.setActive(state.getInt("active"));
         recomputeAndDisplay();
+        if(state!=null&&mFieldViews!=null) {
+            mProgrammaticUpdate=true;
+            try {
+                for(int i=0;i<mFieldViews.length;i++) {
+                    Bundle selected=state.getBundle("selection"+i);
+                    ToolState.restoreSelection(mFieldViews[i],selected);
+                    if(selected!=null&&mFieldViews[i]!=null) {
+                        String label=fieldLabels()[i];
+                        int valueStart=mFields.get(i).isEmpty()?label.length():label.length()+2;
+                        mSelectionStart[i]=clampToValue(mFieldViews[i].getSelectionStart(),valueStart,mFields.get(i).length());
+                        mSelectionEnd[i]=clampToValue(mFieldViews[i].getSelectionEnd(),valueStart,mFields.get(i).length());
+                        mCursorPos[i]=mSelectionStart[i];
+                    }
+                }
+            } finally { mProgrammaticUpdate=false; }
+        }
     }
 
     @Override

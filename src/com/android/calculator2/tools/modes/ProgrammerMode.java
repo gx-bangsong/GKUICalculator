@@ -6,6 +6,8 @@
 package com.android.calculator2.tools.modes;
 
 import android.content.Context;
+import android.os.Bundle;
+import com.android.calculator2.tools.ToolState;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -65,20 +67,40 @@ public final class ProgrammerMode implements ToolMode {
         return R.drawable.ic_tool_programmer;
     }
 
-    @Override
-    public void onActivate(@NonNull ToolHost host, @Nullable String carryValue) {
+    @Override public Bundle saveState() {
+        Bundle state=new Bundle();
+        state.putInt("radix",mRadix);state.putInt("second",mSecondRadix);state.putInt("width",mWidthBits);
+        state.putBoolean("unsigned",mUnsigned);state.putString("entry",mEntry.toString());
+        state.putLong("accumulator",mAccumulator);state.putBoolean("newEntry",mStartNewEntry);
+        state.putString("pending",mPendingOperation==null?null:mPendingOperation.name());
+        state.putString("expression",mExpression);state.putString("error",mError);
+        if(mControlRoot!=null) state.putBundle("selection",ToolState.selection(mControlRoot.findViewById(R.id.programmer_value_in)));
+        return state;
+    }
+    @Override public void onRestore(ToolHost host,Bundle state) { activate(host,null,state); }
+    @Override public void onActivate(ToolHost host,String carryValue) { activate(host,carryValue,null); }
+    private void activate(ToolHost host,String carryValue,Bundle state) {
         mHost = host;
+        if(state!=null) {
+            mRadix=state.getInt("radix");mSecondRadix=state.getInt("second");mWidthBits=state.getInt("width");
+            mUnsigned=state.getBoolean("unsigned");mEntry.replace(0,mEntry.length(),state.getString("entry"));
+            mAccumulator=state.getLong("accumulator");mStartNewEntry=state.getBoolean("newEntry");
+            String operation=state.getString("pending");mPendingOperation=operation==null?null:Operation.valueOf(operation);
+            mExpression=state.getString("expression", "");mError=state.getString("error");
+        } else {
         mRadix = 10;
         reset();
         final Long carried = parseCarryValue(carryValue);
         if (carried != null) {
             setEntry(carried);
         }
+        }
         mountControls(host.getContext());
         host.setProgrammerPadMode(true, mRadix);
         host.setToolResultTextSizeSp(36f);
         host.refreshOptionsMenu();
         redisplay();
+        if(state!=null) ToolState.restoreSelection(mControlRoot.findViewById(R.id.programmer_value_in),state.getBundle("selection"));
     }
 
     @Override

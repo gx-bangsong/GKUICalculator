@@ -6,6 +6,7 @@
 package com.android.calculator2.tools.modes;
 
 import android.content.Context;
+import android.os.Bundle;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
@@ -181,15 +182,27 @@ public final class RelationshipMode implements ToolMode {
         redisplay();
     }
 
-    @Override
-    public void onActivate(@NonNull ToolHost host, @Nullable String carryValue) {
+    @Override public Bundle saveState() {
+        Bundle state=new Bundle();String[] chain=new String[mChain.size()];
+        for(int i=0;i<chain.length;i++) chain[i]=mChain.get(i).name();
+        state.putStringArray("chain",chain);state.putBoolean("reverse",mReverse);
+        state.putString("dialect",mDialect.name());return state;
+    }
+    @Override public void onRestore(ToolHost host,Bundle state) { activate(host,null,state); }
+    @Override public void onActivate(ToolHost host,String carryValue) { activate(host,carryValue,null); }
+    private void activate(ToolHost host,String carryValue,Bundle state) {
         mHost = host;
         mChain.clear();
         mReverse = false;
         mDialect = readDialect(host.getContext());
+        if(state!=null) {
+            String[] chain=state.getStringArray("chain");
+            if(chain!=null) for(String step:chain) mChain.add(Step.valueOf(step));
+            mReverse=state.getBoolean("reverse");mDialect=Dialect.valueOf(state.getString("dialect"));
+        }
         sLive = this;
         prepareAsync(host.getContext());
-        host.setRelationshipPadMode(true, false);
+        host.setRelationshipPadMode(true, mReverse);
         host.setToolResultTextSizeSp(32f);
         mountControls(host);
         redisplay();

@@ -7,6 +7,7 @@ package com.android.calculator2.tools.modes;
 
 import android.app.DatePickerDialog;
 import android.content.Context;
+import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -58,6 +59,17 @@ public class DateMode implements ToolMode {
     @Override
     public int getIconRes() {
         return R.drawable.ic_tool_date;
+    }
+
+    @Override public Bundle saveState() {
+        Bundle state=new Bundle();
+        if(mStart!=null) state.putString("start",mStart.toString());
+        if(mEnd!=null) state.putString("end",mEnd.toString());
+        return state;
+    }
+    @Override public void onRestore(ToolHost host,Bundle state) {
+        mStart=LocalDate.parse(state.getString("start"));mEnd=LocalDate.parse(state.getString("end"));
+        onActivate(host,null);
     }
 
     @Override

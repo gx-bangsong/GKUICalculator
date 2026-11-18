@@ -38,6 +38,17 @@ public final class DecimalExpression {
         set(initialValue);
     }
 
+    /** Raw editing state, not the formatted display or evaluated value. */
+    public String[] saveEditingState() {
+        return new String[]{mExpression.toString(), Boolean.toString(mReplaceOnDigit)};
+    }
+
+    public void restoreEditingState(String[] state) {
+        if(state==null||state.length!=2) return;
+        mExpression.replace(0,mExpression.length(),state[0]);
+        mReplaceOnDigit=Boolean.parseBoolean(state[1]);
+    }
+
     /** Replace the expression with a plain decimal value, or zero when it is invalid/missing. */
     public void set(@Nullable String value) {
         mExpression.setLength(0);

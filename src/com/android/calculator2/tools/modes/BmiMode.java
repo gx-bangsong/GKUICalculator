@@ -6,6 +6,7 @@
 package com.android.calculator2.tools.modes;
 
 import android.content.Context;
+import android.os.Bundle;
 import android.view.View;
 
 import com.android.calculator2.R;
@@ -29,6 +30,9 @@ public class BmiMode extends FieldToolMode {
     private static final MathContext MC = new MathContext(10, RoundingMode.HALF_UP);
 
     private BmiCalculator.Gender mGender = BmiCalculator.Gender.MALE;
+
+    @Override protected void saveOptions(Bundle state) { state.putString("gender",mGender.name()); }
+    @Override protected void restoreOptions(Bundle state) { mGender=BmiCalculator.Gender.valueOf(state.getString("gender")); }
 
     @Override
     public String getId() {

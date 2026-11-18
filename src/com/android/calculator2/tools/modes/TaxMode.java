@@ -6,6 +6,7 @@
 package com.android.calculator2.tools.modes;
 
 import android.content.Context;
+import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
@@ -56,6 +57,42 @@ public class TaxMode extends FieldToolMode {
     @Nullable
     private BigDecimal mInsuranceBase;
     private final BigDecimal[] mInsuranceRates = new BigDecimal[SocialInsurance.CATEGORIES];
+
+    @Override protected void saveOptions(Bundle state) {
+        state.putBoolean("bonus",mBonusMode);state.putStringArray("salary",mSalarySnapshot);
+        state.putString("bonusValue",mBonusSnapshot);
+        state.putString("insuranceBase",mInsuranceBase==null?null:mInsuranceBase.toPlainString());
+        String[] rates=new String[mInsuranceRates.length];
+        for(int i=0;i<rates.length;i++) rates[i]=mInsuranceRates[i]==null?null:mInsuranceRates[i].toPlainString();
+        state.putStringArray("insuranceRates",rates);
+        state.putInt("educationChildren",mSpecial.educationChildren);
+        state.putString("educationShare",mSpecial.educationShare.name());
+        state.putString("continuing",mSpecial.continuing.name());
+        state.putString("medical",mSpecial.majorMedicalAnnualSelfPaid.toPlainString());
+        state.putBoolean("mortgageInterest",mSpecial.mortgageInterest);
+        state.putString("mortgageShare",mSpecial.mortgageShare.name());
+        state.putString("rent",mSpecial.rent.name());state.putBoolean("elderlyOnly",mSpecial.elderlyOnlyChild);
+        state.putString("elderlyShared",mSpecial.elderlySharedMonthly.toPlainString());
+        state.putInt("infants",mSpecial.infantChildren);state.putString("infantShare",mSpecial.infantShare.name());
+    }
+    @Override protected void restoreOptions(Bundle state) {
+        mBonusMode=state.getBoolean("bonus");mSalarySnapshot=state.getStringArray("salary");
+        mBonusSnapshot=state.getString("bonusValue");mInsuranceBase=state.getString("insuranceBase")==null?null:parseDecimal(state.getString("insuranceBase"));
+        String[] rates=state.getStringArray("insuranceRates");
+        if(rates!=null) for(int i=0;i<Math.min(rates.length,mInsuranceRates.length);i++)
+            mInsuranceRates[i]=rates[i]==null?null:parseDecimal(rates[i]);
+        mSpecial.educationChildren=state.getInt("educationChildren");
+        mSpecial.educationShare=SpecialDeductions.Share.valueOf(state.getString("educationShare"));
+        mSpecial.continuing=SpecialDeductions.ContinuingEducation.valueOf(state.getString("continuing"));
+        mSpecial.majorMedicalAnnualSelfPaid=new BigDecimal(state.getString("medical"));
+        mSpecial.mortgageInterest=state.getBoolean("mortgageInterest");
+        mSpecial.mortgageShare=SpecialDeductions.Share.valueOf(state.getString("mortgageShare"));
+        mSpecial.rent=SpecialDeductions.RentTier.valueOf(state.getString("rent"));
+        mSpecial.elderlyOnlyChild=state.getBoolean("elderlyOnly");
+        mSpecial.elderlySharedMonthly=new BigDecimal(state.getString("elderlyShared"));
+        mSpecial.infantChildren=state.getInt("infants");
+        mSpecial.infantShare=SpecialDeductions.Share.valueOf(state.getString("infantShare"));
+    }
 
     @Override
     public String getId() {

@@ -6,6 +6,8 @@
 package com.android.calculator2.tools.modes;
 
 import android.content.Context;
+import android.os.Bundle;
+import com.android.calculator2.tools.ToolState;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.View;
@@ -162,14 +164,31 @@ public class CurrencyConverterMode implements ToolMode {
         redisplay();
     }
 
-    @Override
-    public void onActivate(@NonNull ToolHost host, @Nullable String carryValue) {
+    @Override public Bundle saveState() {
+        Bundle state=new Bundle();state.putStringArray("input",mInput.saveEditingState());
+        state.putInt("from",mFromIndex);state.putInt("to",mToIndex);state.putInt("secondary",mToSecondaryIndex);
+        state.putBoolean("secondaryEnabled",mSecondaryEnabled);
+        state.putBundle("selection",ToolState.selection(mInputView));
+        state.putBoolean("uppercase",mUppercaseNumbers);state.putBoolean("editing",mEditingInput);
+        if(mRates!=null) {
+            Bundle rates=new Bundle();
+            for(java.util.Map.Entry<String,BigDecimal> rate:mRates.getRates().entrySet())
+                rates.putString(rate.getKey(),rate.getValue().toPlainString());
+            state.putBundle("rates",rates);state.putString("base",mRates.getBaseCurrency());
+            state.putString("published",mRates.getPublishDate());state.putLong("fetched",mRates.getFetchedAt());
+        }
+        return state;
+    }
+    @Override public void onRestore(ToolHost host,Bundle state) { activate(host,null,state); }
+    @Override public void onActivate(ToolHost host,String carryValue) { activate(host,carryValue,null); }
+    private void activate(ToolHost host,String carryValue,Bundle state) {
         mHost = host;
         final Context context = host.getContext();
         if (mRepository == null) {
             mRepository = new ExchangeRateRepository(context);
         }
         mCurrencies = mRepository.getConfig().getCurrencies();
+        if(state==null) {
         mRates = null;
 
         mEditingInput = false;
@@ -190,8 +209,22 @@ public class CurrencyConverterMode implements ToolMode {
         mSecondaryEnabled = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .getBoolean(PREF_SECONDARY, false);
 
+        } else {
+            mPendingCaret=-1;mEditingInput=state.getBoolean("editing");mUppercaseNumbers=state.getBoolean("uppercase");
+            mInput.restoreEditingState(state.getStringArray("input"));
+            mFromIndex=state.getInt("from");mToIndex=state.getInt("to");
+            mToSecondaryIndex=state.getInt("secondary");mSecondaryEnabled=state.getBoolean("secondaryEnabled");
+            Bundle rates=state.getBundle("rates");
+            if(rates!=null) {
+                java.util.Map<String,BigDecimal> values=new java.util.LinkedHashMap<>();
+                for(String code:rates.keySet()) values.put(code,new BigDecimal(rates.getString(code)));
+                mRates=new CachedRates(state.getString("base"),state.getLong("fetched"),state.getString("published"),values);
+            }
+        }
+
         mountControls(context);
         redisplay();
+        if(state!=null) ToolState.restoreSelection(mInputView,state.getBundle("selection"));
 
         if (mRepository != null) {
             mRepository.loadRates(this::onRatesLoaded);

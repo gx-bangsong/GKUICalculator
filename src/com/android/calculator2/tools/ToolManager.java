@@ -6,6 +6,7 @@
 package com.android.calculator2.tools;
 
 import android.content.Context;
+import android.os.Bundle;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -127,6 +128,29 @@ public class ToolManager {
             mHost.restoreCalculatorDisplay();
         }
 
+        mHost.refreshOptionsMenu();
+        refresh();
+    }
+
+    @NonNull
+    public Bundle saveState() {
+        Bundle state=new Bundle();
+        if(isActive()) {
+            state.putString("active",mActive.getId());
+            state.putBundle("model",mActive.saveState());
+        }
+        return state;
+    }
+
+    public void restoreState(@Nullable Bundle state) {
+        if(state==null) return;
+        ToolMode next=mModes.get(state.getString("active"));
+        Bundle model=state.getBundle("model");
+        if(next==null||model==null||ToolId.CALCULATOR.equals(next.getId())) return;
+        mActive=next;
+        mHost.setExpandedDisplay(next.wantsExpandedDisplay());
+        mHost.prepareForToolDisplay();
+        next.onRestore(mHost,model);
         mHost.refreshOptionsMenu();
         refresh();
     }
