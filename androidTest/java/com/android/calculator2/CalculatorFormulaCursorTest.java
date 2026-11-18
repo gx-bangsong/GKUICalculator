@@ -86,6 +86,22 @@ public class CalculatorFormulaCursorTest {
         key(R.id.op_mul);formula("12×3");caret(3);result("36");
     }
 
+    @Test public void scientificFunctionTouchInsertionEvaluates() {
+        key(R.id.mode_segment_scientific);
+        int[] functions={R.id.fun_sin,R.id.fun_cos,R.id.fun_log,R.id.op_sqrt};
+        int[][] operands={{R.id.digit_0},{R.id.digit_0},{R.id.digit_1,R.id.digit_0},{R.id.digit_9}};
+        String[] arguments={"0","0","10","9"};
+        String[] values={"1","2","2","4"};
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        for(int i=0;i<functions.length;i++) {
+            key(R.id.clr);key(R.id.digit_1);key(R.id.op_add);
+            for(int digit:operands[i]) key(digit);
+            tap(2);key(functions[i]);
+            String token=KeyMaps.toString(context,functions[i]);
+            formula("1+"+token+arguments[i]);caret(2+token.length());result(values[i]);
+        }
+    }
+
     @After public void close() { if (scenario != null) scenario.close(); }
     private void key(int id) { onView(withId(id)).perform(click()); }
     private void input() {
