@@ -535,7 +535,7 @@ if ((test_result != 0)); then
     if [[ -n "$app_crash" ]]; then
         app_crash=${app_crash//%/%25}
         app_crash=${app_crash//$'\n'/%0A}
-        echo "::error title=Application runtime failure::$app_crash"
+        echo "::warning title=Application runtime failure::$app_crash"
     fi
     diagnostics=$(grep -nEi 'error:|what went wrong|execution failed|caused by:|assertionerror|tests run:|FAILED|^failure:' "$log_file" | tail -n 60 || true)
     if [[ -z "$diagnostics" ]]; then
@@ -642,7 +642,7 @@ PY
         failure_summary="${failure_summary:0:15000} [diagnostics truncated]"
     fi
     failure_summary=$(printf '%s\n' "$failure_summary" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
-    echo "::error title=Instrumented test failure details::$failure_summary"
+    echo "::warning title=Instrumented test failure details::$failure_summary"
 fi
 
 adb pull "$screenshot_dir/calculator-default.png" build/ui-screenshots/ || true
