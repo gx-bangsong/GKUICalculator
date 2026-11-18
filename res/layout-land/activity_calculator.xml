@@ -43,10 +43,9 @@
             android:id="@+id/tool_bar"
             layout="@layout/tool_bar"
             android:layout_width="0dp"
-            android:layout_height="0dp"
+            android:layout_height="wrap_content"
             app:layout_constraintBottom_toTopOf="@id/pad_stack"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHeight_percent="@dimen/layout_tool_bar_ratio"
             app:layout_constraintStart_toStartOf="parent" />
 
         <!-- One keyboard region below the toolbar. Scientific visibility only changes a child;

@@ -39,10 +39,9 @@
         <Constraint
             android:id="@+id/tool_bar"
             android:layout_width="0dp"
-            android:layout_height="0dp"
+            android:layout_height="wrap_content"
             motion:layout_constraintBottom_toTopOf="@id/pad_stack"
             motion:layout_constraintEnd_toEndOf="parent"
-            motion:layout_constraintHeight_percent="@dimen/layout_tool_bar_ratio"
             motion:layout_constraintStart_toStartOf="parent" />
         <Constraint
             android:id="@+id/pad_stack"
