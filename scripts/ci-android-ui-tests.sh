@@ -608,14 +608,14 @@ PY
     fi
     logcat_summary=$(adb logcat -d -v brief 2>/dev/null | grep -nEi -B 4 -A 12 'CalculatorToolUiTest|TestRunner|AndroidJUnitRunner|AssertionError|NoMatchingViewException|PerformException|FATAL EXCEPTION|AndroidRuntime|Fatal signal|am_crash|am_anr|Process .*died|OutOfMemory|lowmemory|SIGSEGV|SIGABRT|INSTRUMENTATION_RESULT|instrumentation.*fail|ANR|not responding|Input dispatching timed out|com\.android\.systemui|system_server' | tail -n 90 || true)
     if [[ -n "$logcat_summary" ]]; then
-        if [[ ${#failure_summary} -gt 2200 ]]; then
-            failure_summary="${failure_summary:0:2200} [report output truncated]"
+        if [[ ${#failure_summary} -gt 12000 ]]; then
+            failure_summary="${failure_summary:0:12000} [report output truncated]"
         fi
         failure_summary+=$'\n--- Relevant emulator logcat ---\n'
         failure_summary+="${logcat_summary:0:1100}"
     fi
-    if [[ ${#failure_summary} -gt 3500 ]]; then
-        failure_summary="${failure_summary:0:3500} [diagnostics truncated]"
+    if [[ ${#failure_summary} -gt 15000 ]]; then
+        failure_summary="${failure_summary:0:15000} [diagnostics truncated]"
     fi
     failure_summary=$(printf '%s\n' "$failure_summary" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
     echo "::error title=Instrumented test failure details::$failure_summary"

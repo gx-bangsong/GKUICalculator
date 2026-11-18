@@ -21,6 +21,10 @@ import androidx.test.core.app.ActivityScenario;
 import androidx.test.espresso.*;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.Until;
 import org.hamcrest.Matcher;
 import org.junit.*;
 import org.junit.runner.RunWith;
@@ -129,7 +133,23 @@ public class CalculatorFormulaCursorTest {
                 controller.loopMainThreadUntilIdle();
             }
         });
-        onView(withText(android.R.string.copy)).perform(click());
+        // Floating ActionMode toolbars are separate windows; use accessibility UI lookup
+        // instead of assuming their menu text belongs to Espresso's activity root.
+        UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        String copyLabel = InstrumentationRegistry.getInstrumentation().getTargetContext()
+                .getString(android.R.string.copy);
+        UiObject2 copy = device.wait(Until.findObject(By.text(copyLabel)), 3000);
+        if (copy == null) copy = device.findObject(By.desc(copyLabel));
+        if (copy == null) {
+            UiObject2 overflow = device.findObject(By.res("android", "floating_toolbar_overflow_button"));
+            if (overflow != null) {
+                overflow.click();
+                copy = device.wait(Until.findObject(By.text(copyLabel)), 3000);
+            }
+        }
+        assertNotNull("long-press result must expose Copy", copy);
+        copy.click();
+        device.waitForIdle();
         scenario.onActivity(activity -> {
             ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
             assertNotNull(clipboard.getPrimaryClip());
