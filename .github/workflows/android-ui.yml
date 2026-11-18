@@ -111,15 +111,15 @@ jobs:
 
       - name: Publish actual split-screen diagnostic (parts 1+)
         if: always()
-        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 0
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 0 warning
 
       - name: Publish actual split-screen diagnostic (parts 11+)
         if: always()
-        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 10
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 10 warning
 
       - name: Publish actual split-screen diagnostic (parts 21+)
         if: always()
-        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 20
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 20 warning
 
       - name: Upload emulator screenshots
         if: always()

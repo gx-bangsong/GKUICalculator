@@ -14,6 +14,7 @@ set -euo pipefail
 image="${1:?usage: ci-publish-preview.sh <image> <label> [skip-parts]}"
 label="${2:?usage: ci-publish-preview.sh <image> <label> [skip-parts]}"
 skip="${3:-0}"
+level="${4:-notice}"
 
 # Prefer the compact JPEG twin, but fall back to the raw screenshot when the runner had no
 # image converter to produce the twin.
@@ -41,8 +42,8 @@ fi
 
 part=1
 while IFS= read -r chunk; do
-    if ((part > skip)); then
-        echo "::notice title=$label base64 part $part::$chunk"
+    if ((part > skip)) && { [[ "$level" != "warning" ]] || ((part <= skip + 10)); }; then
+        echo "::$level title=$label base64 part $part::$chunk"
     fi
     part=$((part + 1))
 done < <(base64 < "$image" | tr -d '\n' | fold -w 4000)
