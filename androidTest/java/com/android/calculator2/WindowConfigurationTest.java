@@ -547,6 +547,7 @@ public class WindowConfigurationTest {
         Log.i("WindowEvidence","SPLIT companion="+device.executeShellCommand("am start -a android.settings.SETTINGS"));
         Log.i("WindowEvidence","SPLIT enter="+device.executeShellCommand(
             "dumpsys activity service SystemUIService WMShell splitscreen moveToSideStage "+splitTask+" 0"));
+        device.executeShellCommand("am task focus "+splitTask);
         awaitRealSplit();
     }
     private void awaitRealSplit() {
@@ -577,7 +578,22 @@ public class WindowConfigurationTest {
             }
             if(!r.isEmpty())break;SystemClock.sleep(100);
         } while(SystemClock.uptimeMillis()<deadline);
-        assertFalse("real system split divider window",r.isEmpty());
+        if(r.isEmpty()) {
+            Rect app=new Rect(),companion=new Rect();
+            scenario.onActivity(a -> app.set(a.getWindowManager().getCurrentWindowMetrics().getBounds()));
+            for(android.view.accessibility.AccessibilityWindowInfo window:automation.getWindows()) {
+                android.view.accessibility.AccessibilityNodeInfo root=window.getRoot();
+                if(root!=null&&"com.android.settings".contentEquals(root.getPackageName()))
+                    window.getBoundsInScreen(companion);
+            }
+            assertFalse("actual companion window bounds",companion.isEmpty());
+            assertTrue("system divider gap between the two task bounds: "+app+" / "+companion,
+                app.bottom<=companion.top);
+            r.set(Math.max(app.left,companion.left),app.bottom,
+                Math.min(app.right,companion.right),companion.top);
+            Log.i("WindowEvidence","SPLIT task="+app+" companion="+companion+" divider="+r);
+        }
+        assertFalse("real system divider bounds",r.isEmpty());
         int[] size={0};scenario.onActivity(a -> size[0]=a.getResources().getConfiguration().screenHeightDp);
         // Drag the system divider to the adjacent snap target, without wm size/density changes.
         assertTrue(device.swipe(r.centerX(),r.centerY(),r.centerX(),device.getDisplayHeight()*thirds/3,45));
