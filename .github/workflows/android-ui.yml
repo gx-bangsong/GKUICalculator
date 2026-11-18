@@ -97,34 +97,34 @@ jobs:
       # half-decoded frame.
       # Annotation messages are cut at 4096 chars, so one frame needs several steps of parts.
       - name: Publish default-screen preview (parts 1-10)
-        if: always()
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
         run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot" 0
       - name: Publish default-screen preview (parts 11-20)
-        if: always()
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
         run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot" 10
       - name: Publish default-screen preview (parts 21+)
-        if: always()
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
         run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot" 20
       - name: Publish converter-screen preview (parts 1-10)
-        if: always()
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
         run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot" 0
       - name: Publish converter-screen preview (parts 11-20)
-        if: always()
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
         run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot" 10
       - name: Publish converter-screen preview (parts 21+)
-        if: always()
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
         run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot" 20
 
       - name: Publish actual split-screen diagnostic (parts 1+)
-        if: always()
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
         run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 0 warning
 
       - name: Publish actual split-screen diagnostic (parts 11+)
-        if: always()
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
         run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 10 warning
 
       - name: Publish actual split-screen diagnostic (parts 21+)
-        if: always()
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
         run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 20 warning
 
       - name: Prepare readable mortgage evidence previews
@@ -136,11 +136,11 @@ jobs:
           from PIL import Image
           for path in Path('build/ui-screenshots').glob('window-mortgage-*.png'):
               image=Image.open(path).convert('RGB')
-              image.thumbnail((576,1216))
+              image.thumbnail((480,1014))
               dest=path.with_name(path.stem+'-review.jpg')
-              for quality in (80,70,60,50,40):
+              for quality in (80,70,60,50,40,30,20):
                   image.save(dest,quality=quality,optimize=True)
-                  if dest.stat().st_size < 28000: break
+                  if dest.stat().st_size < 16500: break
           PYIMAGE
       - name: Publish mortgage full-core evidence
         if: always()
