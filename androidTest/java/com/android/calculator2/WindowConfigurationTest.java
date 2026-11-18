@@ -1190,22 +1190,22 @@ public class WindowConfigurationTest {
             enterRealSplit();
             SplitSample topHalf=stableSample(true,null);logPosition("upper-50",topHalf);
             assertTrue(topHalf.app.top<topHalf.other.top);
-            positionMortgageScroll("upper-50");
+            recordMortgagePosition("upper-50",issues);
             resizePosition(false,0.25f);SplitSample topQuarter=stableSample(true,null);
             logPosition("upper-calculator-25-settings-75",topQuarter);
-            positionMortgageScroll("upper-25");
+            recordMortgagePosition("upper-25",issues);
             swapSplitPosition(true);
             resizePosition(true,0.25f);SplitSample bottomQuarter=stableSample(true,null);
             logPosition("lower-calculator-25-settings-75",bottomQuarter);
             assertTrue("same-sized upper/lower comparison "+topQuarter+" vs "+bottomQuarter,
                 Math.abs(topQuarter.app.height()-bottomQuarter.app.height())<=4);
-            positionMortgageScroll("lower-25");
+            recordMortgagePosition("lower-25",issues);
             resizePosition(true,0.5f);SplitSample bottomHalf=stableSample(true,null);
             logPosition("lower-50",bottomHalf);
             assertTrue("same-sized 50:50 windows",Math.abs(topHalf.app.height()-bottomHalf.app.height())<=4);
-            positionMortgageScroll("lower-50");
+            recordMortgagePosition("lower-50",issues);
             swapSplitPosition(false);logPosition("upper-return-50",stableSample(true,null));
-            positionMortgageScroll("upper-return-50");
+            recordMortgagePosition("upper-return-50",issues);
         } catch(Throwable failure) {issues.add(failure);evidence("mortgage-position-failure");}
         finally {
             try {
@@ -1220,6 +1220,20 @@ public class WindowConfigurationTest {
             Throwable first=issues.get(0);for(int i=1;i<issues.size();i++)first.addSuppressed(issues.get(i));
             if(first instanceof Exception)throw (Exception)first;
             if(first instanceof Error)throw (Error)first;
+        }
+    }
+    private void recordMortgagePosition(String stage,java.util.List<Throwable> issues) {
+        try {positionMortgageScroll(stage);}
+        catch(Throwable failure) {
+            issues.add(failure);Log.i("MortgagePosition",stage+" FAIL "+failure);
+            evidence("mortgage-"+stage+"-failure");
+            int[] state={0};scenario.onActivity(a -> state[0]=((DisplayMotionLayout)a.findViewById(R.id.main_calculator)).getCurrentState());
+            if(state[0]==R.id.end_state) {
+                // Recorded failure remains FAIL. Real Back only cleans history for the next
+                // independent position; it is never reported as a successful content swipe.
+                assertTrue(device.pressBack());awaitMotionState(R.id.start_state);
+                Log.i("MortgagePosition",stage+" DIAGNOSTIC_CLEANUP history Back (not a scroll pass)");
+            }
         }
     }
     private void logPosition(String stage,SplitSample sample) {

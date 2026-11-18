@@ -100,7 +100,7 @@ adb shell wm dismiss-keyguard || true
 adb shell input keyevent KEYCODE_WAKEUP || true
 
 if [[ "${SPLIT_SCOPE:-}" == "mortgage-position-only" ]]; then
-    adb shell wm size 720x2240
+    adb shell wm size 720x1920
 fi
 if [[ "${SPLIT_SCOPE:-}" == "mortgage-only" || "${SPLIT_SCOPE:-}" == "mortgage-position-only" ]]; then
     adb shell cmd locale set-app-locales com.android.calculator2.dev --locales zh-CN
