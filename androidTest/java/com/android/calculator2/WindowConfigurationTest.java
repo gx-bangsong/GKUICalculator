@@ -323,25 +323,43 @@ public class WindowConfigurationTest {
         assertBasicKeyboardFillsStack();
     }
     @Test public void historyHandleAnchorsToDisplayAcrossPanelModes() throws Exception {
+        java.util.List<String> errors=new java.util.ArrayList<>();
         for(int orientation:new int[]{Configuration.ORIENTATION_PORTRAIT,Configuration.ORIENTATION_LANDSCAPE}) {
             if(orientation==Configuration.ORIENTATION_LANDSCAPE) device.setOrientationLeft();
             else device.setOrientationNatural();
             awaitOrientation(orientation);
             key(R.id.mode_segment_basic);
             int expectedGap=handleGap("ordinary-"+orientation);
+            int index=0;
             for(int mode:new int[]{R.id.mode_segment_convert,R.id.mode_segment_convert,0}) {
                 if(mode==0) onView(withContentDescription(R.string.tool_programmer)).perform(click());
                 else key(mode);
-                String name=mode==0?"programmer":"converter";
+                String name=mode==0?"programmer":index++==0?"unit":"currency";
                 int gap=handleGap(name+"-"+orientation);
                 evidence("handle-"+name+"-"+orientation);
-                assertEquals("handle relative to display bottom: "+name,expectedGap,gap);
+                if(expectedGap!=gap) errors.add(name+" orientation="+orientation+" expected="+expectedGap+" actual="+gap);
                 if(mode==0) {
                     key(R.id.clr);digits("27");key(R.id.op_add);
-                    assertEquals("pending status must not move handle",expectedGap,handleGap("programmer-pending"));
+                    int pending=handleGap("programmer-pending-"+orientation);
+                    if(pending!=expectedGap) errors.add("pending="+pending+" expected="+expectedGap);
                     digits("3");key(R.id.eq);key(R.id.op_div);digits("0");key(R.id.eq);
-                    assertEquals("error status must not move handle",expectedGap,handleGap("programmer-error"));
+                    int error=handleGap("programmer-error-"+orientation);
+                    if(error!=expectedGap) errors.add("error="+error+" expected="+expectedGap);
                 }
+            }
+        }
+        // Compare only after collecting every mode's real bounds; do not hide a failed mode.
+        assertTrue("all handle/display bottom gaps must agree: "+errors,errors.isEmpty());
+    }
+    @Test public void historyHandleRespondsToActualDragAcrossPanelModes() throws Exception {
+        for(int orientation:new int[]{Configuration.ORIENTATION_PORTRAIT,Configuration.ORIENTATION_LANDSCAPE}) {
+            if(orientation==Configuration.ORIENTATION_LANDSCAPE) device.setOrientationLeft();
+            else device.setOrientationNatural();
+            awaitOrientation(orientation);key(R.id.mode_segment_basic);
+            dragHistoryFromVisibleHandle();
+            for(int mode:new int[]{R.id.mode_segment_convert,R.id.mode_segment_convert,0}) {
+                if(mode==0) onView(withContentDescription(R.string.tool_programmer)).perform(click());
+                else key(mode);
                 dragHistoryFromVisibleHandle();
             }
         }

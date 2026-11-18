@@ -259,6 +259,7 @@ required = {
         "landscapeScientificKeyBounds",
         "landscapeHistoryExpandCollapseKeepsKeyboardRegion",
         "historyHandleAnchorsToDisplayAcrossPanelModes",
+        "historyHandleRespondsToActualDragAcrossPanelModes",
     ],
     "com.android.calculator2.tools.ToolRolesAndCurrencyTest": [
         "sharedOutputsAreReadOnlyAcrossTools",
@@ -461,6 +462,7 @@ required = {
         "landscapeScientificKeyBounds",
         "landscapeHistoryExpandCollapseKeepsKeyboardRegion",
         "historyHandleAnchorsToDisplayAcrossPanelModes",
+        "historyHandleRespondsToActualDragAcrossPanelModes",
     ],
     "com.android.calculator2.tools.ToolRolesAndCurrencyTest": [
         "sharedOutputsAreReadOnlyAcrossTools",
