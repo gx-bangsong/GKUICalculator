@@ -17,6 +17,11 @@ import org.hamcrest.Matcher;
 import android.content.Context;
 import android.os.SystemClock;
 import android.text.Layout;
+import android.text.Spannable;
+import android.text.Spanned;
+import android.text.SpanWatcher;
+import android.text.Selection;
+import android.text.NoCopySpan;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
@@ -55,6 +60,32 @@ public class ToolInputCursorTest {
     private ActivityScenario<Calculator> mActivityScenario;
     private String mHeightLabel;
     private String mWeightLabel;
+    private String mSelectionCollapseTrace = "no collapse observed";
+
+    /** Observation only: record who changes a prepared range before the pad receives it. */
+    private final class SelectionTrace implements SpanWatcher, NoCopySpan {
+        private boolean wasRange;
+        private void observe(Spannable text, Object span) {
+            if (span != Selection.SELECTION_START && span != Selection.SELECTION_END) return;
+            int start = Selection.getSelectionStart(text), end = Selection.getSelectionEnd(text);
+            if (wasRange && start >= 0 && start == end) {
+                StringBuilder trace = new StringBuilder("range collapsed to " + start + ": ");
+                for (StackTraceElement frame : Thread.currentThread().getStackTrace()) {
+                    String owner = frame.getClassName();
+                    if (owner.startsWith("android.widget.") || owner.equals("android.text.Selection")
+                            || owner.startsWith("com.android.calculator2.tools.ToolField")) {
+                        trace.append(frame).append("; ");
+                    }
+                }
+                mSelectionCollapseTrace = trace.toString();
+            }
+            wasRange = start >= 0 && end >= 0 && start != end;
+        }
+        public void onSpanChanged(Spannable text, Object span, int a, int b, int c, int d) { observe(text, span); }
+        public void onSpanAdded(Spannable text, Object span, int a, int b) { observe(text, span); }
+        public void onSpanRemoved(Spannable text, Object span, int a, int b) { }
+    }
+
 
     @Before
     public void setUp() {
@@ -154,6 +185,8 @@ public class ToolInputCursorTest {
             if (!editText.isFocused()) {
                 editText.requestFocus();
             }
+            Spannable buffer = editText.getText();
+            buffer.setSpan(new SelectionTrace(), 0, buffer.length(), Spanned.SPAN_INCLUSIVE_INCLUSIVE);
             editText.setSelection(start, end);
             if (editText.getSelectionStart() != start || editText.getSelectionEnd() != end) {
                 throw new AssertionError("Field " + fieldId + ": could not select value range ["
@@ -287,6 +320,12 @@ public class ToolInputCursorTest {
     // ---- assertions --------------------------------------------------------
 
     private void assertFieldText(int fieldId, String value) {
+        onField(fieldId, editText -> {
+            if (!expectedText(fieldId, value).equals(editText.getText().toString())) {
+                throw new AssertionError(mSelectionCollapseTrace + " expected="
+                        + expectedText(fieldId, value) + " actual=" + editText.getText());
+            }
+        });
         onView(withId(fieldId)).check(matches(withText(expectedText(fieldId, value))));
     }
 
