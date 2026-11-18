@@ -608,11 +608,14 @@ public class WindowConfigurationTest {
         });
     }
     private void splitTool(int name,boolean converter,boolean currency) throws Exception {
+        int input;
         if(converter) {
+            input=currency?R.id.currency_input_text:R.id.unit_input_text;
             key(R.id.mode_segment_convert);if(currency) key(R.id.mode_segment_convert);
             key(R.id.clr);digits("123");key(R.id.op_add);digits("45");
             selectTail(currency?R.id.currency_input_text:R.id.unit_input_text,2);
-        } else { onView(withContentDescription(name)).perform(click());prepareTool(name); }
+        } else { onView(withContentDescription(name)).perform(click());input=prepareTool(name); }
+        int[] selected=input==0?null:selection(input);
         Map<String,String> model=modelSnapshot();Map<Integer,String> display=displaySnapshot();
         try {
             enterRealSplit();evidence("split-half-"+name);assertSplitUsable();
@@ -622,14 +625,22 @@ public class WindowConfigurationTest {
                 float ratio=height/(float)device.getDisplayHeight();
                 assertTrue("actual 50:50 task height ratio="+ratio,ratio>0.40f&&ratio<0.58f);
             });
+            assertSplitInput(input,selected);
             assertEquals("model at 50:50",model,modelSnapshot());
             assertEquals("results at 50:50",display,displaySnapshot());
             for(int thirds:new int[]{2,1}) {
                 resizeRealSplit(thirds);evidence("split-resized-"+thirds+"-"+name);assertSplitUsable();
+                assertSplitInput(input,selected);
                 assertEquals("model after real divider resize",model,modelSnapshot());
                 assertEquals("results after real divider resize",display,displaySnapshot());
             }
         } finally { leaveRealSplit(); }
+    }
+    private void assertSplitInput(int input,int[] selected) {
+        if(input==0)return;
+        assertArrayEquals("selection retained in actual split window",selected,selection(input));
+        onView(withId(input)).check(matches(isDisplayed()));
+        scenario.onActivity(a -> assertTrue("input retains nonzero measured height",a.findViewById(input).getHeight()>0));
     }
     @Test public void bmiSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_bmi,false,false);}
     @Test public void dateSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_date,false,false);}
