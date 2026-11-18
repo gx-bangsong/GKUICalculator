@@ -821,6 +821,12 @@ public class WindowConfigurationTest {
     }
     private void representativeLayout(int input,int[] selected,Map<String,String> model,Map<Integer,String> display) {
         assertSplitUsable();
+        Rect viewport=new Rect();
+        scenario.onActivity(a -> assertTrue(a.findViewById(R.id.main_calculator)
+            .findViewWithTag("field_tool_viewport").getGlobalVisibleRect(viewport)));
+        assertTrue("real field viewport scroll gesture",device.swipe(viewport.left+4,viewport.bottom-8,
+            viewport.left+4,viewport.top+8,40));
+        awaitMotionState(R.id.start_state);
         assertTextReachable(input);
         assertArrayEquals("selection retained after scrolling to active field",selected,selection(input));
         assertEquals("BMI model",model,modelSnapshot());assertEquals("BMI outputs",display,displaySnapshot());
