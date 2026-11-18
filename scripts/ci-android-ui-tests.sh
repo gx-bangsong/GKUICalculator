@@ -213,7 +213,7 @@ fi
 
 # ---- Required-method validation -------------------------------------------
 # Definitive list of required test methods based on the current source code:
-#   15 for CalculatorToolUiTest + 6 BMI cursor + 5 unit cursor/read-only + 7 formula = 33 total.
+#   15 for CalculatorToolUiTest + 6 BMI cursor + 5 unit cursor/read-only + 7 formula + 7 tool roles/currency = 40 total.
 # Any missing, absent, or skipped required method triggers a validation failure.
 validation_failed=0
 summary_lines=()
@@ -229,7 +229,7 @@ if not results_dir.exists():
     print("ERROR: No androidTest-results directory found.")
     raise SystemExit(1)
 
-# Required methods: 15 CalculatorToolUiTest + 6 ToolInputCursorTest + 5 UnitInputCursorTest + 7 CalculatorFormulaCursorTest = 33
+# Required methods: 15 CalculatorToolUiTest + 6 ToolInputCursorTest + 5 UnitInputCursorTest + 7 CalculatorFormulaCursorTest + 7 ToolRolesAndCurrencyTest = 40
 required = {
     "com.android.calculator2.tools.ToolRolesAndCurrencyTest": [
         "sharedOutputsAreReadOnlyAcrossTools",

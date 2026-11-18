@@ -18,6 +18,10 @@ import androidx.test.core.app.ActivityScenario;
 import androidx.test.espresso.*;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.Until;
 import com.android.calculator2.Calculator;
 import com.android.calculator2.CalculatorResult;
 import com.android.calculator2.tools.data.*;
@@ -137,6 +141,18 @@ public class ToolRolesAndCurrencyTest {
             output.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_DEL));
             assertEquals(before,output.getText().toString());
         });
+        // Android 13+ shows a system clipboard preview over the lower-left pad (including 0).
+        // Dismiss only that observed SystemUI overlay after asserting the real clipboard data;
+        // never press Back blindly or alter calculator focus/selection to hide a failure.
+        UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        UiObject2 overlay=device.wait(Until.findObject(By.res("com.android.systemui","clipboard_ui")),1500);
+        if(overlay!=null){
+            UiObject2 dismiss=device.wait(Until.findObject(By.res("com.android.systemui","dismiss_button")),1500);
+            assertNotNull("visible clipboard preview must be dismissible",dismiss);
+            dismiss.click();
+            assertTrue("clipboard preview dismissed before next pad touch",
+                    device.wait(Until.gone(By.res("com.android.systemui","clipboard_ui")),3000));
+        }
     }
     @Test public void sharedOutputsAreReadOnlyAcrossTools() {
         for(int mode:new int[]{R.string.tool_bmi,R.string.tool_date,R.string.tool_tax,R.string.tool_mortgage}){
