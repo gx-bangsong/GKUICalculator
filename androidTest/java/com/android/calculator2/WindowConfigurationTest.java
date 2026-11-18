@@ -322,6 +322,58 @@ public class WindowConfigurationTest {
         onView(withId(R.id.mode_segment_basic)).perform(click());
         assertBasicKeyboardFillsStack();
     }
+    @Test public void historyHandleAnchorsToDisplayAcrossPanelModes() throws Exception {
+        for(int orientation:new int[]{Configuration.ORIENTATION_PORTRAIT,Configuration.ORIENTATION_LANDSCAPE}) {
+            if(orientation==Configuration.ORIENTATION_LANDSCAPE) device.setOrientationLeft();
+            else device.setOrientationNatural();
+            awaitOrientation(orientation);
+            key(R.id.mode_segment_basic);
+            int expectedGap=handleGap("ordinary-"+orientation);
+            for(int mode:new int[]{R.id.mode_segment_convert,R.id.mode_segment_convert,0}) {
+                if(mode==0) onView(withContentDescription(R.string.tool_programmer)).perform(click());
+                else key(mode);
+                String name=mode==0?"programmer":"converter";
+                int gap=handleGap(name+"-"+orientation);
+                evidence("handle-"+name+"-"+orientation);
+                assertEquals("handle relative to display bottom: "+name,expectedGap,gap);
+                if(mode==0) {
+                    key(R.id.clr);digits("27");key(R.id.op_add);
+                    assertEquals("pending status must not move handle",expectedGap,handleGap("programmer-pending"));
+                    digits("3");key(R.id.eq);key(R.id.op_div);digits("0");key(R.id.eq);
+                    assertEquals("error status must not move handle",expectedGap,handleGap("programmer-error"));
+                }
+                dragHistoryFromVisibleHandle();
+            }
+        }
+    }
+    private int handleGap(String name) {
+        int[] gap={Integer.MIN_VALUE};
+        scenario.onActivity(a -> {
+            Rect display=new Rect(),handle=new Rect(),bar=new Rect();
+            assertTrue(a.findViewById(R.id.display).getGlobalVisibleRect(display));
+            assertTrue(a.findViewById(R.id.drag_handle_view).getGlobalVisibleRect(handle));
+            a.findViewById(R.id.tool_bar).getGlobalVisibleRect(bar);
+            Log.i("WindowEvidence","HANDLE "+name+" display="+display+" handle="+handle+" toolbar="+bar);
+            assertTrue("handle inside display",display.contains(handle));
+            assertTrue("handle above toolbar",handle.bottom<=bar.top);
+            gap[0]=display.bottom-handle.bottom;
+        });return gap[0];
+    }
+    private void dragHistoryFromVisibleHandle() {
+        int[] point=new int[3];
+        scenario.onActivity(a -> {
+            Rect handle=new Rect(),window=new Rect();
+            a.findViewById(R.id.drag_handle_view).getGlobalVisibleRect(handle);
+            a.getWindow().getDecorView().getGlobalVisibleRect(window);
+            point[0]=handle.centerX();point[1]=handle.centerY();
+            point[2]=window.bottom-window.height()/10;
+        });
+        assertTrue("drag from the visible handle",device.swipe(point[0],point[1],point[0],point[2],35));
+        awaitMotionState(R.id.end_state);
+        onView(withId(R.id.history_toolbar)).check(matches(isDisplayed()));
+        device.pressBack();awaitMotionState(R.id.start_state);
+    }
+
     private void assertScientificBounds() {
         scenario.onActivity(a -> {
             ViewGroup pad=a.findViewById(R.id.advanced_pad);

@@ -223,12 +223,12 @@ for p in Path("build/outputs/androidTest-results").rglob("TEST-*.xml"):
             status="FAIL" if case.find("failure") is not None or case.find("error") is not None else "SKIP" if case.find("skipped") is not None else "PASS"
             rows.append(case.get("name", "?")+"="+status)
 text="; ".join(rows).replace("%","%25")
-print("::notice title=Window functional results::"+text)
+print("::warning title=Window functional results::"+text)
 PYWINDOW
 adb logcat -d -v brief WindowEvidence:I '*:S' > build/ui-screenshots/window-evidence.log || true
 window_evidence=$(grep -E 'CAPTURE_(OK|FAIL)|configDp=' build/ui-screenshots/window-evidence.log | tail -n 30 | tr '\n' ' ' || true)
 window_evidence=${window_evidence//%/%25}
-echo "::notice title=Window evidence status::${window_evidence:0:3800}"
+echo "::warning title=Window evidence status::${window_evidence:0:3800}"
 
 
 # ---- Required-method validation -------------------------------------------
@@ -258,6 +258,7 @@ required = {
         "unitSurvivesActualRotation", "currencySurvivesActualRotation",
         "landscapeScientificKeyBounds",
         "landscapeHistoryExpandCollapseKeepsKeyboardRegion",
+        "historyHandleAnchorsToDisplayAcrossPanelModes",
     ],
     "com.android.calculator2.tools.ToolRolesAndCurrencyTest": [
         "sharedOutputsAreReadOnlyAcrossTools",
@@ -459,6 +460,7 @@ required = {
         "unitSurvivesActualRotation", "currencySurvivesActualRotation",
         "landscapeScientificKeyBounds",
         "landscapeHistoryExpandCollapseKeepsKeyboardRegion",
+        "historyHandleAnchorsToDisplayAcrossPanelModes",
     ],
     "com.android.calculator2.tools.ToolRolesAndCurrencyTest": [
         "sharedOutputsAreReadOnlyAcrossTools",
