@@ -95,15 +95,17 @@ final class FieldToolViewport {
         // Leave a readable viewport. Top action toolbar may scroll with the content.
         android.util.TypedValue ratio=new android.util.TypedValue();
         activity.getResources().getValue(R.dimen.layout_pads_ratio,ratio,true);
-        int stackedPadHeight=Math.round(motion.getHeight()*ratio.getFloat());
+        int contentHeight=motion.getHeight()-motion.getPaddingTop()-motion.getPaddingBottom();
+        int contentWidth=motion.getWidth()-motion.getPaddingLeft()-motion.getPaddingRight();
+        int stackedPadHeight=Math.round(contentHeight*ratio.getFloat());
         boolean needsCompact=stackedPadHeight<minimumPad
-            ||motion.getHeight()<minimumPad+modeBar.getHeight()+line+handle;
-        int keyboardWidth=motion.getWidth()/2;
+            ||contentHeight<minimumPad+modeBar.getHeight()+line+handle;
+        int keyboardWidth=contentWidth/2;
         boolean roomForColumns=keyboardWidth>=Math.round(4*40*density);
         boolean target=needsCompact&&roomForColumns;
         int barHeight=activity.getResources().getDimensionPixelSize(R.dimen.mode_segment_height)
             +modeBar.getPaddingTop()+modeBar.getPaddingBottom();
-        int availableHeight=motion.getHeight()-barHeight;
+        int availableHeight=contentHeight-barHeight;
         if(target==compact&&(!target||(keyboardWidth==compactWidth&&availableHeight==compactHeight)))return;
         if(original==null) {original=new ConstraintSet();original.clone(motion.getConstraintSet(R.id.start_state));}
         ConstraintSet state=new ConstraintSet();state.clone(original);
@@ -120,7 +122,7 @@ final class FieldToolViewport {
             // Explicit remaining pixels override the scene's percent-height mode; just changing
             // MATCH_CONSTRAINT's default leaves MotionLayout's old percentage in its model.
             state.constrainHeight(R.id.pad_stack,availableHeight);
-            state.constrainWidth(R.id.display,motion.getWidth()-keyboardWidth);
+            state.constrainWidth(R.id.display,contentWidth-keyboardWidth);
             state.constrainHeight(R.id.display,availableHeight);
             state.clear(R.id.display,ConstraintSet.END);
             state.connect(R.id.display,ConstraintSet.END,R.id.pad_stack,ConstraintSet.START);

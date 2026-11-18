@@ -688,7 +688,7 @@ public class WindowConfigurationTest {
             Rect bar=new Rect(),pad=new Rect();
             a.findViewById(R.id.tool_bar).getGlobalVisibleRect(bar);
             a.findViewById(R.id.input_pad).getGlobalVisibleRect(pad);
-            assertFalse("toolbar and keyboard do not overlap",Rect.intersects(bar,pad));
+            assertFalse("toolbar and keyboard do not overlap: bar="+bar+" pad="+pad,Rect.intersects(bar,pad));
         });
     }
     private void splitTool(int name,boolean converter,boolean currency) throws Exception {
