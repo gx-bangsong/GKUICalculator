@@ -21,7 +21,7 @@ final class FieldToolViewport {
     private final int formulaHeight;
     private ScrollView viewport;
     private boolean enabled, compact;
-    private int compactWidth;
+    private int compactWidth,compactHeight;
     private ConstraintSet original;
 
     FieldToolViewport(Calculator a) {
@@ -91,7 +91,8 @@ final class FieldToolViewport {
         int keyboardWidth=motion.getWidth()/2;
         boolean roomForColumns=keyboardWidth>=Math.round(4*40*density);
         boolean target=needsCompact&&roomForColumns;
-        if(target==compact&&(!target||keyboardWidth==compactWidth))return;
+        int availableHeight=motion.getHeight()-modeBar.getHeight();
+        if(target==compact&&(!target||(keyboardWidth==compactWidth&&availableHeight==compactHeight)))return;
         if(original==null) {original=new ConstraintSet();original.clone(motion.getConstraintSet(R.id.start_state));}
         ConstraintSet state=new ConstraintSet();state.clone(original);
         if(target) {
@@ -103,13 +104,21 @@ final class FieldToolViewport {
             state.connect(R.id.pad_stack,ConstraintSet.TOP,ConstraintSet.PARENT_ID,ConstraintSet.TOP);
             state.connect(R.id.pad_stack,ConstraintSet.BOTTOM,R.id.tool_bar,ConstraintSet.TOP);
             state.connect(R.id.pad_stack,ConstraintSet.END,ConstraintSet.PARENT_ID,ConstraintSet.END);
-            state.constrainWidth(R.id.pad_stack,keyboardWidth);state.constrainHeight(R.id.pad_stack,0);
-            state.constrainDefaultHeight(R.id.pad_stack,ConstraintSet.MATCH_CONSTRAINT_SPREAD);
+            state.constrainWidth(R.id.pad_stack,keyboardWidth);
+            // Explicit remaining pixels override the scene's percent-height mode; just changing
+            // MATCH_CONSTRAINT's default leaves MotionLayout's old percentage in its model.
+            state.constrainHeight(R.id.pad_stack,availableHeight);
+            state.constrainWidth(R.id.display,motion.getWidth()-keyboardWidth);
+            state.constrainHeight(R.id.display,availableHeight);
             state.clear(R.id.display,ConstraintSet.END);
             state.connect(R.id.display,ConstraintSet.END,R.id.pad_stack,ConstraintSet.START);
             state.connect(R.id.display,ConstraintSet.TOP,ConstraintSet.PARENT_ID,ConstraintSet.TOP);
             state.connect(R.id.display,ConstraintSet.BOTTOM,R.id.tool_bar,ConstraintSet.TOP);
         }
-        compact=target;compactWidth=keyboardWidth;motion.updateState(R.id.start_state,state);
+        compact=target;compactWidth=keyboardWidth;compactHeight=availableHeight;
+        motion.updateState(R.id.start_state,state);
+        // Restoring a scene must not resurrect a scientific child for a field-only tool.
+        activity.findViewById(R.id.advanced_pad).setVisibility(View.GONE);
+        pad.requestLayout();
     }
 }
