@@ -511,6 +511,11 @@ public class WindowConfigurationTest {
                     evidence("bmi-icon-"+night+"-"+orientation+"-unselected");
                     onView(withContentDescription(R.string.tool_bmi)).perform(click());assertBmiIcon(true);
                     evidence("bmi-icon-"+night+"-"+orientation+"-selected");
+                    assertToolIcon(R.string.tool_tax,false);
+                    evidence("tax-icon-"+night+"-"+orientation+"-unselected");
+                    onView(withContentDescription(R.string.tool_tax)).perform(click());
+                    assertToolIcon(R.string.tool_tax,true);assertBmiIcon(false);
+                    evidence("tax-icon-"+night+"-"+orientation+"-selected");
                 }
                 device.setOrientationNatural();awaitOrientation(Configuration.ORIENTATION_PORTRAIT);
             }
@@ -520,7 +525,10 @@ public class WindowConfigurationTest {
         }
     }
     private void assertBmiIcon(boolean selected) {
-        onView(withContentDescription(R.string.tool_bmi)).check((view,error) -> {
+        assertToolIcon(R.string.tool_bmi,selected);
+    }
+    private void assertToolIcon(int name,boolean selected) {
+        onView(withContentDescription(name)).check((view,error) -> {
             if(error!=null)throw error;
             android.widget.ImageView image=(android.widget.ImageView)view;
             assertEquals(selected,image.isSelected());assertTrue(image.isClickable());
@@ -538,7 +546,7 @@ public class WindowConfigurationTest {
                 int color=bitmap.getPixel(x,y);
                 if(android.graphics.Color.alpha(color)==255) {opaque=true;assertEquals("theme state tint",expected,color);}
             }
-            assertTrue("scale vector rendered",opaque);bitmap.recycle();
+            assertTrue("tool vector rendered",opaque);bitmap.recycle();
         });
     }
     private int splitTask;
