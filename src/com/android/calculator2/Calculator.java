@@ -1645,7 +1645,8 @@ public class Calculator extends AppCompatActivity
         mLastToolResult = text;
         final boolean wrapUppercaseResult = mUppercaseNumbers && text.length() > 0;
         applyUppercaseResultLayout(wrapUppercaseResult);
-        mResultText.setText(text);
+        mResultText.setText(text, TextView.BufferType.SPANNABLE);
+        mResultText.setLongClickable(text.length() > 0);
         mResultText.removeCallbacks(mFitUppercaseResult);
         if (wrapUppercaseResult) {
             mResultText.post(mFitUppercaseResult);
@@ -1691,6 +1692,9 @@ public class Calculator extends AppCompatActivity
         // CalculatorResult normally asks the evaluator to run again after every layout. Tool
         // setup changes its size and padding, so disable that request before touching the view;
         // otherwise a pending (not-yet-equals) calculator result can be redrawn over the tool.
+        mResultText.setToolOutput(true);
+        mFormulaText.setInputEnabled(mToolManager != null && mToolManager.getActive() != null
+                && ToolId.RELATIONSHIP.equals(mToolManager.getActive().getId()));
         mResultText.setShouldEvaluateResult(CalculatorResult.SHOULD_NOT_EVALUATE, null);
         // Cancel optional and explicitly requested evaluations alike. Their asynchronous
         // callbacks are also ignored while toolOwnsDisplay() is true.
@@ -1731,6 +1735,8 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void restoreCalculatorDisplay() {
+        mFormulaText.setInputEnabled(true);
+        mResultText.setToolOutput(false);
         // Restore explicitly even when setState(INPUT) is a no-op (already in INPUT).
         mFormulaContainer.setVisibility(View.VISIBLE);
         mFormulaText.setVisibility(View.VISIBLE);

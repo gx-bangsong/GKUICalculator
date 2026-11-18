@@ -55,6 +55,27 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
 
     private final ClipboardManager mClipboardManager;
 
+    private boolean mInputEnabled = true;
+    private android.text.method.KeyListener mInputKeyListener;
+    private View.OnLongClickListener mInputLongClickListener;
+
+    /** The same shared line is an input only for calculator/relationship modes. */
+    public void setInputEnabled(boolean enabled) {
+        stopActionModeOrContextMenu();
+        if (mInputKeyListener == null) mInputKeyListener = getKeyListener();
+        mInputEnabled = enabled;
+        setKeyListener(enabled ? mInputKeyListener : null);
+        setTextIsSelectable(true);
+        setCursorVisible(enabled);
+        setShowSoftInputOnFocus(false);
+        setOnLongClickListener(enabled ? mInputLongClickListener : null);
+    }
+
+    @Override public boolean onTextContextMenuItem(int id) {
+        if (!mInputEnabled && id != android.R.id.copy && id != android.R.id.selectAll) return false;
+        return super.onTextContextMenuItem(id);
+    }
+
     private int mWidthConstraint = -1;
     private ActionMode mActionMode;
     private ActionMode.Callback mPasteActionModeCallback;
@@ -344,10 +365,11 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
                 outRect.left = (int) (outRect.right * 0.9f);
             }
         };
-        setOnLongClickListener(v -> {
+        mInputLongClickListener = v -> {
             mActionMode = startActionMode(mPasteActionModeCallback, ActionMode.TYPE_FLOATING);
             return true;
-        });
+        };
+        setOnLongClickListener(mInputLongClickListener);
     }
 
     /**
@@ -390,6 +412,7 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
 
     @Override
     public boolean onMenuItemClick(MenuItem item) {
+        if (!mInputEnabled) return false;
         int itemId = item.getItemId();
         if (itemId == R.id.memory_recall) {
             mOnContextMenuClickListener.onMemoryRecall();

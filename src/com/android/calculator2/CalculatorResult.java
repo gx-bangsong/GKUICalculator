@@ -56,6 +56,19 @@ public class CalculatorResult extends AlignedTextView implements MenuItem.OnMenu
     private Evaluator mEvaluator;
     private boolean mScrollable = false;
                             // A scrollable result is currently displayed.
+    private boolean mToolOutput;
+
+    public void setToolOutput(boolean toolOutput) {
+        stopActionModeOrContextMenu();
+        mToolOutput = toolOutput;
+        setCursorVisible(false);
+    }
+
+    @Override public boolean onTextContextMenuItem(int id) {
+        if (id != android.R.id.copy && id != android.R.id.selectAll) return false;
+        return super.onTextContextMenuItem(id);
+    }
+
     private boolean mValid = false;
                             // The result holds a valid number (not an error message).
     // A suffix of "Pos" denotes a pixel offset.  Zero represents a scroll position
@@ -201,7 +214,7 @@ public class CalculatorResult extends AlignedTextView implements MenuItem.OnMenu
                 }
                 @Override
                 public void onLongPress(MotionEvent e) {
-                    if (mValid) {
+                    if (mValid || (mToolOutput && length() > 0)) {
                         performLongClick();
                     }
                 }
@@ -1046,7 +1059,7 @@ public class CalculatorResult extends AlignedTextView implements MenuItem.OnMenu
             }
         };
         setOnLongClickListener(v -> {
-            if (mValid) {
+            if (mValid || (mToolOutput && length() > 0)) {
                 mActionMode = startActionMode(mCopyActionModeCallback,
                         ActionMode.TYPE_FLOATING);
                 return true;
@@ -1068,7 +1081,7 @@ public class CalculatorResult extends AlignedTextView implements MenuItem.OnMenu
             }
         });
         setOnLongClickListener(v -> {
-            if (mValid) {
+            if (mValid || (mToolOutput && length() > 0)) {
                 return showContextMenu();
             }
             return false;
@@ -1077,6 +1090,13 @@ public class CalculatorResult extends AlignedTextView implements MenuItem.OnMenu
 
     private boolean createContextMenu(MenuInflater inflater, Menu menu) {
         inflater.inflate(R.menu.menu_result, menu);
+        if (mToolOutput) {
+            menu.removeItem(R.id.memory_store);
+            menu.removeItem(R.id.memory_add);
+            menu.removeItem(R.id.memory_subtract);
+            highlightResult();
+            return true;
+        }
         final boolean displayMemory = mEvaluator.getMemoryIndex() != 0;
         final MenuItem memoryAddItem = menu.findItem(R.id.memory_add);
         final MenuItem memorySubtractItem = menu.findItem(R.id.memory_subtract);
@@ -1110,6 +1130,11 @@ public class CalculatorResult extends AlignedTextView implements MenuItem.OnMenu
     }
 
     private void copyContent() {
+        if (mToolOutput) {
+            ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            clipboard.setPrimaryClip(ClipData.newPlainText("tool result", getText()));
+            return;
+        }
         final CharSequence text = getFullCopyText();
         ClipboardManager clipboard =
                 (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
@@ -1135,7 +1160,7 @@ public class CalculatorResult extends AlignedTextView implements MenuItem.OnMenu
             onMemoryStore();
             return true;
         } else if (itemId == R.id.menu_copy) {
-            if (mEvaluator.evaluationInProgress(mIndex)) {
+            if (!mToolOutput && mEvaluator.evaluationInProgress(mIndex)) {
                 // Refuse to copy placeholder characters.
                 return false;
             } else {

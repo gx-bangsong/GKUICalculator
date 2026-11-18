@@ -47,7 +47,7 @@
         android:baselineAligned="false"
         android:orientation="horizontal">
 
-        <com.android.calculator2.tools.ToolFieldEditText
+        <com.android.calculator2.tools.ToolOutputTextView
             android:id="@+id/programmer_value_out"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -55,7 +55,7 @@
             android:background="@null"
             android:ellipsize="end"
             android:maxLines="1"
-            android:inputType="text"
+            android:cursorVisible="false"
             android:textAppearance="?attr/textAppearanceTitleMedium"
             android:textColor="?colorOnSurfaceVariant"
             android:textIsSelectable="true" />
