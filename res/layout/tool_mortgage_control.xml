@@ -66,6 +66,10 @@
         style="@style/MortgageFieldStyle"
         android:inputType="textMultiLine" android:singleLine="false"
         android:scrollHorizontally="false" android:visibility="gone" />
-    <TextView android:id="@+id/mortgage_method" style="@style/MortgageFieldStyle"
-        android:textColor="?colorOnSurfaceVariant" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/mortgage_method"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:minHeight="48dp" android:textSize="16sp"
+        android:paddingStart="12dp" android:paddingEnd="12dp" />
 </LinearLayout>

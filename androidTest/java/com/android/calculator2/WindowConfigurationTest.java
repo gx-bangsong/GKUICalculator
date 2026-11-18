@@ -1118,6 +1118,10 @@ public class WindowConfigurationTest {
         String monthly=new java.text.DecimalFormat("0.##").format(expected.monthlyPayment.setScale(2,java.math.RoundingMode.HALF_UP));
         String formula=displaySnapshot().get(R.id.formula).replace(",","");
         assertTrue("real monthly computation "+monthly+" vs "+formula,formula.contains(monthly));
+        java.text.DecimalFormat money=new java.text.DecimalFormat("0.##");
+        String auxiliary=displaySnapshot().get(R.id.result).replace(",","");
+        assertTrue("real interest recomputed",auxiliary.contains(money.format(expected.totalInterest.setScale(2,java.math.RoundingMode.HALF_UP))));
+        assertTrue("real auxiliary amount recomputed",auxiliary.contains(money.format((equal?expected.totalPayment:expected.monthlyDecrease).setScale(2,java.math.RoundingMode.HALF_UP))));
     }
     private void mortgageFingerCopy(int id) throws Exception {
         fingerFind(id);Rect rect=new Rect();scenario.onActivity(a -> a.findViewById(id).getGlobalVisibleRect(rect));
