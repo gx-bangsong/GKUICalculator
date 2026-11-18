@@ -1247,7 +1247,20 @@ public class WindowConfigurationTest {
         Log.i("MortgagePosition",stage+" calcPairFraction="+ratio+" calcDisplayFraction="
             +sample.app.height()/(float)device.getDisplayHeight()+" displayPx="+device.getDisplayWidth()+"x"+device.getDisplayHeight()+" "+sample);
     }
+    private class MortgageWindowCheckpoint {
+        final Map<String,String> model=modelSnapshot();
+        final Map<Integer,String> outputs=displaySnapshot();
+        final int input=new int[]{R.id.tool_field_0,R.id.tool_field_1,R.id.tool_field_2,R.id.tool_field_3,R.id.tool_field_4}
+            [Integer.parseInt(model.get("activeField"))];
+        final int[] selected=selection(input);
+        void verify() {
+            assertEquals("model/options survive real window transition",model,modelSnapshot());
+            assertEquals("both results survive real window transition",outputs,displaySnapshot());
+            assertArrayEquals("active field selection survives real window transition",selected,selection(input));
+        }
+    }
     private void resizePosition(boolean bottom,float fraction) throws Exception {
+        MortgageWindowCheckpoint checkpoint=new MortgageWindowCheckpoint();
         SplitSample before=splitSample();
         float current=before.app.height()/(float)(before.app.height()+before.other.height());
         if(Math.abs(current-fraction)<0.015&&(before.app.top>before.other.top)==bottom)return;
@@ -1258,8 +1271,10 @@ public class WindowConfigurationTest {
         float actual=after.app.height()/(float)(after.app.height()+after.other.height());
         assertTrue("requested calculator share="+fraction+" actual="+actual+" "+after,Math.abs(actual-fraction)<0.04);
         assertEquals("requested calculator screen position "+after,bottom,after.app.top>after.other.top);
+        checkpoint.verify();
     }
     private void swapSplitPosition(boolean bottom) throws Exception {
+        MortgageWindowCheckpoint checkpoint=new MortgageWindowCheckpoint();
         Rect divider=verifiedDivider();
         assertTrue(device.click(divider.centerX(),divider.centerY()));SystemClock.sleep(90);
         assertTrue(device.click(divider.centerX(),divider.centerY()));
@@ -1276,6 +1291,7 @@ public class WindowConfigurationTest {
             assertTrue(device.click(toolbar.centerX(),toolbar.centerY()));
         }
         stableSample(true,null);
+        checkpoint.verify();
     }
     private void positionMortgageScroll(String stage) throws Exception {
         Rect viewport=mortgageViewport();int[] sizes=new int[4];
