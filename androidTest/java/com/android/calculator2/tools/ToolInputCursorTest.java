@@ -247,11 +247,16 @@ public class ToolInputCursorTest {
     }
 
     /**
-     * Give the field a known value using the pad alone: select the whole value first, so the first
-     * digit press replaces it instead of being appended to the default.
+     * Prepare data through normal AC and digit keys. A programmatically selected range directly
+     * after a tap races Editor.InsertionHandleView's queued position update in mixed runs:
+     * that callback can collapse the range before the first digit. This is setup, not the edit
+     * under test. Clear explicitly and assert the empty state; all edit/caret assertions below
+     * remain unchanged. Never setText() or change the underlying model from a test.
      */
     private void replaceValueWithDigits(int fieldId, String digits) {
-        activateAndSelectValue(fieldId, 0, valueLengthOf(fieldId));
+        activateField(fieldId);
+        pressClear();
+        assertFieldText(fieldId, "");
         pressDigits(digits);
     }
 
