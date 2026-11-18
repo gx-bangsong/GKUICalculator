@@ -85,6 +85,26 @@ public class UnitInputCursorTest {
         caret(offset);
     }
 
+    @Test public void unitArithmeticSymbolsRespectCaret() {
+        int[] keys={R.id.op_add,R.id.op_sub,R.id.op_mul,R.id.op_div};
+        String[] symbols={"+","−","×","÷"};
+        String[] values={"15","9","36","4"};
+        for(int i=0;i<keys.length;i++) {
+            onView(withId(R.id.clr)).perform(click());digits("123");tapAt(2);
+            onView(withId(keys[i])).perform(click());
+            onView(withId(R.id.unit_input_text)).check(matches(withText("12"+symbols[i]+"3")));caret(3);
+            onView(withId(R.id.unit_result_text)).check(matches(withText(values[i]+"000")));
+            onView(withId(R.id.eq)).perform(click());
+            onView(withId(R.id.unit_input_text)).check(matches(withText(values[i])));
+        }
+        onView(withId(R.id.clr)).perform(click());digits("123");tapAt(2);
+        onView(withId(R.id.op_add)).perform(click());caret(3);digits("9");caret(4);
+        onView(withId(R.id.unit_input_text)).check(matches(withText("12+93")));
+        onView(withId(R.id.unit_result_text)).check(matches(withText("105000")));
+        onView(withId(R.id.eq)).perform(click());
+        onView(withId(R.id.unit_input_text)).check(matches(withText("105")));
+    }
+
     @Test public void unitMiddleInsertionUpdatesConversion() {
         onView(withId(R.id.unit_from)).check(matches(withText("km")));
         onView(withId(R.id.unit_to)).check(matches(withText("m")));

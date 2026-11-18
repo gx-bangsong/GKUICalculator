@@ -237,6 +237,7 @@ required = {
         "programmerPanelHasOnlyTwoValuesAndStatus",
         "programmerLongBinaryOutputIsCompleteAndCopyable",
         "currencyTouchInsertionUpdatesBothControlledResults",
+        "currencyArithmeticSymbolsRespectCaret",
         "currencyDeleteRangeDecimalClearAndSwap",
         "currencyRateCallbackPreservesSelection",
     ],
@@ -248,6 +249,7 @@ required = {
         "ordinaryResultIsReadOnlyAndCopyable",
         "formulaEditingSurvivesUnitRoundTrip",
         "mappingKeepsFunctionTokensAtomic",
+        "middleArithmeticSymbolsRespectCaret",
     ],
     "com.android.calculator2.CalculatorToolUiTest": [
         "firstRunUsesStandardKeypad",
@@ -268,6 +270,7 @@ required = {
     ],
     "com.android.calculator2.tools.UnitInputCursorTest": [
         "unitMiddleInsertionUpdatesConversion",
+        "unitArithmeticSymbolsRespectCaret",
         "unitMiddleDeleteAndRangeReplacement",
         "unitResultsAreReadOnlyAndSelectable",
         "unitSharedDisplayRowsAreHidden",
@@ -419,6 +422,7 @@ required = {
         "programmerPanelHasOnlyTwoValuesAndStatus",
         "programmerLongBinaryOutputIsCompleteAndCopyable",
         "currencyTouchInsertionUpdatesBothControlledResults",
+        "currencyArithmeticSymbolsRespectCaret",
         "currencyDeleteRangeDecimalClearAndSwap",
         "currencyRateCallbackPreservesSelection",
     ],
@@ -430,6 +434,7 @@ required = {
         "ordinaryResultIsReadOnlyAndCopyable",
         "formulaEditingSurvivesUnitRoundTrip",
         "mappingKeepsFunctionTokensAtomic",
+        "middleArithmeticSymbolsRespectCaret",
     ],
     "com.android.calculator2.CalculatorToolUiTest": [
         "firstRunUsesStandardKeypad",
@@ -450,6 +455,7 @@ required = {
     ],
     "com.android.calculator2.tools.UnitInputCursorTest": [
         "unitMiddleInsertionUpdatesConversion",
+        "unitArithmeticSymbolsRespectCaret",
         "unitMiddleDeleteAndRangeReplacement",
         "unitResultsAreReadOnlyAndSelectable",
         "unitSharedDisplayRowsAreHidden",
