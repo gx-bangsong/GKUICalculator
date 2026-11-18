@@ -789,7 +789,7 @@ public class WindowConfigurationTest {
             android.view.accessibility.AccessibilityNodeInfo root=window.getRoot();
             if(root!=null&&"com.android.settings".contentEquals(root.getPackageName()))window.getBoundsInScreen(s.other);
         }
-        String windows=device.executeShellCommand("dumpsys window windows");
+        String windows=device.executeShellCommand("dumpsys window");
         for(String line:windows.split("\n"))if(line.contains("mCurrentFocus="))s.focusedWindow+=line.trim()+";";
         return s;
     }

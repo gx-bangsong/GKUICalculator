@@ -117,7 +117,7 @@ if [[ "$split_scope" == "representative" ]]; then
     for tool in date relationship programmer tax mortgage unit currency scientific; do
         excluded+="${excluded:+,}com.android.calculator2.WindowConfigurationTest#${tool}SurvivesRealSplitAndResize"
     done
-    runner_scope+=("-Pandroid.testInstrumentationRunnerArguments.notTest=$excluded")
+    runner_scope+=("-Pandroid.testInstrumentationRunnerArguments.notClass=$excluded")
     echo "::notice title=Split execution scope::BMI representative plus complete non-split regression; eight expansion cases deferred, not passed."
 fi
 if ./gradlew connectedDebugAndroidTest "${runner_scope[@]}" -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.WindowConfigurationTest,com.android.calculator2.tools.ToolRolesAndCurrencyTest,com.android.calculator2.CalculatorFormulaCursorTest,com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest,com.android.calculator2.tools.UnitInputCursorTest --stacktrace --console=plain --info >"$log_file" 2>&1; then
@@ -410,6 +410,12 @@ if skipped:
     print("SKIPPED required tests:")
     for s in skipped:
         print(f"  - {s}")
+
+if os.environ.get("SPLIT_SCOPE", "representative") == "representative":
+    unexpected = [f"{c}#{n}" for c,n in executed if n.endswith("SurvivesRealSplitAndResize") and not n.startswith("bmi")]
+    if unexpected:
+        print("ERROR: representative scope unexpectedly executed expansion cases: " + ", ".join(unexpected))
+        raise SystemExit(1)
 
 total_required = sum(len(v) for v in required.values())
 total_executed = len(executed)
