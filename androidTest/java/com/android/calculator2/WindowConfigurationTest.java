@@ -495,6 +495,115 @@ public class WindowConfigurationTest {
         device.pressBack();awaitMotionState(R.id.start_state);
     }
 
+    private int splitTask;
+    private void enterRealSplit() throws Exception {
+        scenario.onActivity(a -> splitTask=a.getTaskId());
+        Log.i("WindowEvidence","SPLIT companion="+device.executeShellCommand("am start -a android.settings.SETTINGS"));
+        Log.i("WindowEvidence","SPLIT enter="+device.executeShellCommand(
+            "dumpsys activity service SystemUIService WMShell splitscreen moveToSideStage "+splitTask+" 0"));
+        awaitRealSplit();
+    }
+    private void awaitRealSplit() {
+        long until=SystemClock.uptimeMillis()+15000;
+        boolean[] ready={false};
+        do {
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scenario.onActivity(a -> ready[0]=a.isInMultiWindowMode()&&a.getWindow().getDecorView().hasWindowFocus());
+            if(ready[0]) return;SystemClock.sleep(150);
+        } while(SystemClock.uptimeMillis()<until);
+        evidence("split-entry-failed");fail("real system split-screen and app focus required");
+    }
+    private void leaveRealSplit() throws Exception {
+        device.executeShellCommand("dumpsys activity service SystemUIService WMShell splitscreen removeFromSideStage "+splitTask);
+    }
+    private void resizeRealSplit() throws Exception {
+        androidx.test.uiautomator.UiObject2 divider=device.wait(androidx.test.uiautomator.Until.findObject(
+            androidx.test.uiautomator.By.res(java.util.regex.Pattern.compile(".*:id/docked_divider_handle"))),5000);
+        assertNotNull("real system split divider",divider);
+        Rect r=divider.getVisibleBounds();
+        int[] size={0};scenario.onActivity(a -> size[0]=a.getResources().getConfiguration().screenHeightDp);
+        // Drag the system divider to the adjacent snap target, without wm size/density changes.
+        assertTrue(device.swipe(r.centerX(),r.centerY(),r.centerX(),device.getDisplayHeight()*2/3,45));
+        long until=SystemClock.uptimeMillis()+10000;
+        boolean[] changed={false};
+        do {
+            scenario.onActivity(a -> changed[0]=a.isInMultiWindowMode()
+                && Math.abs(a.getResources().getConfiguration().screenHeightDp-size[0])>30);
+            if(changed[0]) break;SystemClock.sleep(150);
+        } while(SystemClock.uptimeMillis()<until);
+        assertTrue("actual split window height changed by divider drag",changed[0]);
+    }
+    private void assertSplitUsable() {
+        onView(withId(R.id.tool_bar)).check(matches(isDisplayed()));
+        onView(withId(R.id.digit_7)).check(matches(isDisplayed()));
+        onView(withId(R.id.clr)).check(matches(isDisplayed()));
+        scenario.onActivity(a -> {
+            assertTrue("must remain a real multiwindow",a.isInMultiWindowMode());
+            View slot=a.findViewById(R.id.tool_control_slot);
+            if(slot.getVisibility()==View.VISIBLE) {
+                Rect r=new Rect();assertTrue("tool viewport visible",slot.getGlobalVisibleRect(r));
+                assertTrue("tool viewport nonzero",r.height()>0&&r.width()>0);
+            }
+            Rect bar=new Rect(),pad=new Rect();
+            a.findViewById(R.id.tool_bar).getGlobalVisibleRect(bar);
+            a.findViewById(R.id.input_pad).getGlobalVisibleRect(pad);
+            assertFalse("toolbar and keyboard do not overlap",Rect.intersects(bar,pad));
+        });
+    }
+    private void splitTool(int name,boolean converter,boolean currency) throws Exception {
+        if(converter) {
+            key(R.id.mode_segment_convert);if(currency) key(R.id.mode_segment_convert);
+            key(R.id.clr);digits("123");key(R.id.op_add);digits("45");
+            selectTail(currency?R.id.currency_input_text:R.id.unit_input_text,2);
+        } else { onView(withContentDescription(name)).perform(click());prepareTool(name); }
+        Map<String,String> model=modelSnapshot();Map<Integer,String> display=displaySnapshot();
+        try {
+            enterRealSplit();evidence("split-half-"+name);assertSplitUsable();
+            scenario.onActivity(a -> {
+                int height=a.getWindowManager().getCurrentWindowMetrics().getBounds().height();
+                float ratio=height/(float)device.getDisplayHeight();
+                assertTrue("actual 50:50 task height ratio="+ratio,ratio>0.40f&&ratio<0.58f);
+            });
+            assertEquals("model at 50:50",model,modelSnapshot());
+            assertEquals("results at 50:50",display,displaySnapshot());
+            resizeRealSplit();evidence("split-resized-"+name);assertSplitUsable();
+            assertEquals("model after real divider resize",model,modelSnapshot());
+            assertEquals("results after real divider resize",display,displaySnapshot());
+        } finally { leaveRealSplit(); }
+    }
+    @Test public void bmiSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_bmi,false,false);}
+    @Test public void dateSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_date,false,false);}
+    @Test public void relationshipSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_relationship,false,false);}
+    @Test public void programmerSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_programmer,false,false);}
+    @Test public void taxSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_tax,false,false);}
+    @Test public void mortgageSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_mortgage,false,false);}
+    @Test public void unitSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_unit,true,false);}
+    @Test public void currencySurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_currency,true,true);}
+    @Test public void scientificSurvivesRealSplitAndResize() throws Exception {
+        key(R.id.mode_segment_scientific);digits("123");
+        try {
+            enterRealSplit();assertSplitUsable();evidence("split-half-scientific");
+            assertScientificInWindow();resizeRealSplit();assertSplitUsable();
+            evidence("split-resized-scientific");assertScientificInWindow();
+            onView(withId(R.id.formula)).check(matches(withText("123")));
+        } finally {leaveRealSplit();}
+    }
+    private void assertScientificInWindow() {
+        scenario.onActivity(a -> {
+            ViewGroup pad=a.findViewById(R.id.advanced_pad);
+            Rect bounds=new Rect();assertTrue(pad.getGlobalVisibleRect(bounds));
+            for(int id:new int[]{R.id.display,R.id.tool_bar,R.id.input_pad}) {
+                Rect other=new Rect();a.findViewById(id).getGlobalVisibleRect(other);
+                assertFalse("science outside other regions "+id,Rect.intersects(bounds,other));
+            }
+            for(int i=0;i<pad.getChildCount();i++) {
+                View child=pad.getChildAt(i);if(!(child instanceof TextView)||child.getVisibility()!=View.VISIBLE)continue;
+                Rect r=new Rect();assertTrue(child.getGlobalVisibleRect(r));
+                assertEquals(child.getHeight(),r.height());assertEquals(child.getWidth(),r.width());
+                assertTrue(bounds.contains(r));
+            }
+        });
+    }
     private void assertScientificBounds() {
         scenario.onActivity(a -> {
             ViewGroup pad=a.findViewById(R.id.advanced_pad);
