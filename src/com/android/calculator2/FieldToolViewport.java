@@ -144,8 +144,8 @@ final class FieldToolViewport {
             int typeWidth=0;
             for(int id:new int[]{R.id.mortgage_type_commercial,R.id.mortgage_type_fund,R.id.mortgage_type_combined}) {
                 android.widget.TextView button=activity.findViewById(id);
-                if(button!=null)typeWidth+=(int)Math.ceil(android.text.Layout.getDesiredWidth(button.getText(),button.getPaint()))
-                    +button.getPaddingLeft()+button.getPaddingRight();
+                if(button!=null)typeWidth=Math.max(typeWidth,(int)Math.ceil(android.text.Layout.getDesiredWidth(button.getText(),button.getPaint()))
+                    +button.getPaddingLeft()+button.getPaddingRight());
             }
             requiredFormWidth=Math.max(requiredFormWidth,typeWidth);
         }
