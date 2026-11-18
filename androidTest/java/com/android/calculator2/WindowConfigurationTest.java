@@ -16,6 +16,14 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.DatePicker;
+import android.text.Selection;
+import android.text.Spannable;
+import java.util.Map;
+import java.util.TreeMap;
+import java.lang.reflect.Field;
+import com.android.calculator2.tools.ToolManager;
+import com.android.calculator2.tools.ToolInputFields;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -76,17 +84,136 @@ public class WindowConfigurationTest {
             Log.w("WindowEvidence","CAPTURE_FAIL "+name+": "+e);
         }
     }
+    private void key(int id) { onView(withId(id)).perform(click()); }
+    private void digits(String text) {
+        int[] ids={R.id.digit_0,R.id.digit_1,R.id.digit_2,R.id.digit_3,R.id.digit_4,
+            R.id.digit_5,R.id.digit_6,R.id.digit_7,R.id.digit_8,R.id.digit_9};
+        for(char digit:text.toCharArray()) key(ids[digit-'0']);
+    }
+    private Object active(Calculator a) {
+        try { Field f=Calculator.class.getDeclaredField("mToolManager");f.setAccessible(true);
+            return ((ToolManager)f.get(a)).getActive();
+        } catch(Exception e) { throw new AssertionError(e); }
+    }
+    private Object member(Object object,String name) {
+        for(Class<?> type=object.getClass();type!=null;type=type.getSuperclass()) {
+            try { Field f=type.getDeclaredField(name);f.setAccessible(true);return f.get(object); }
+            catch(NoSuchFieldException e) { /* try superclass */ }
+            catch(Exception e) { throw new AssertionError(e); }
+        }
+        return null;
+    }
+    private Map<String,String> modelSnapshot() {
+        Map<String,String> snapshot=new TreeMap<>();
+        scenario.onActivity(a -> {
+            Object mode=active(a);snapshot.put("mode",mode.getClass().getName());
+            for(String name:new String[]{"mGender","mEqualPayment","mLoanType","mLprBasis",
+                    "mBonusMode","mStart","mEnd","mChain","mReverse","mDialect",
+                    "mRadix","mSecondRadix","mWidthBits","mUnsigned","mEntry",
+                    "mAccumulator","mPendingOperation","mStartNewEntry","mExpression","mError",
+                    "mCategoryIndex","mFromIndex","mToIndex","mToSecondaryIndex","mSecondaryEnabled"}) {
+                Object value=member(mode,name);snapshot.put(name,String.valueOf(value));
+            }
+            Object fields=member(mode,"mFields");
+            if(fields instanceof ToolInputFields) {
+                ToolInputFields values=(ToolInputFields)fields;
+                snapshot.put("activeField",String.valueOf(values.getActive()));
+                for(int i=0;i<values.count();i++) snapshot.put("field"+i,values.get(i));
+            }
+            Object input=member(mode,"mInput");
+            if(input instanceof com.android.calculator2.tools.model.DecimalExpression)
+                snapshot.put("expression",((com.android.calculator2.tools.model.DecimalExpression)input).getDisplayText());
+        });
+        return snapshot;
+    }
+    private Map<Integer,String> displaySnapshot() {
+        Map<Integer,String> values=new TreeMap<>();
+        scenario.onActivity(a -> {
+            for(int id:new int[]{R.id.formula,R.id.result,R.id.programmer_value_in,R.id.programmer_value_out,
+                    R.id.programmer_status,R.id.programmer_width_label,R.id.unit_input_text,R.id.unit_result_text,
+                    R.id.currency_input_text,R.id.currency_result_text,R.id.date_start,R.id.date_end}) {
+                TextView v=a.findViewById(id);
+                if(v!=null&&v.getVisibility()==View.VISIBLE) values.put(id,v.getText().toString());
+            }
+        });return values;
+    }
+    private void selectTail(int id,int count) {
+        scenario.onActivity(a -> {
+            TextView v=a.findViewById(id);v.requestFocus();
+            Selection.setSelection((Spannable)v.getText(),v.length()-count,v.length());
+        });
+    }
+    private int[] selection(int id) {
+        int[] result={-1,-1};
+        scenario.onActivity(a -> {TextView v=a.findViewById(id);
+            result[0]=v.getSelectionStart();result[1]=v.getSelectionEnd();});return result;
+    }
+    private void menu(int title) {
+        androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(
+            InstrumentationRegistry.getInstrumentation().getTargetContext());
+        onView(withText(title)).perform(click());
+    }
+    private void date(int id,int year,int month,int day) {
+        key(id);
+        onView(isAssignableFrom(DatePicker.class)).perform(new androidx.test.espresso.ViewAction() {
+            public org.hamcrest.Matcher<View> getConstraints(){return isAssignableFrom(DatePicker.class);}
+            public String getDescription(){return "select nondefault date in actual native picker";}
+            public void perform(androidx.test.espresso.UiController ui,View view){
+                ((DatePicker)view).updateDate(year,month-1,day);ui.loopMainThreadUntilIdle();}
+        });
+        onView(withId(android.R.id.button1)).perform(click());
+    }
+    private int prepareTool(int name) {
+        if(name==R.string.tool_bmi) {
+            key(R.id.bmi_gender_female);key(R.id.tool_field_1);key(R.id.clr);digits("83");
+            selectTail(R.id.tool_field_1,1);return R.id.tool_field_1;
+        } else if(name==R.string.tool_mortgage) {
+            key(R.id.mortgage_type_combined);key(R.id.mortgage_basis_toggle);key(R.id.mortgage_method);
+            key(R.id.tool_field_0);key(R.id.clr);digits("1234567");
+            key(R.id.tool_field_2);key(R.id.clr);digits("17");selectTail(R.id.tool_field_2,1);return R.id.tool_field_2;
+        } else if(name==R.string.tool_tax) {
+            key(R.id.tax_mode_toggle);key(R.id.tool_field_0);key(R.id.clr);digits("45000");
+            selectTail(R.id.tool_field_0,2);return R.id.tool_field_0;
+        } else if(name==R.string.tool_programmer) {
+            menu(R.string.programmer_width_16);menu(R.string.programmer_unsigned_menu);
+            key(R.id.clr);digits("27");key(R.id.programmer_chip_in);key(R.id.programmer_chip_out);
+            key(R.id.op_add);digits("3");selectTail(R.id.programmer_value_in,1);return R.id.programmer_value_in;
+        } else if(name==R.string.tool_date) {
+            date(R.id.date_start,2025,2,3);date(R.id.date_end,2026,4,5);return 0;
+        } else if(name==R.string.tool_relationship) {
+            menu(R.string.menu_relationship_north);key(R.id.digit_7);key(R.id.digit_8);
+            // Wait for the legitimate async resolver, not a different answer after rotation.
+            long until=SystemClock.uptimeMillis()+15000;
+            boolean[] ready={false};
+            do {
+                scenario.onActivity(a -> ready[0]=!((TextView)a.findViewById(R.id.result)).getText()
+                    .toString().equals(a.getString(R.string.relationship_preparing)));
+                if(ready[0]) break;SystemClock.sleep(100);
+            } while(SystemClock.uptimeMillis()<until);
+            assertTrue("relationship answer prepared",ready[0]);
+            selectTail(R.id.formula,1);return R.id.formula;
+        }return 0;
+    }
     private void rotateTool(int name) throws Exception {
         onView(withContentDescription(name)).perform(click());
         onView(withContentDescription(name)).check(matches(isSelected()));
+        int input=prepareTool(name);
+        Map<String,String> model=modelSnapshot();Map<Integer,String> display=displaySnapshot();
+        int[] selected=input==0?null:selection(input);
         evidence(name+"-portrait");
         device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
         evidence(name+"-landscape");
         onView(withContentDescription(name)).check(matches(isSelected()));
         onView(withId(R.id.mode_segment_scientific)).check(matches(org.hamcrest.Matchers.not(isSelected())));
+        assertEquals("real tool model after landscape",model,modelSnapshot());
+        assertEquals("tool results after landscape",display,displaySnapshot());
+        if(input!=0) assertArrayEquals("legal input selection after landscape",selected,selection(input));
         device.setOrientationNatural();awaitOrientation(Configuration.ORIENTATION_PORTRAIT);
         evidence(name+"-returned");
         onView(withContentDescription(name)).check(matches(isSelected()));
+        assertEquals("real tool model after portrait return",model,modelSnapshot());
+        assertEquals("tool results after portrait return",display,displaySnapshot());
+        if(input!=0) assertArrayEquals(selected,selection(input));
     }
     @Test public void bmiSurvivesActualRotation() throws Exception { rotateTool(R.string.tool_bmi); }
     @Test public void dateSurvivesActualRotation() throws Exception { rotateTool(R.string.tool_date); }
@@ -100,10 +227,20 @@ public class WindowConfigurationTest {
         if(currency) onView(withId(R.id.mode_segment_convert)).perform(click());
         int input=currency?R.id.currency_input_text:R.id.unit_input_text;
         onView(withId(input)).check(matches(isDisplayed()));
+        key(R.id.clr);digits("123");key(R.id.op_add);digits("45");
+        key(currency?R.id.currency_swap:R.id.unit_swap);
+        selectTail(input,2);
+        Map<String,String> model=modelSnapshot();Map<Integer,String> display=displaySnapshot();
+        int[] selected=selection(input);
         device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
         evidence(currency?"currency-landscape":"unit-landscape");
         onView(withId(input)).check(matches(isDisplayed()));
         onView(withId(R.id.mode_segment_convert)).check(matches(isSelected()));
+        assertEquals(model,modelSnapshot());assertEquals(display,displaySnapshot());
+        assertArrayEquals(selected,selection(input));
+        device.setOrientationNatural();awaitOrientation(Configuration.ORIENTATION_PORTRAIT);
+        assertEquals(model,modelSnapshot());assertEquals(display,displaySnapshot());
+        assertArrayEquals(selected,selection(input));
     }
     @Test public void unitSurvivesActualRotation() throws Exception { rotateConverter(false); }
     @Test public void currencySurvivesActualRotation() throws Exception { rotateConverter(true); }
