@@ -735,7 +735,7 @@ public class WindowConfigurationTest {
         int[] selected=selection(input);
         String phase="full";
         java.util.Set<String> completed=new java.util.HashSet<>();
-        Throwable primary=null;
+        java.util.List<Throwable> issues=new java.util.ArrayList<>();
         try {
             SplitSample full=stableSample(false,null);
             Log.i("SplitPhase","full PASS "+full);completed.add("full");
@@ -745,8 +745,7 @@ public class WindowConfigurationTest {
             assertTrue("real Settings companion required: "+half,half.verifiedCompanion());
             float ratio=half.app.height()/(float)device.getDisplayHeight();
             assertTrue("50:50 task ratio="+ratio,ratio>0.40f&&ratio<0.58f);
-            representativeLayout(input,selected,model,display);
-            Log.i("SplitPhase","entry PASS "+half);completed.add("entry");
+            recordRepresentativeStage("entry",half,input,selected,model,display,issues);completed.add("entry");
             for(int thirds:new int[]{2,1}) {
                 phase=thirds==2?"enlarge":"reduce";
                 SplitSample before=stableSample(true,null);
@@ -756,11 +755,11 @@ public class WindowConfigurationTest {
                 assertTrue("Settings remains the other app: "+after,after.verifiedCompanion());
                 if(thirds==2)assertTrue("enlargement",after.app.height()>before.app.height());
                 else assertTrue("reduction",after.app.height()<before.app.height());
-                representativeLayout(input,selected,model,display);
-                evidence("bmi-"+phase);Log.i("SplitPhase",phase+" PASS "+after);completed.add(phase);
+                evidence("bmi-"+phase);
+                recordRepresentativeStage(phase,after,input,selected,model,display,issues);completed.add(phase);
             }
         } catch(Throwable error) {
-            primary=error;Log.i("SplitPhase",phase+" FAIL "+error.getClass().getSimpleName()+":"+shortMessage(error)+" STATE "+safeSplitSample());
+            issues.add(error);Log.i("SplitPhase",phase+" TRANSITION_FAIL "+error.getClass().getSimpleName()+":"+shortMessage(error)+" STATE "+safeSplitSample());
         } finally {
             for(String p:new String[]{"entry","enlarge","reduce"})
                 if(!completed.contains(p)&&!p.equals(phase))Log.i("SplitPhase",p+" NOT_RUN (blocked by "+phase+")");
@@ -774,11 +773,30 @@ public class WindowConfigurationTest {
                 Log.i("SplitPhase","exit PASS "+full);
             } catch(Throwable cleanup) {
                 Log.i("SplitPhase","exit FAIL "+cleanup.getClass().getSimpleName()+":"+shortMessage(cleanup)+" STATE "+safeSplitSample());
-                if(primary==null)primary=cleanup;else primary.addSuppressed(cleanup);
+                issues.add(cleanup);
             }
         }
-        if(primary instanceof Exception)throw (Exception)primary;
-        if(primary instanceof Error)throw (Error)primary;
+        if(!issues.isEmpty()) {
+            Throwable primary=issues.get(0);
+            for(int i=1;i<issues.size();i++)primary.addSuppressed(issues.get(i));
+            if(primary instanceof Exception)throw (Exception)primary;
+            if(primary instanceof Error)throw (Error)primary;
+        }
+    }
+    private void recordRepresentativeStage(String phase,SplitSample sample,int input,int[] selected,
+            Map<String,String> model,Map<Integer,String> display,java.util.List<Throwable> issues) {
+        String data="PASS",layout="PASS";
+        try {
+            assertArrayEquals("BMI selection",selected,selection(input));
+            assertEquals("BMI model",model,modelSnapshot());assertEquals("BMI outputs",display,displaySnapshot());
+        } catch(Throwable error) {issues.add(error);data="FAIL";}
+        try {representativeLayout(input,selected,model,display);}
+        catch(Throwable error) {issues.add(error);layout="FAIL";}
+        int[] heights=new int[2];scenario.onActivity(a -> {
+            heights[0]=a.findViewById(input).getHeight();heights[1]=a.findViewById(R.id.result).getHeight();
+        });
+        Log.i("SplitPhase",phase+" TRANSITION=PASS MODEL_SELECTION="+data+" LAYOUT="+layout
+            +" inputPx="+heights[0]+" resultPx="+heights[1]+" "+sample);
     }
     private void representativeLayout(int input,int[] selected,Map<String,String> model,Map<Integer,String> display) {
         assertSplitUsable();assertSplitInput(input,selected);
@@ -853,7 +871,7 @@ public class WindowConfigurationTest {
         try {return splitSample().toString();}catch(Exception e){return "snapshot unavailable: "+e;}
     }
     private String shortMessage(Throwable e) {
-        String message=String.valueOf(e.getMessage());return message.substring(0,Math.min(250,message.length()));
+        String message=String.valueOf(e.getMessage()).replace('\n',' ');return message.substring(0,Math.min(250,message.length()));
     }
     private SplitSample stableSample(boolean multi,Rect previous) throws Exception {
         long until=SystemClock.uptimeMillis()+15000,since=0;String last="";SplitSample s=null;
