@@ -49,7 +49,16 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Compile main and instrumentation APKs
-        run: ./gradlew assembleDebug assembleDebugAndroidTest --console=plain --stacktrace
+        run: |
+          mkdir -p build
+          if ! ./gradlew assembleDebug assembleDebugAndroidTest --console=plain --stacktrace > build/isolation-compile.log 2>&1; then
+            cat build/isolation-compile.log
+            while IFS= read -r line; do
+              line=${line//%/%25}
+              echo "::error title=Isolation compiler output::$line"
+            done < <(tail -n 35 build/isolation-compile.log)
+            exit 1
+          fi
       - name: Run exact test selection
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -116,3 +125,4 @@ jobs:
             build/outputs/androidTest-results/
             build/reports/androidTests/
             build/outputs/apk/
+            build/isolation-compile.log
