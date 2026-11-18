@@ -260,8 +260,12 @@ mortgage_phases=${mortgage_phases//%/%25}
 echo "::warning title=Mortgage form touch steps::${mortgage_phases:0:3800}"
 position_steps=$(grep 'MortgagePosition' build/ui-screenshots/window-evidence.log | tail -n 24 | tr '\n' ' ' || true)
 position_steps=${position_steps//%/%25}
-echo "::warning title=Mortgage window positions::${position_steps:0:12000}"
-coordinate_steps=$(grep 'ToolTouchCoordinates' build/ui-screenshots/window-evidence.log | tail -n 4 | tr '\n' ' ' || true)
+part=1
+while IFS= read -r line || [[ -n "$line" ]]; do
+    echo "::warning title=Mortgage window positions part $part::$line"
+    part=$((part+1))
+done < <(printf '%s' "$position_steps" | fold -w 3800)
+coordinate_steps=$(grep 'ToolTouchCoordinates' build/ui-screenshots/window-evidence.log | grep -E 'rootScreen=0,[1-9]' | tail -n 4 | tr '\n' ' ' || true)
 coordinate_steps=${coordinate_steps//%/%25}
 echo "::warning title=Tool touch coordinates::${coordinate_steps:0:3800}"
 split_phases=$(grep 'SplitPhase' build/ui-screenshots/window-evidence.log | tail -n 12 | tr '\n' ' ' || true)
@@ -816,6 +820,11 @@ while IFS= read -r image; do
     [[ "$image" == /sdcard/window-*.png ]] || continue
     adb pull "$image" build/ui-screenshots/ || true
 done < <(adb shell 'ls /sdcard/window-*.png' 2>/dev/null || true)
+while IFS= read -r item; do
+    item=${item%$'\r'}
+    [[ "$item" == /sdcard/window-*.json ]] || continue
+    adb pull "$item" build/ui-screenshots/ || true
+done < <(adb shell 'ls /sdcard/window-*.json' 2>/dev/null || true)
 
 
 default_screenshot_is_from_test=false

@@ -134,6 +134,8 @@ jobs:
           name: calculator-ui-screenshots
           path: |
             build/ui-screenshots/*.png
+            build/ui-screenshots/*.json
+            build/ui-screenshots/*.log
             build/ui-screenshots/*-review.jpg
             build/connected-debug-android-test.log
             build/install-debug-android-test.log
@@ -146,7 +148,7 @@ jobs:
   mortgage-evidence:
     name: Mortgage scroll-position screenshots
     needs: emulator-ui
-    if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'mortgage-only') }}
+    if: ${{ always() && inputs.split_scope == 'mortgage-only' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -193,3 +195,57 @@ jobs:
       - name: Publish mortgage touch failure evidence
         if: always()
         run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-failure-review.jpg "Mortgage touch failure" 0 warning
+
+  position-evidence:
+    name: Upper and lower mortgage window evidence
+    needs: emulator-ui
+    if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'mortgage-position-only') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v6
+        with:
+          name: calculator-ui-screenshots
+          path: evidence
+      - name: Prepare full-screen and actual-window crop previews
+        run: |
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PYIMAGE'
+          from pathlib import Path
+          import json
+          from PIL import Image
+          for source in Path('evidence/ui-screenshots').glob('window-mortgage-*.png'):
+              sidecar=source.with_suffix('.json')
+              if not sidecar.exists(): continue
+              original=Image.open(source).convert('RGB')
+              for suffix,image,width in [('screen',original.copy(),300),('app',original.crop(tuple(json.loads(sidecar.read_text()))),576)]:
+                  image.thumbnail((width,1800))
+                  dest=source.with_name(source.stem+'-'+suffix+'-review.jpg')
+                  for quality in (75,65,55,45,35,25):
+                      image.save(dest,quality=quality,optimize=True)
+                      if dest.stat().st_size < 14000: break
+          PYIMAGE
+      - name: Publish upper-25-scroll-input screen
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-upper-25-scroll-input-screen-review.jpg "Mortgage upper-25-scroll-input screen" 0 warning
+      - name: Publish upper-25-scroll-input app
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-upper-25-scroll-input-app-review.jpg "Mortgage upper-25-scroll-input app" 0 warning
+      - name: Publish upper-25-scroll-result screen
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-upper-25-scroll-result-screen-review.jpg "Mortgage upper-25-scroll-result screen" 0 warning
+      - name: Publish upper-25-scroll-result app
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-upper-25-scroll-result-app-review.jpg "Mortgage upper-25-scroll-result app" 0 warning
+      - name: Publish lower-25-scroll-input screen
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-25-scroll-input-screen-review.jpg "Mortgage lower-25-scroll-input screen" 0 warning
+      - name: Publish lower-25-scroll-input app
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-25-scroll-input-app-review.jpg "Mortgage lower-25-scroll-input app" 0 warning
+      - name: Publish lower-25-scroll-result screen
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-25-scroll-result-screen-review.jpg "Mortgage lower-25-scroll-result screen" 0 warning
+      - name: Publish lower-25-scroll-result app
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-25-scroll-result-app-review.jpg "Mortgage lower-25-scroll-result app" 0 warning

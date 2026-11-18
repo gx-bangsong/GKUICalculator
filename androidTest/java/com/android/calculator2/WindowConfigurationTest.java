@@ -77,10 +77,16 @@ public class WindowConfigurationTest {
                     +" decorDp="+(decor.getWidth()/density)+"x"+(decor.getHeight()/density)
                     +" multiWindow="+a.isInMultiWindowMode());
         });
+        int[] capturedBounds=new int[4];
+        scenario.onActivity(a -> {
+            Rect r=a.getWindowManager().getCurrentWindowMetrics().getBounds();
+            capturedBounds[0]=r.left;capturedBounds[1]=r.top;capturedBounds[2]=r.right;capturedBounds[3]=r.bottom;
+        });
         // Shell screencap can write /sdcard under scoped storage; the instrumentation UID cannot.
         try {
             String path="/sdcard/window-"+name+".png";
             device.executeShellCommand("screencap -p "+path);
+            device.executeShellCommand("echo '["+capturedBounds[0]+","+capturedBounds[1]+","+capturedBounds[2]+","+capturedBounds[3]+"]' > /sdcard/window-"+name+".json");
             String size=device.executeShellCommand("stat -c %s "+path).trim();
             if(Long.parseLong(size)<=0) throw new java.io.IOException("empty screenshot");
             Log.i("WindowEvidence","CAPTURE_OK "+name+" bytes="+size);
@@ -1305,7 +1311,22 @@ public class WindowConfigurationTest {
             boolean[] up={false};scenario.onActivity(a -> up[0]=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport").canScrollVertically(-1));
             if(!up[0])break;swipeMortgageViewport(false);awaitMotionState(R.id.start_state);
         }
-        Log.i("MortgagePosition",stage+" SCROLL_EDIT_COPY_RETURN_PASS");
+        Map<String,String> saved=modelSnapshot();Map<Integer,String> results=displaySnapshot();
+        int field=Integer.parseInt(saved.get("activeField"));
+        int fieldId=new int[]{R.id.tool_field_0,R.id.tool_field_1,R.id.tool_field_2,R.id.tool_field_3,R.id.tool_field_4}[field];
+        int[] selected=selection(fieldId);int[] drag=new int[3];
+        scenario.onActivity(a -> {
+            Rect handle=new Rect();assertTrue(visibleOnScreen(a.findViewById(R.id.drag_handle_view),handle));
+            View main=a.findViewById(R.id.main_calculator);int[] origin=new int[2];main.getLocationOnScreen(origin);
+            drag[0]=handle.centerX();drag[1]=handle.centerY();drag[2]=origin[1]+main.getHeight()-main.getPaddingBottom()-1;
+        });
+        assertTrue("actual history handle remains draggable",device.swipe(drag[0],drag[1],drag[0],drag[2],35));
+        awaitMotionState(R.id.end_state);
+        onView(withId(R.id.history_toolbar)).check(matches(isDisplayed()));
+        assertTrue(device.pressBack());awaitMotionState(R.id.start_state);
+        assertEquals("model after history",saved,modelSnapshot());assertEquals("results after history",results,displaySnapshot());
+        assertArrayEquals("field selection after history",selected,selection(fieldId));
+        Log.i("MortgagePosition",stage+" SCROLL_EDIT_COPY_RETURN_HISTORY_PASS");
     }
     private String safeMotionState() {
         int[] state={0};scenario.onActivity(a -> state[0]=((DisplayMotionLayout)a.findViewById(R.id.main_calculator)).getCurrentState());
