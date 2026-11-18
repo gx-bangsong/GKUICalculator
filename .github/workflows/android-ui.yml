@@ -109,6 +109,18 @@ jobs:
         if: always()
         run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot" 20
 
+      - name: Publish actual split-screen diagnostic (parts 1+)
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 0
+
+      - name: Publish actual split-screen diagnostic (parts 11+)
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 10
+
+      - name: Publish actual split-screen diagnostic (parts 21+)
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 20
+
       - name: Upload emulator screenshots
         if: always()
         uses: actions/upload-artifact@v6
