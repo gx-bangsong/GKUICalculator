@@ -99,6 +99,10 @@ done
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent KEYCODE_WAKEUP || true
 
+if [[ "${SPLIT_SCOPE:-}" == "mortgage-only" ]]; then
+    adb shell cmd locale set-app-locales com.android.calculator2.dev --locales zh-CN
+fi
+
 # Retain early field-edit events until the full regression finishes, for the separate
 # BMI selection investigation. This changes logging only, not focus or selection behavior.
 adb logcat -G 16M || true
