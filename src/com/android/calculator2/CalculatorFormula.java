@@ -294,7 +294,10 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
         } else {
             announceForAccessibility(newText);
         }
-        setText(newText, BufferType.SPANNABLE);
+        // Tool builders may themselves implement Editable. Keep spans/selection but do not
+        // expose a mutable character buffer for an output role.
+        setText(mInputEnabled ? newText : new android.text.SpannableString(newText),
+                BufferType.SPANNABLE);
     }
 
     public boolean stopActionModeOrContextMenu() {

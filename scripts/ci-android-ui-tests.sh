@@ -531,6 +531,12 @@ if ((test_result == 0)); then
 fi
 
 if ((test_result != 0)); then
+    app_crash=$(adb logcat -d -v brief AndroidRuntime:E '*:S' 2>/dev/null | head -n 65 || true)
+    if [[ -n "$app_crash" ]]; then
+        app_crash=${app_crash//%/%25}
+        app_crash=${app_crash//$'\n'/%0A}
+        echo "::error title=Application runtime failure::$app_crash"
+    fi
     diagnostics=$(grep -nEi 'error:|what went wrong|execution failed|caused by:|assertionerror|tests run:|FAILED|^failure:' "$log_file" | tail -n 60 || true)
     if [[ -z "$diagnostics" ]]; then
         diagnostics=$(tail -n 60 "$log_file")

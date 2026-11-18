@@ -1645,7 +1645,7 @@ public class Calculator extends AppCompatActivity
         mLastToolResult = text;
         final boolean wrapUppercaseResult = mUppercaseNumbers && text.length() > 0;
         applyUppercaseResultLayout(wrapUppercaseResult);
-        mResultText.setText(text, TextView.BufferType.SPANNABLE);
+        mResultText.setText(new android.text.SpannableString(text), TextView.BufferType.SPANNABLE);
         mResultText.setLongClickable(text.length() > 0);
         mResultText.removeCallbacks(mFitUppercaseResult);
         if (wrapUppercaseResult) {
