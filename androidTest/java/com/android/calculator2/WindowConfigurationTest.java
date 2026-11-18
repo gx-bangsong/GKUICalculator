@@ -42,6 +42,11 @@ public class WindowConfigurationTest {
         Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
         context.getSharedPreferences("calc_tools",Context.MODE_PRIVATE).edit().clear()
                 .putBoolean("auto_update_rates",false).commit();
+        Map<String,java.math.BigDecimal> rates=new java.util.LinkedHashMap<>();
+        rates.put("EUR",java.math.BigDecimal.ONE);rates.put("CNY",new java.math.BigDecimal("10"));
+        rates.put("USD",new java.math.BigDecimal("2"));rates.put("JPY",new java.math.BigDecimal("100"));
+        new com.android.calculator2.tools.data.RateCache(context).write(
+            new com.android.calculator2.tools.data.CachedRates("EUR",System.currentTimeMillis(),"2026-01-01",rates));
         scenario=ActivityScenario.launch(Calculator.class);
         awaitOrientation(Configuration.ORIENTATION_PORTRAIT);
     }
