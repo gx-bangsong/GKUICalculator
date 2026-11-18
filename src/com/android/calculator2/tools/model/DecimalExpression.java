@@ -68,6 +68,53 @@ public final class DecimalExpression {
         }
     }
 
+    /** Edit the actual expression at display offsets (one UTF-16 character per token here).
+     * Existing append-only callers, including currency conversion, are unchanged.
+     */
+    public int insertDigit(int digit, int start, int end) {
+        if (digit < 0 || digit > 9) return start;
+        if (mReplaceOnDigit) {
+            onDigit(digit);
+            return mExpression.length();
+        }
+        start = Math.max(0, Math.min(start, mExpression.length()));
+        end = Math.max(start, Math.min(end, mExpression.length()));
+        if (mExpression.length() - (end - start) >= MAX_INPUT_LENGTH) return start;
+        // Preserve the existing replacement of a sole zero, but not a deliberately positioned
+        // insertion before that zero.
+        if (mExpression.toString().equals("0") && start == 1 && end == 1) start = 0;
+        mExpression.replace(start, end, String.valueOf(digit));
+        return start + 1;
+    }
+
+    public int deleteAt(int start, int end) {
+        mReplaceOnDigit = false;
+        start = Math.max(0, Math.min(start, mExpression.length()));
+        end = Math.max(start, Math.min(end, mExpression.length()));
+        if (start == end && start > 0) start--;
+        mExpression.delete(start, end);
+        return start;
+    }
+
+    public int insertDecimalPoint(int start, int end) {
+        if (mReplaceOnDigit) {
+            onDecimalPoint();
+            return mExpression.length();
+        }
+        start = Math.max(0, Math.min(start, mExpression.length()));
+        end = Math.max(start, Math.min(end, mExpression.length()));
+        String remaining = mExpression.substring(0, start) + mExpression.substring(end);
+        int left = start;
+        while (left > 0 && !isOperator(remaining.charAt(left - 1))) left--;
+        int right = start;
+        while (right < remaining.length() && !isOperator(remaining.charAt(right))) right++;
+        if (remaining.substring(left, right).contains(".")) return start;
+        String insertion = left == start ? "0." : ".";
+        if (remaining.length() + insertion.length() > MAX_INPUT_LENGTH) return start;
+        mExpression.replace(start, end, insertion);
+        return start + insertion.length();
+    }
+
     public void onDecimalPoint() {
         if (mExpression.length() >= MAX_INPUT_LENGTH) {
             return;

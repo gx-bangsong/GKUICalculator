@@ -103,14 +103,14 @@ adb shell input keyevent KEYCODE_WAKEUP || true
 # guards (pillShowsEveryToolWithoutScrolling, scientificPadDoesNotMoveDisplay, ...) only protect
 # the UI if they actually execute on the emulator.
 phase_start=$SECONDS
-if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest --stacktrace --console=plain --info >"$log_file" 2>&1; then
+if ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest,com.android.calculator2.tools.UnitInputCursorTest --stacktrace --console=plain --info >"$log_file" 2>&1; then
     test_result=0
 else
     test_result=$?
 fi
 cat "$log_file"
 connected_seconds=$((SECONDS-phase_start))
-echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 21 tests) took ${connected_seconds}s"
+echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 24 tests) took ${connected_seconds}s"
 
 # Per-test wall times from the instrumentation XML, so slow tests are visible in the check
 # annotations instead of hidden inside one monolithic step log.
@@ -197,7 +197,7 @@ fi
 
 # ---- Required-method validation -------------------------------------------
 # Definitive list of required test methods based on the current source code:
-#   15 for CalculatorToolUiTest + 5 for ToolInputCursorTest = 20 total.
+#   15 for CalculatorToolUiTest + 6 BMI cursor + 3 unit cursor/read-only = 24 total.
 # Any missing, absent, or skipped required method triggers a validation failure.
 validation_failed=0
 summary_lines=()
@@ -213,7 +213,7 @@ if not results_dir.exists():
     print("ERROR: No androidTest-results directory found.")
     raise SystemExit(1)
 
-# Required methods: 15 CalculatorToolUiTest + 6 ToolInputCursorTest = 21
+# Required methods: 15 CalculatorToolUiTest + 6 ToolInputCursorTest + 3 UnitInputCursorTest = 24
 required = {
     "com.android.calculator2.CalculatorToolUiTest": [
         "firstRunUsesStandardKeypad",
@@ -231,6 +231,11 @@ required = {
         "uppercaseNumbersIncludePrimaryMortgagePayment",
         "unitConverterAcceptsArithmetic",
         "currencyConverterUsesValueColumnForUppercaseAndAcceptsArithmetic",
+    ],
+    "com.android.calculator2.tools.UnitInputCursorTest": [
+        "unitMiddleInsertionUpdatesConversion",
+        "unitMiddleDeleteAndRangeReplacement",
+        "unitResultsAreReadOnlyAndSelectable",
     ],
     "com.android.calculator2.tools.ToolInputCursorTest": [
         "testMiddleInsertionAfterFocusLoss",
@@ -388,6 +393,11 @@ required = {
         "uppercaseNumbersIncludePrimaryMortgagePayment",
         "unitConverterAcceptsArithmetic",
         "currencyConverterUsesValueColumnForUppercaseAndAcceptsArithmetic",
+    ],
+    "com.android.calculator2.tools.UnitInputCursorTest": [
+        "unitMiddleInsertionUpdatesConversion",
+        "unitMiddleDeleteAndRangeReplacement",
+        "unitResultsAreReadOnlyAndSelectable",
     ],
     "com.android.calculator2.tools.ToolInputCursorTest": [
         "testMiddleInsertionAfterFocusLoss",

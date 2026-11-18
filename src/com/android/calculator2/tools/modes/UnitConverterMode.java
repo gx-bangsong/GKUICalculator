@@ -13,6 +13,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.EditText;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -70,6 +71,8 @@ public class UnitConverterMode implements ToolMode {
     private int mToIndex;
     private int mToSecondaryIndex;
     private boolean mSecondaryEnabled;
+
+    private int mCaret = -1;
 
     private final DecimalExpression mInput = new DecimalExpression(DEFAULT_INPUT);
 
@@ -148,6 +151,7 @@ public class UnitConverterMode implements ToolMode {
         }
         mCategories = mRepository.getCategories();
 
+        mCaret = -1;
         mInput.set(carryValue != null ? carryValue : DEFAULT_INPUT);
         mCategoryIndex = 0;
         mFromIndex = 0;
@@ -184,32 +188,48 @@ public class UnitConverterMode implements ToolMode {
         } else {
             return false;
         }
+        mCaret = -1;
         redisplay();
         return true;
     }
 
     @Override
     public void onDigit(int digit) {
-        mInput.onDigit(digit);
+        mCaret = mInput.insertDigit(digit, selectionStart(), selectionEnd());
         redisplay();
     }
 
     @Override
     public void onDecimalPoint() {
-        mInput.onDecimalPoint();
+        mCaret = mInput.insertDecimalPoint(selectionStart(), selectionEnd());
         redisplay();
     }
 
     @Override
     public void onDelete() {
-        mInput.onDelete();
+        mCaret = mInput.deleteAt(selectionStart(), selectionEnd());
         redisplay();
     }
 
     @Override
     public void onClear() {
         mInput.onClear();
+        mCaret = 0;
         redisplay();
+    }
+
+    private int selectionStart() {
+        if (mInputView == null || mInputView.getSelectionStart() < 0) {
+            return mInput.getDisplayText().length();
+        }
+        return Math.min(mInputView.getSelectionStart(), mInputView.getSelectionEnd());
+    }
+
+    private int selectionEnd() {
+        if (mInputView == null || mInputView.getSelectionEnd() < 0) {
+            return mInput.getDisplayText().length();
+        }
+        return Math.max(mInputView.getSelectionStart(), mInputView.getSelectionEnd());
     }
 
     // ---- UI ----
@@ -233,12 +253,8 @@ public class UnitConverterMode implements ToolMode {
         mSecondaryRow = mControlRoot.findViewById(R.id.unit_secondary_row);
         mToSecondaryView = mControlRoot.findViewById(R.id.unit_to_2);
         mSecondaryResultView = mControlRoot.findViewById(R.id.unit_result_2_text);
-        // inputType="text" gives the input/result fields an Editor so cursorVisible and the
-        // long-press selection menu work. Keep the soft keyboard off: the calculator pad is the
-        // keyboard.
+        // Only the source is editable. Outputs are selectable TextViews, not editors.
         if (mInputView != null) mInputView.setShowSoftInputOnFocus(false);
-        if (mResultView != null) mResultView.setShowSoftInputOnFocus(false);
-        if (mSecondaryResultView != null) mSecondaryResultView.setShowSoftInputOnFocus(false);
 
         final ImageButton swap = mControlRoot.findViewById(R.id.unit_swap);
         swap.setOnClickListener(v -> swapUnits());
@@ -570,6 +586,8 @@ public class UnitConverterMode implements ToolMode {
 
         if (mInputView != null) {
             mInputView.setText(mInput.getDisplayText());
+            ((EditText) mInputView).setSelection(mCaret < 0
+                    ? mInputView.length() : Math.min(mCaret, mInputView.length()));
         }
         if (mResultView != null) {
             mResultView.setText(resultText);

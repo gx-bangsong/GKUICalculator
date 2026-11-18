@@ -101,7 +101,7 @@
             android:layout_gravity="end"
             android:contentDescription="@string/unit_to_desc" />
 
-        <com.android.calculator2.tools.ToolFieldEditText
+        <TextView
             android:id="@+id/unit_result_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -109,7 +109,8 @@
             android:fontFamily="sans-serif-medium"
             android:gravity="end"
             android:includeFontPadding="false"
-            android:inputType="text"
+            android:textIsSelectable="true"
+            android:cursorVisible="false"
             android:textColor="@color/display_result_text_color"
             android:textSize="34sp" />
 
@@ -133,7 +134,7 @@
             android:layout_gravity="end"
             android:contentDescription="@string/unit_second_to_desc" />
 
-        <com.android.calculator2.tools.ToolFieldEditText
+        <TextView
             android:id="@+id/unit_result_2_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -141,7 +142,8 @@
             android:fontFamily="sans-serif-medium"
             android:gravity="end"
             android:includeFontPadding="false"
-            android:inputType="text"
+            android:textIsSelectable="true"
+            android:cursorVisible="false"
             android:textColor="@color/display_result_text_color"
             android:textSize="28sp" />
 
