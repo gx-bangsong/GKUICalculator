@@ -3,6 +3,11 @@
     Inline unit converter: horizontally scrollable category pills, stacked source/result rows,
     and anchored unit menus. Category changes never replace the calculator with a full-screen list.
 -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="false"
+    android:scrollbars="vertical">
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -150,3 +155,5 @@
     </LinearLayout>
 
 </LinearLayout>
+
+</ScrollView>
