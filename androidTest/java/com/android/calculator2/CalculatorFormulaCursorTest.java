@@ -39,6 +39,18 @@ public class CalculatorFormulaCursorTest {
         onView(withId(R.id.mode_segment_basic)).perform(click());
         onView(withId(R.id.clr)).perform(click());
     }
+    @Test public void middleArithmeticSymbolsRespectCaret() {
+        int[] keys={R.id.op_add,R.id.op_sub,R.id.op_mul,R.id.op_div};
+        String[] symbols={"+","−","×","÷"};
+        String[] values={"15","9","36","4"};
+        for(int i=0;i<keys.length;i++) {
+            key(R.id.clr);key(R.id.digit_1);key(R.id.digit_2);key(R.id.digit_3);
+            tap(2);key(keys[i]);formula("12"+symbols[i]+"3");caret(3);result(values[i]);
+        }
+        key(R.id.clr);key(R.id.digit_1);key(R.id.digit_2);key(R.id.digit_3);
+        tap(2);key(R.id.op_add);formula("12+3");caret(3);
+        key(R.id.digit_9);formula("12+93");caret(4);result("105");
+    }
     @After public void close() { if (scenario != null) scenario.close(); }
     private void key(int id) { onView(withId(id)).perform(click()); }
     private void input() {

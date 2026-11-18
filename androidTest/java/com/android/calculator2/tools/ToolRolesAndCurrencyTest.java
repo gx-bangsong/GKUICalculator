@@ -200,6 +200,22 @@ public class ToolRolesAndCurrencyTest {
         });
         readOnly(R.id.programmer_value_out);
     }
+    @Test public void currencyArithmeticSymbolsRespectCaret() {
+        int[] keys={R.id.op_add,R.id.op_sub,R.id.op_mul,R.id.op_div};
+        String[] symbols={"+","−","×","÷"};
+        String[] values={"15","9","36","4"};
+        String[] converted={"3.00","1.80","7.20","0.80"};
+        currency();
+        for(int i=0;i<keys.length;i++) {
+            key(R.id.clr);digits("123");tap(2);key(keys[i]);
+            text(R.id.currency_input_text,"12"+symbols[i]+"3");caret(3);
+            text(R.id.currency_result_text,converted[i]);key(R.id.eq);
+            text(R.id.currency_input_text,values[i]);
+        }
+        key(R.id.clr);digits("123");tap(2);key(R.id.op_add);caret(3);
+        digits("9");text(R.id.currency_input_text,"12+93");caret(4);
+        text(R.id.currency_result_text,"21.00");key(R.id.eq);text(R.id.currency_input_text,"105");
+    }
     @Test public void currencyTouchInsertionUpdatesBothControlledResults() {
         currency();tap(1);digits("9");text(R.id.currency_input_text,"1975");caret(2);
         text(R.id.currency_result_text,"395.00");
