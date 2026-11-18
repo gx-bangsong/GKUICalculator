@@ -799,9 +799,11 @@ public class WindowConfigurationTest {
             +" inputPx="+heights[0]+" resultPx="+heights[1]+" "+sample);
     }
     private void representativeLayout(int input,int[] selected,Map<String,String> model,Map<Integer,String> display) {
-        assertSplitUsable();assertSplitInput(input,selected);
+        assertSplitUsable();
+        assertTextReachable(input);
+        assertArrayEquals("selection retained after scrolling to active field",selected,selection(input));
         assertEquals("BMI model",model,modelSnapshot());assertEquals("BMI outputs",display,displaySnapshot());
-        onView(withId(R.id.result)).check(matches(isDisplayed()));
+        assertTextReachable(R.id.formula);assertTextReachable(R.id.result);
         scenario.onActivity(a -> {
             float density=a.getResources().getDisplayMetrics().density;
             for(int id:new int[]{R.id.digit_7,R.id.digit_9,R.id.clr,R.id.eq}) {
@@ -810,6 +812,21 @@ public class WindowConfigurationTest {
                 assertTrue("key must not collapse to a thin strip: "+id+" "+r,
                     r.height()/density>=32&&r.width()/density>=32);
             }
+            Log.i("SplitPhase","MEASURE display="+a.findViewById(R.id.display).getHeight()
+                +" controls="+a.findViewById(R.id.tool_control_slot).getHeight()
+                +" formula="+a.findViewById(R.id.formula).getHeight()+" result="+a.findViewById(R.id.result).getHeight()
+                +" keypad="+a.findViewById(R.id.pad_stack).getHeight());
+        });
+        awaitMotionState(R.id.start_state);
+    }
+    private void assertTextReachable(int id) {
+        onView(withId(id)).perform(androidx.test.espresso.action.ViewActions.scrollTo()).check((view,error) -> {
+            if(error!=null)throw error;
+            TextView text=(TextView)view;Rect visible=new Rect();assertTrue(text.getGlobalVisibleRect(visible));
+            assertNotNull("text layout measured",text.getLayout());
+            int required=text.getLayout().getHeight()+text.getCompoundPaddingTop()+text.getCompoundPaddingBottom();
+            assertTrue("full vertical text measured "+id+" measured="+text.getHeight()+" required="+required,text.getHeight()>=required);
+            assertEquals("text can be fully scrolled into viewport "+id,text.getHeight(),visible.height());
         });
     }
     private static class SplitSample {
