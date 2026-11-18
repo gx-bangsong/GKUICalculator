@@ -869,7 +869,7 @@ public class WindowConfigurationTest {
                 android.widget.ScrollView scroll=(android.widget.ScrollView)ancestor;
                 Rect rect=new Rect(0,0,view.getWidth(),view.getHeight());
                 scroll.offsetDescendantRectToMyCoords(view,rect);
-                scroll.scrollBy(0,rect.top-scroll.getPaddingTop());
+                scroll.scrollTo(scroll.getScrollX(),rect.top-scroll.getPaddingTop());
                 ui.loopMainThreadUntilIdle();
             }
         }).check((view,error) -> {
