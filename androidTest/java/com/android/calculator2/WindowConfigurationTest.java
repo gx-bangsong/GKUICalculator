@@ -1055,7 +1055,15 @@ public class WindowConfigurationTest {
                     &&visible.width()>=Math.min(view.getWidth(),viewport.width())
                     &&visible.top>=viewport.top&&visible.bottom<=viewport.bottom;
             });
-            if(complete[0]) {assertMortgageTextVisible(id);return;}
+            if(complete[0]) {
+                device.waitForIdle(2000);
+                boolean[] stable={false};
+                scenario.onActivity(a -> {
+                    View view=a.findViewById(id);Rect actual=new Rect();view.getGlobalVisibleRect(actual);
+                    stable[0]=actual.top>=viewport.top&&actual.bottom<=viewport.bottom&&actual.height()==view.getHeight();
+                });
+                if(stable[0]) {assertMortgageTextVisible(id);return;}
+            }
             int top=viewport.top+Math.max(8,viewport.height()/6),bottom=viewport.bottom-Math.max(8,viewport.height()/6);
             boolean above=target[0]<viewport.top;
             assertTrue("finger scroll "+id,device.swipe(viewport.right-6,above?top:bottom,
@@ -1079,7 +1087,9 @@ public class WindowConfigurationTest {
     }
     private void fingerTap(int id) {
         fingerFind(id);Rect rect=new Rect();scenario.onActivity(a -> a.findViewById(id).getGlobalVisibleRect(rect));
+        Log.i("MortgageForm","TAP id="+id+" bounds="+rect+" before="+modelSnapshot().get("mEqualPayment"));
         assertTrue(device.click(rect.centerX(),rect.centerY()));
+        device.waitForIdle(2000);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
     private void mortgageEdit(int index,String number) {

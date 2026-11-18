@@ -160,6 +160,9 @@ jobs:
       - name: Publish mortgage short-results evidence
         if: always()
         run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-mortgage-short-results-review.jpg "Mortgage short-results" 0 warning
+      - name: Publish mortgage touch failure evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-mortgage-failure-review.jpg "Mortgage touch failure" 0 warning
       - name: Upload emulator screenshots
         if: always()
         uses: actions/upload-artifact@v6

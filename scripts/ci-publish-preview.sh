@@ -41,7 +41,7 @@ if ((size > 90000)); then
 fi
 
 part=1
-while IFS= read -r chunk; do
+while IFS= read -r chunk || [[ -n "$chunk" ]]; do
     if ((part > skip)) && { [[ "$level" != "warning" ]] || ((part <= skip + 10)); }; then
         echo "::$level title=$label base64 part $part::$chunk"
     fi
