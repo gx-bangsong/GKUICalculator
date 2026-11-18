@@ -1,135 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Mortgage: loan-type + rate-basis chips, then 贷款额 / 利率 + 年限 + 方式 / 加点 + 公积金额 -->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:fillViewport="false"
-    android:scrollbars="vertical">
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- One content scroller is supplied by FieldToolViewport. No nested vertical ScrollView.
+     Every field is a full-width, naturally measured row, including conditional fields. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingTop="@dimen/tool_bar_vertical_padding"
-    android:paddingBottom="@dimen/tool_bar_vertical_padding">
-
-    <LinearLayout
+    android:showDividers="middle"
+    android:divider="?android:attr/listDivider">
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/mortgage_type_group"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/mortgage_type_group"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="2"
-            app:checkedButton="@id/mortgage_type_commercial"
-            app:selectionRequired="true"
-            app:singleSelection="true">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/mortgage_type_commercial"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:minWidth="0dp"
-                app:minWidth="0dp"
-                android:padding="0dp"
-                android:text="@string/tool_mortgage_commercial" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/mortgage_type_fund"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:minWidth="0dp"
-                app:minWidth="0dp"
-                android:padding="0dp"
-                android:text="@string/tool_mortgage_fund" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/mortgage_type_combined"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:minWidth="0dp"
-                app:minWidth="0dp"
-                android:padding="0dp"
-                android:text="@string/tool_mortgage_combined" />
-        </com.google.android.material.button.MaterialButtonToggleGroup>
-
+        app:checkedButton="@id/mortgage_type_commercial"
+        app:selectionRequired="true" app:singleSelection="true">
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/mortgage_basis_toggle"
+            android:id="@+id/mortgage_type_commercial"
             style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:minWidth="0dp"
-            app:minWidth="0dp"
-            android:padding="0dp"
-            android:text="@string/tool_mortgage_benchmark" />
-    </LinearLayout>
-
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:minHeight="44dp"
+            android:minWidth="0dp" app:minWidth="0dp"
+            android:padding="0dp" android:text="@string/tool_mortgage_commercial" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/mortgage_type_fund"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:minHeight="44dp"
+            android:minWidth="0dp" app:minWidth="0dp"
+            android:padding="0dp" android:text="@string/tool_mortgage_fund" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/mortgage_type_combined"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:minHeight="44dp"
+            android:minWidth="0dp" app:minWidth="0dp"
+            android:padding="0dp" android:text="@string/tool_mortgage_combined" />
+    </com.google.android.material.button.MaterialButtonToggleGroup>
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/mortgage_basis_toggle"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:minHeight="44dp" android:text="@string/tool_mortgage_benchmark" />
     <com.android.calculator2.tools.ToolFieldEditText
         android:id="@+id/tool_field_0"
-        style="@style/ToolFieldStyle"
-        android:background="@null"
-        android:inputType="text" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <com.android.calculator2.tools.ToolFieldEditText
-            android:id="@+id/tool_field_1"
-            style="@style/ToolFieldStyle"
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:background="@null"
-            android:inputType="text" />
-
-        <com.android.calculator2.tools.ToolFieldEditText
-            android:id="@+id/tool_field_2"
-            style="@style/ToolFieldStyle"
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:background="@null"
-            android:inputType="text" />
-
-        <TextView
-            android:id="@+id/mortgage_method"
-            style="@style/ToolFieldStyle"
-            android:layout_width="0dp"
-            android:layout_weight="1.4"
-            android:textColor="?colorOnSurfaceVariant" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <com.android.calculator2.tools.ToolFieldEditText
-            android:id="@+id/tool_field_3"
-            style="@style/ToolFieldStyle"
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:background="@null"
-            android:inputType="text"
-            android:visibility="gone" />
-
-        <com.android.calculator2.tools.ToolFieldEditText
-            android:id="@+id/tool_field_4"
-            style="@style/ToolFieldStyle"
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:background="@null"
-            android:inputType="text"
-            android:visibility="gone" />
-    </LinearLayout>
-
+        style="@style/MortgageFieldStyle"
+        android:inputType="textMultiLine" android:singleLine="false"
+        android:scrollHorizontally="false" />
+    <com.android.calculator2.tools.ToolFieldEditText
+        android:id="@+id/tool_field_1"
+        style="@style/MortgageFieldStyle"
+        android:inputType="textMultiLine" android:singleLine="false"
+        android:scrollHorizontally="false" />
+    <com.android.calculator2.tools.ToolFieldEditText
+        android:id="@+id/tool_field_2"
+        style="@style/MortgageFieldStyle"
+        android:inputType="textMultiLine" android:singleLine="false"
+        android:scrollHorizontally="false" />
+    <com.android.calculator2.tools.ToolFieldEditText
+        android:id="@+id/tool_field_3"
+        style="@style/MortgageFieldStyle"
+        android:inputType="textMultiLine" android:singleLine="false"
+        android:scrollHorizontally="false" android:visibility="gone" />
+    <com.android.calculator2.tools.ToolFieldEditText
+        android:id="@+id/tool_field_4"
+        style="@style/MortgageFieldStyle"
+        android:inputType="textMultiLine" android:singleLine="false"
+        android:scrollHorizontally="false" android:visibility="gone" />
+    <TextView android:id="@+id/mortgage_method" style="@style/MortgageFieldStyle"
+        android:textColor="?colorOnSurfaceVariant" />
 </LinearLayout>
-
-</ScrollView>

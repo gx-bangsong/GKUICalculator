@@ -1706,6 +1706,11 @@ public class Calculator extends AppCompatActivity
 
     private FieldToolViewport mFieldToolViewport;
 
+    boolean isMortgageViewport() {
+        return mToolManager!=null&&mToolManager.getActive()!=null
+            &&ToolId.MORTGAGE.equals(mToolManager.getActive().getId());
+    }
+
     private boolean usesFieldToolViewport() {
         if(mToolManager==null||mToolManager.getActive()==null)return false;
         String id=mToolManager.getActive().getId();

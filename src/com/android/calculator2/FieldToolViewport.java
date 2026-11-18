@@ -23,9 +23,15 @@ final class FieldToolViewport {
     private boolean enabled, compact;
     private int compactWidth,compactHeight;
     private ConstraintSet original;
+    private final View inputPad;
+    private final int inputPaddingLeft,inputPaddingRight;
+    private boolean mortgage;
 
     FieldToolViewport(Calculator a) {
         activity=a;motion=a.findViewById(R.id.main_calculator);
+        inputPad=a.findViewById(R.id.input_pad);
+        inputPaddingLeft=inputPad.getPaddingLeft();inputPaddingRight=inputPad.getPaddingRight();
+        mortgage=a.isMortgageViewport();
         display=a.findViewById(R.id.display);content=a.findViewById(R.id.tool_display_content);
         toolbar=a.findViewById(R.id.toolbar);shared=a.findViewById(R.id.shared_display_rows);
         formula=a.findViewById(R.id.formula_scroll_view);result=a.findViewById(R.id.result);
@@ -47,9 +53,14 @@ final class FieldToolViewport {
         if(value==enabled) {if(value)motion.post(this::fitShortWindow);return;}
         enabled=value;
         if(value) {
+            mortgage=activity.isMortgageViewport();
             viewport=new ScrollView(activity);
             viewport.setTag("field_tool_viewport");
             viewport.setFillViewport(false);
+            viewport.setVerticalScrollBarEnabled(true);
+            viewport.setScrollbarFadingEnabled(false);
+            viewport.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
+            viewport.setContentDescription(mortgage?"房贷表单和结果，可上下滚动":null);
             viewport.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
             LinearLayout body=new LinearLayout(activity);body.setOrientation(LinearLayout.VERTICAL);
             display.removeView(toolbar);display.removeView(content);
@@ -73,6 +84,7 @@ final class FieldToolViewport {
             shared.setVisibility(View.VISIBLE);
             if(compact&&original!=null)motion.updateState(R.id.start_state,original);
             compact=false;
+            inputPad.setPadding(inputPaddingLeft,inputPad.getPaddingTop(),inputPaddingRight,inputPad.getPaddingBottom());
         }
     }
 
@@ -100,17 +112,35 @@ final class FieldToolViewport {
         int stackedPadHeight=Math.round(contentHeight*ratio.getFloat());
         boolean needsCompact=stackedPadHeight<minimumPad
             ||contentHeight<minimumPad+modeBar.getHeight()+line+handle;
-        View inputPad=activity.findViewById(R.id.input_pad);
         int horizontalMargin=activity.getResources().getDimensionPixelSize(R.dimen.button_horizontal_margin);
         // ConstraintLayout's edge guidelines also consume the pad's start/end inset.
         // Budget the edge columns, not just four bare button widths.
         int edgeInset=Math.max(inputPad.getPaddingLeft(),inputPad.getPaddingRight());
         int keyboardWidth=Math.max(contentWidth/2,4*(Math.round(40*density)+2*horizontalMargin+edgeInset)+2*edgeInset);
-        boolean roomForColumns=contentWidth-keyboardWidth>=Math.round(140*density);
+        int requiredFormWidth=Math.round(140*density);
+        if(mortgage) {
+            // Reserve the full labels/values and method label at their actual font size.
+            // The same form remains full-width above the keypad when the window is tall.
+            requiredFormWidth=0;
+            for(int id:new int[]{R.id.tool_field_0,R.id.tool_field_1,R.id.tool_field_2,
+                    R.id.tool_field_3,R.id.tool_field_4,R.id.mortgage_method}) {
+                android.widget.TextView field=activity.findViewById(id);
+                if(field!=null&&field.getVisibility()==View.VISIBLE) {
+                    int width=(int)Math.ceil(android.text.Layout.getDesiredWidth(field.getText(),field.getPaint()))
+                        +field.getPaddingLeft()+field.getPaddingRight();
+                    requiredFormWidth=Math.max(requiredFormWidth,width);
+                }
+            }
+            // Remove only surplus outside keypad gutters, not key targets or label sizes.
+            keyboardWidth=4*(Math.round(40*density)+2*horizontalMargin);
+        }
+        boolean roomForColumns=contentWidth-keyboardWidth>=requiredFormWidth;
         boolean target=needsCompact&&roomForColumns;
         int barHeight=activity.getResources().getDimensionPixelSize(R.dimen.mode_segment_height)
             +modeBar.getPaddingTop()+modeBar.getPaddingBottom();
         int availableHeight=contentHeight-barHeight;
+        if(mortgage)inputPad.setPadding(target?0:inputPaddingLeft,inputPad.getPaddingTop(),
+            target?0:inputPaddingRight,inputPad.getPaddingBottom());
         if(target==compact&&(!target||(keyboardWidth==compactWidth&&availableHeight==compactHeight)))return;
         if(original==null) {original=new ConstraintSet();original.clone(motion.getConstraintSet(R.id.start_state));}
         ConstraintSet state=new ConstraintSet();state.clone(original);
