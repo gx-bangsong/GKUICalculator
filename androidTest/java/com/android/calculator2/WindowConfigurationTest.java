@@ -992,18 +992,7 @@ public class WindowConfigurationTest {
             assertTrue(half.toString(),half.verifiedCompanion());
             Log.i("MortgageForm","half "+half);
             mortgageTouchSequence("half");
-            // Every applicable conditional field, not just one prepared active field.
-            fingerTap(R.id.mortgage_type_combined);fingerTap(R.id.mortgage_basis_toggle);
-            assertEquals("2",modelSnapshot().get("mLoanType"));
-            assertEquals("true",modelSnapshot().get("mLprBasis"));
-            mortgageEdit(3,"25");mortgageEdit(4,"300000");mortgageEdit(1,"3.5");
-            fingerTap(R.id.mortgage_type_fund);
-            assertEquals("1",modelSnapshot().get("mLoanType"));
-            mortgageEdit(1,"3.1");
-            Log.i("MortgageForm","CONDITIONAL_TYPES_PASS commercial/combined/fund LPR/spread/fund-amount/fund-rate");
-            fingerTap(R.id.mortgage_type_commercial);
-            // Return to benchmark for a second whole sequence in the SAME resized task.
-            if("true".equals(modelSnapshot().get("mLprBasis")))fingerTap(R.id.mortgage_basis_toggle);
+            mortgageConditionalTypes("half");
             Map<String,String> before=modelSnapshot();Map<Integer,String> outputs=displaySnapshot();
             Rect divider=verifiedDivider();
             assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),device.getDisplayHeight()/3,60));
@@ -1012,6 +1001,7 @@ public class WindowConfigurationTest {
             assertEquals(before,modelSnapshot());assertEquals(outputs,displaySnapshot());
             Log.i("MortgageForm","short "+shortWindow);
             mortgageTouchSequence("short");
+            mortgageConditionalTypes("short");
         } catch(Throwable failure) {issues.add(failure);evidence("mortgage-failure");}
         finally {
             try {
@@ -1028,6 +1018,20 @@ public class WindowConfigurationTest {
             if(first instanceof Exception)throw (Exception)first;
             if(first instanceof Error)throw (Error)first;
         }
+    }
+    private void mortgageConditionalTypes(String stage) {
+        // Every applicable conditional field, not just one prepared active field.
+        fingerTap(R.id.mortgage_type_combined);fingerTap(R.id.mortgage_basis_toggle);
+        assertEquals("2",modelSnapshot().get("mLoanType"));
+        assertEquals("true",modelSnapshot().get("mLprBasis"));
+        mortgageEdit(3,"25");mortgageEdit(4,"300000");mortgageEdit(1,"3.5");
+        fingerTap(R.id.mortgage_type_fund);
+        assertEquals("1",modelSnapshot().get("mLoanType"));
+        mortgageEdit(1,"3.1");
+        Log.i("MortgageForm",stage+" CONDITIONAL_TYPES_PASS commercial/combined/fund LPR/spread/fund-amount/fund-rate");
+        fingerTap(R.id.mortgage_type_commercial);
+        // Return to benchmark for a second whole sequence in the SAME resized task.
+        if("true".equals(modelSnapshot().get("mLprBasis")))fingerTap(R.id.mortgage_basis_toggle);
     }
     private void mortgageTouchSequence(String stage) throws Exception {
         mortgageEdit(0,"1200000");evidence("mortgage-"+stage+"-core");
