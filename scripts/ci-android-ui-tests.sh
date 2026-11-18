@@ -113,9 +113,10 @@ split_scope=${SPLIT_SCOPE:-representative}
 export SPLIT_SCOPE="$split_scope"
 runner_scope=()
 runner_classes="com.android.calculator2.WindowConfigurationTest,com.android.calculator2.tools.ToolRolesAndCurrencyTest,com.android.calculator2.CalculatorFormulaCursorTest,com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest,com.android.calculator2.tools.UnitInputCursorTest"
-if [[ "$split_scope" == "bmi-only" ]]; then
-    runner_classes="com.android.calculator2.WindowConfigurationTest#bmiSurvivesRealSplitAndResize"
-    echo "::notice title=Split execution scope::One BMI diagnostic only; no regression or eight-tool expansion claimed."
+if [[ "$split_scope" == "bmi-only" || "$split_scope" == "mortgage-only" ]]; then
+    tool=${split_scope%-only}
+    runner_classes="com.android.calculator2.WindowConfigurationTest#${tool}SurvivesRealSplitAndResize"
+    echo "::notice title=Split execution scope::One $tool diagnostic only; remaining acceptance and regression deferred, not passed."
 fi
 if [[ "$split_scope" == "representative" ]]; then
     excluded=""
@@ -366,9 +367,10 @@ if os.environ.get("SPLIT_SCOPE", "representative") == "representative":
     required[key] = [n for n in required[key] if n not in deferred]
     print("DEFERRED expansion (not executed, not passes): " + ", ".join(deferred))
 
-if os.environ.get("SPLIT_SCOPE") == "bmi-only":
-    print("DIAGNOSTIC ONLY: 1 BMI method; remaining acceptance and regression deferred, not passes")
-    required = {"com.android.calculator2.WindowConfigurationTest": ["bmiSurvivesRealSplitAndResize"]}
+if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only"):
+    tool = os.environ["SPLIT_SCOPE"].split("-")[0]
+    print("DIAGNOSTIC ONLY: 1 " + tool + " method; remaining acceptance and regression deferred, not passes")
+    required = {"com.android.calculator2.WindowConfigurationTest": [tool + "SurvivesRealSplitAndResize"]}
 
 
 executed = {}
@@ -599,9 +601,10 @@ if os.environ.get("SPLIT_SCOPE", "representative") == "representative":
     required[key] = [n for n in required[key] if n not in deferred]
     print("DEFERRED expansion (not executed, not passes): " + ", ".join(deferred))
 
-if os.environ.get("SPLIT_SCOPE") == "bmi-only":
-    print("DIAGNOSTIC ONLY: 1 BMI method; remaining acceptance and regression deferred, not passes")
-    required = {"com.android.calculator2.WindowConfigurationTest": ["bmiSurvivesRealSplitAndResize"]}
+if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only"):
+    tool = os.environ["SPLIT_SCOPE"].split("-")[0]
+    print("DIAGNOSTIC ONLY: 1 " + tool + " method; remaining acceptance and regression deferred, not passes")
+    required = {"com.android.calculator2.WindowConfigurationTest": [tool + "SurvivesRealSplitAndResize"]}
 
 
 executed = {}
@@ -810,7 +813,7 @@ if [[ ! -s build/ui-screenshots/calculator-default.png ]]; then
     fi
 fi
 
-if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$default_screenshot_is_from_test" != true ]]; then
+if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$split_scope" != "mortgage-only" && "$default_screenshot_is_from_test" != true ]]; then
     test_result=1
     echo "::error title=Missing test-generated screenshot::The selected screenshot test passed without saving calculator-default.png."
 fi
