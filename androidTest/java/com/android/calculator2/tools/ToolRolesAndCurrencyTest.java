@@ -162,7 +162,7 @@ public class ToolRolesAndCurrencyTest {
     }
     @Test public void programmerLongBinaryOutputIsCompleteAndCopyable() {
         tool(R.string.tool_programmer);key(R.id.clr);digits("9223372036854775807");
-        text(R.id.programmer_value_out,"7FFFFFFFFFFFFFFF");
+        text(R.id.programmer_value_out,"7FFFFFFFFFFFFFFF");readOnly(R.id.programmer_value_out);
         key(R.id.programmer_chip_out);key(R.id.programmer_chip_out);
         String binary=new String(new char[63]).replace('\0','1');
         text(R.id.programmer_value_out,binary);

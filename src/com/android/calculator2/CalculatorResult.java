@@ -56,6 +56,11 @@ public class CalculatorResult extends AlignedTextView implements MenuItem.OnMenu
     private Evaluator mEvaluator;
     private boolean mScrollable = false;
                             // A scrollable result is currently displayed.
+    // These shared numeric displays change between input and selectable output buffers.
+    // A retained Android SpellChecker session assumes Editable even after that transition
+    // (SpellParser.stop casts on detach). Math/relationship tokens need no spelling service.
+    @Override public boolean isSuggestionsEnabled() { return false; }
+
     private boolean mToolOutput;
 
     public void setToolOutput(boolean toolOutput) {

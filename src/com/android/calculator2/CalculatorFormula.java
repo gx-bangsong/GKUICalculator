@@ -36,6 +36,11 @@ import com.android.calculator2.tools.model.ChineseNumerals;
 public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMenuItemClickListener,
         ClipboardManager.OnPrimaryClipChangedListener {
 
+    // These shared numeric displays change between input and selectable output buffers.
+    // A retained Android SpellChecker session assumes Editable even after that transition
+    // (SpellParser.stop casts on detach). Math/relationship tokens need no spelling service.
+    @Override public boolean isSuggestionsEnabled() { return false; }
+
     public static final String TAG_ACTION_MODE = "ACTION_MODE";
 
     // Temporary paint for use in layout methods.
