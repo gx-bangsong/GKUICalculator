@@ -64,7 +64,8 @@ final class FieldToolViewport {
                         // TextView's caret-only request can leave the field's last few pixels
                         // behind the handle. Keep the whole focused row visible, without ever
                         // requesting focus, changing its selection, or jumping to a result.
-                        android.graphics.Rect row=new android.graphics.Rect(0,0,focused.getWidth(),focused.getHeight());
+                        android.graphics.Rect row=new android.graphics.Rect(focused.getScrollX(),focused.getScrollY(),
+                            focused.getScrollX()+focused.getWidth(),focused.getScrollY()+focused.getHeight());
                         ((ViewGroup)child).offsetDescendantRectToMyCoords(focused,row);
                         return super.requestChildRectangleOnScreen(child,row,true);
                     }

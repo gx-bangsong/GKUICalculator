@@ -1215,11 +1215,13 @@ public class WindowConfigurationTest {
         } catch(Throwable failure) {issues.add(failure);evidence("mortgage-position-failure");}
         finally {
             try {
+                MortgageWindowCheckpoint checkpoint=new MortgageWindowCheckpoint();
                 if(splitSample().multi) {
                     Rect divider=verifiedDivider();boolean bottom=splitSample().app.top>splitSample().other.top;
                     assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),bottom?1:device.getDisplayHeight()-1,90));
                 }
-                logPosition("EXIT_PASS",stableSample(false,null));
+                SplitSample full=stableSample(false,null);checkpoint.verify();
+                logPosition("EXIT_PASS",full);
             } catch(Throwable failure) {issues.add(failure);Log.i("MortgagePosition","EXIT_FAIL "+failure);}
         }
         if(!issues.isEmpty()) {
