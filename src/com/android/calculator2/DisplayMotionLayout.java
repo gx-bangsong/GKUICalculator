@@ -47,7 +47,8 @@ public class DisplayMotionLayout extends MotionLayout {
             case MotionEvent.ACTION_POINTER_DOWN:
                 // Protect interactions INSIDE the tool controls, not the entire display.
                 // The history handle is a sibling below that slot and must still start a drag.
-                View controlSlot = findViewById(R.id.tool_control_slot);
+                View controlSlot = findViewWithTag("field_tool_viewport");
+                if(controlSlot==null)controlSlot=findViewById(R.id.tool_control_slot);
                 Rect controls = new Rect();
                 if (controlSlot != null && controlSlot.getVisibility() == View.VISIBLE
                         && controlSlot.getGlobalVisibleRect(controls)

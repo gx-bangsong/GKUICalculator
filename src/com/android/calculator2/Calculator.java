@@ -1704,6 +1704,14 @@ public class Calculator extends AppCompatActivity
         return extractNumber(value);
     }
 
+    private FieldToolViewport mFieldToolViewport;
+
+    private boolean usesFieldToolViewport() {
+        if(mToolManager==null||mToolManager.getActive()==null)return false;
+        String id=mToolManager.getActive().getId();
+        return ToolId.BMI.equals(id)||ToolId.MORTGAGE.equals(id);
+    }
+
     /** These modes render all meaningful content inside tool_control_slot. */
     private boolean panelOwnsDisplayRows() {
         return mToolManager != null && mToolManager.getActive() != null
@@ -1714,6 +1722,7 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void prepareForToolDisplay() {
+        if(mFieldToolViewport!=null)mFieldToolViewport.setEnabled(false);
         // CalculatorResult normally asks the evaluator to run again after every layout. Tool
         // setup changes its size and padding, so disable that request before touching the view;
         // otherwise a pending (not-yet-equals) calculator result can be redrawn over the tool.
@@ -1762,10 +1771,15 @@ public class Calculator extends AppCompatActivity
         mFormulaContainer.setVisibility(sharedVisibility);
         mFormulaText.setVisibility(sharedVisibility);
         mResultText.setVisibility(sharedVisibility);
+        if(usesFieldToolViewport()) {
+            if(mFieldToolViewport==null)mFieldToolViewport=new FieldToolViewport(this);
+            mFieldToolViewport.setEnabled(true);
+        }
     }
 
     @Override
     public void restoreCalculatorDisplay() {
+        if(mFieldToolViewport!=null)mFieldToolViewport.setEnabled(false);
         mFormulaText.removeTextChangedListener(mFormulaTextWatcher);
         mFormulaText.addTextChangedListener(mFormulaTextWatcher);
         mFormulaText.setInputEnabled(true);
