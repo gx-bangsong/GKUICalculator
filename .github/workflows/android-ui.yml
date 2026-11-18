@@ -127,42 +127,6 @@ jobs:
         if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
         run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 20 warning
 
-      - name: Prepare readable mortgage evidence previews
-        if: always()
-        run: |
-          python3 -m pip install --quiet Pillow
-          python3 - <<'PYIMAGE'
-          from pathlib import Path
-          from PIL import Image
-          for path in Path('build/ui-screenshots').glob('window-mortgage-*.png'):
-              image=Image.open(path).convert('RGB')
-              image.thumbnail((480,1014))
-              dest=path.with_name(path.stem+'-review.jpg')
-              for quality in (80,70,60,50,40,30,20):
-                  image.save(dest,quality=quality,optimize=True)
-                  if dest.stat().st_size < 16500: break
-          PYIMAGE
-      - name: Publish mortgage full-core evidence
-        if: always()
-        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-mortgage-full-core-review.jpg "Mortgage full-core" 0 warning
-      - name: Publish mortgage half-core evidence
-        if: always()
-        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-mortgage-half-core-review.jpg "Mortgage half-core" 0 warning
-      - name: Publish mortgage half-years evidence
-        if: always()
-        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-mortgage-half-years-review.jpg "Mortgage half-years" 0 warning
-      - name: Publish mortgage half-results evidence
-        if: always()
-        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-mortgage-half-results-review.jpg "Mortgage half-results" 0 warning
-      - name: Publish mortgage short-core evidence
-        if: always()
-        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-mortgage-short-core-review.jpg "Mortgage short-core" 0 warning
-      - name: Publish mortgage short-results evidence
-        if: always()
-        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-mortgage-short-results-review.jpg "Mortgage short-results" 0 warning
-      - name: Publish mortgage touch failure evidence
-        if: always()
-        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-mortgage-failure-review.jpg "Mortgage touch failure" 0 warning
       - name: Upload emulator screenshots
         if: always()
         uses: actions/upload-artifact@v6
@@ -178,3 +142,54 @@ jobs:
             build/reports/androidTests/connected/debug/**
           if-no-files-found: warn
           retention-days: 14
+
+  mortgage-evidence:
+    name: Mortgage scroll-position screenshots
+    needs: emulator-ui
+    if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'mortgage-only') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v6
+        with:
+          name: calculator-ui-screenshots
+          path: evidence
+      - name: Prepare readable mortgage evidence previews
+        if: always()
+        run: |
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PYIMAGE'
+          from pathlib import Path
+          from PIL import Image
+          for path in Path('evidence/ui-screenshots').glob('window-mortgage-*.png'):
+              image=Image.open(path).convert('RGB')
+              image.thumbnail((480,1014))
+              dest=path.with_name(path.stem+'-review.jpg')
+              for quality in (80,70,60,50,40,30,20):
+                  image.save(dest,quality=quality,optimize=True)
+                  if dest.stat().st_size < 16500: break
+          PYIMAGE
+      - name: Publish mortgage full-core evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-full-core-review.jpg "Mortgage full-core" 0 warning
+      - name: Publish mortgage half-core evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-half-core-review.jpg "Mortgage half-core" 0 warning
+      - name: Publish mortgage half-years evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-half-years-review.jpg "Mortgage half-years" 0 warning
+      - name: Publish mortgage half-results evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-half-results-review.jpg "Mortgage half-results" 0 warning
+      - name: Publish mortgage short-core evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-short-core-review.jpg "Mortgage short-core" 0 warning
+      - name: Publish mortgage short-years evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-short-years-review.jpg "Mortgage short-years" 0 warning
+      - name: Publish mortgage short-results evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-short-results-review.jpg "Mortgage short-results" 0 warning
+      - name: Publish mortgage touch failure evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-failure-review.jpg "Mortgage touch failure" 0 warning

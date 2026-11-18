@@ -1000,6 +1000,7 @@ public class WindowConfigurationTest {
             fingerTap(R.id.mortgage_type_fund);
             assertEquals("1",modelSnapshot().get("mLoanType"));
             mortgageEdit(1,"3.1");
+            Log.i("MortgageForm","CONDITIONAL_TYPES_PASS commercial/combined/fund LPR/spread/fund-amount/fund-rate");
             fingerTap(R.id.mortgage_type_commercial);
             // Return to benchmark for a second whole sequence in the SAME resized task.
             if("true".equals(modelSnapshot().get("mLprBasis")))fingerTap(R.id.mortgage_basis_toggle);
@@ -1039,7 +1040,7 @@ public class WindowConfigurationTest {
         mortgageFingerCopy(R.id.formula);mortgageFingerCopy(R.id.result);
         mortgageEdit(1,"4.1");
         assertSplitUsable();
-        Log.i("MortgageForm",stage+" ALL_CORE_FIELDS_TOUCH_EDIT_METHOD_COPY_RETURN_RATE_PASS "+modelSnapshot());
+        Log.i("MortgageForm",stage+" ALL_CORE_FIELDS_TOUCH_EDIT_METHOD_COPY_RETURN_RATE_PASS active="+modelSnapshot().get("activeField")+" rate="+modelSnapshot().get("field1"));
     }
     private Rect mortgageViewport() {
         Rect rect=new Rect();scenario.onActivity(a -> assertTrue(a.findViewById(R.id.main_calculator)
