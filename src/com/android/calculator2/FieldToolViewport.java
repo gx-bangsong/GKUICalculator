@@ -18,7 +18,7 @@ final class FieldToolViewport {
     private final View toolbar, shared, formula, result, formulaText, pad, modeBar;
     private final ViewGroup sharedParent;
     private final ViewGroup.LayoutParams toolbarParams, contentParams, formulaParams, resultParams;
-    private final int formulaHeight;
+    private final int formulaHeight,formulaContainerMinimum;
     private ScrollView viewport;
     private boolean enabled, compact;
     private int compactWidth,compactHeight;
@@ -34,6 +34,7 @@ final class FieldToolViewport {
         toolbarParams=toolbar.getLayoutParams();contentParams=content.getLayoutParams();
         formulaParams=formula.getLayoutParams();resultParams=result.getLayoutParams();
         formulaHeight=formulaText.getLayoutParams().height;
+        formulaContainerMinimum=formula.getMinimumHeight();
         display.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> {
             if(enabled)motion.post(this::fitShortWindow);
         });
@@ -64,6 +65,7 @@ final class FieldToolViewport {
         } else {
             content.removeView(formula);content.removeView(result);
             sharedParent.addView(formula,formulaParams);sharedParent.addView(result,resultParams);
+            formula.setMinimumHeight(formulaContainerMinimum);
             ViewGroup.LayoutParams textParams=formulaText.getLayoutParams();textParams.height=formulaHeight;formulaText.setLayoutParams(textParams);
             ((ViewGroup)toolbar.getParent()).removeView(toolbar);((ViewGroup)content.getParent()).removeView(content);
             display.removeView(viewport);viewport=null;
@@ -80,6 +82,10 @@ final class FieldToolViewport {
      */
     private void fitShortWindow() {
         if(!enabled||motion.getWidth()==0||motion.getCurrentState()!=R.id.start_state)return;
+        // HorizontalScrollView can retain a viewport from the previous text measurement.
+        // Its vertical viewport must accommodate the entire naturally measured text child.
+        int textHeight=formulaText.getMeasuredHeight()+formula.getPaddingTop()+formula.getPaddingBottom();
+        if(formula.getMinimumHeight()<textHeight)formula.setMinimumHeight(textHeight);
         float density=activity.getResources().getDisplayMetrics().density;
         int margin=activity.getResources().getDimensionPixelSize(R.dimen.button_vertical_margin);
         int minimumPad=5*(Math.round(32*density)+2*margin);

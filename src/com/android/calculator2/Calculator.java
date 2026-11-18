@@ -2111,8 +2111,8 @@ public class Calculator extends AppCompatActivity
             mResultText.setGravity(Gravity.BOTTOM | Gravity.END);
             if (params instanceof LinearLayout.LayoutParams) {
                 final LinearLayout.LayoutParams linear = (LinearLayout.LayoutParams) params;
-                linear.height = 0;
-                linear.weight = 1f;
+                linear.height = usesFieldToolViewport() ? LinearLayout.LayoutParams.WRAP_CONTENT : 0;
+                linear.weight = usesFieldToolViewport() ? 0f : 1f;
             }
         }
         mResultText.setLayoutParams(params);
