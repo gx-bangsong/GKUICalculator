@@ -212,6 +212,9 @@ public class ToolRolesAndCurrencyTest {
             text(R.id.currency_result_text,converted[i]);key(R.id.eq);
             text(R.id.currency_input_text,values[i]);
         }
+        key(R.id.clr);digits("12");key(R.id.op_add);digits("3");select(2,3);
+        key(R.id.op_mul);text(R.id.currency_input_text,"12×3");caret(3);
+        text(R.id.currency_result_text,"7.20");
         key(R.id.clr);digits("123");tap(2);key(R.id.op_add);caret(3);
         digits("9");text(R.id.currency_input_text,"12+93");caret(4);
         text(R.id.currency_result_text,"21.00");key(R.id.eq);text(R.id.currency_input_text,"105");

@@ -97,6 +97,12 @@ public class UnitInputCursorTest {
             onView(withId(R.id.eq)).perform(click());
             onView(withId(R.id.unit_input_text)).check(matches(withText(values[i])));
         }
+        onView(withId(R.id.clr)).perform(click());digits("12");
+        onView(withId(R.id.op_add)).perform(click());digits("3");
+        scenario.onActivity(a -> Selection.setSelection(((EditText)a.findViewById(R.id.unit_input_text)).getText(),2,3));
+        onView(withId(R.id.op_mul)).perform(click());
+        onView(withId(R.id.unit_input_text)).check(matches(withText("12×3")));caret(3);
+        onView(withId(R.id.unit_result_text)).check(matches(withText("36000")));
         onView(withId(R.id.clr)).perform(click());digits("123");tapAt(2);
         onView(withId(R.id.op_add)).perform(click());caret(3);digits("9");caret(4);
         onView(withId(R.id.unit_input_text)).check(matches(withText("12+93")));
