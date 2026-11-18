@@ -1639,7 +1639,7 @@ public class Calculator extends AppCompatActivity
     public void setToolResult(@NonNull CharSequence text) {
         Log.d("ToolDebug", "setToolResult: [" + text + "] len=" + text.length()
                 + " resultTextSize(px)=" + mResultText.getTextSize());
-        if (mIsOneLine && !unitOwnsDisplayRows()) {
+        if (mIsOneLine && !panelOwnsDisplayRows()) {
             mResultText.setVisibility(View.VISIBLE);
         }
         mLastToolResult = text;
@@ -1681,10 +1681,12 @@ public class Calculator extends AppCompatActivity
         return extractNumber(value);
     }
 
-    /** Units render input and both results inside tool_control_slot, not the shared rows. */
-    private boolean unitOwnsDisplayRows() {
+    /** These modes render all meaningful content inside tool_control_slot. */
+    private boolean panelOwnsDisplayRows() {
         return mToolManager != null && mToolManager.getActive() != null
-                && ToolId.UNIT.equals(mToolManager.getActive().getId());
+                && (ToolId.UNIT.equals(mToolManager.getActive().getId())
+                || ToolId.CURRENCY.equals(mToolManager.getActive().getId())
+                || ToolId.PROGRAMMER.equals(mToolManager.getActive().getId()));
     }
 
     @Override
@@ -1727,7 +1729,8 @@ public class Calculator extends AppCompatActivity
         mFormulaText.changeTextTo("");
         // Empty text is not enough: these selectable shared views still own an Editor and
         // can draw a caret below the converter. Do not disable touch/selection globally.
-        final int sharedVisibility = unitOwnsDisplayRows() ? View.GONE : View.VISIBLE;
+        final int sharedVisibility = panelOwnsDisplayRows() ? View.GONE : View.VISIBLE;
+        findViewById(R.id.shared_display_rows).setVisibility(sharedVisibility);
         mFormulaContainer.setVisibility(sharedVisibility);
         mFormulaText.setVisibility(sharedVisibility);
         mResultText.setVisibility(sharedVisibility);
@@ -1737,6 +1740,7 @@ public class Calculator extends AppCompatActivity
     public void restoreCalculatorDisplay() {
         mFormulaText.setInputEnabled(true);
         mResultText.setToolOutput(false);
+        findViewById(R.id.shared_display_rows).setVisibility(View.VISIBLE);
         // Restore explicitly even when setState(INPUT) is a no-op (already in INPUT).
         mFormulaContainer.setVisibility(View.VISIBLE);
         mFormulaText.setVisibility(View.VISIBLE);

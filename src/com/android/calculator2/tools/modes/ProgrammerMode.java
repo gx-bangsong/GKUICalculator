@@ -359,11 +359,15 @@ public final class ProgrammerMode implements ToolMode {
         if (mHost == null) {
             return;
         }
-        mHost.setToolFormula(mExpression);
-        mHost.setToolResult(mError == null ? mEntry : mError);
+        mHost.setToolFormula("");
+        mHost.setToolResult("");
         if (mControlRoot == null) {
             return;
         }
+        final TextView status = mControlRoot.findViewById(R.id.programmer_status);
+        String statusText = mError != null ? mError : mExpression;
+        status.setText(statusText);
+        status.setVisibility(statusText.isEmpty() ? View.GONE : View.VISIBLE);
         final long value = mError == null ? currentValue() : 0L;
         final TextView valueIn = mControlRoot.findViewById(R.id.programmer_value_in);
         if (valueIn != null) {

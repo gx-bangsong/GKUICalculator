@@ -20,17 +20,23 @@
         android:baselineAligned="false"
         android:orientation="horizontal">
 
-        <com.android.calculator2.tools.ToolFieldEditText
-            android:id="@+id/programmer_value_in"
+        <HorizontalScrollView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:fillViewport="true"
+            android:scrollbars="horizontal">
+        <com.android.calculator2.tools.ToolFieldEditText
+            android:id="@+id/programmer_value_in"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:background="@null"
-            android:ellipsize="end"
-            android:maxLines="1"
+            android:singleLine="true"
+            android:scrollHorizontally="true"
             android:inputType="text"
             android:textAppearance="?attr/textAppearanceTitleMedium"
             android:textIsSelectable="true" />
+        </HorizontalScrollView>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/programmer_chip_in"
@@ -47,18 +53,24 @@
         android:baselineAligned="false"
         android:orientation="horizontal">
 
-        <com.android.calculator2.tools.ToolOutputTextView
-            android:id="@+id/programmer_value_out"
+        <HorizontalScrollView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:fillViewport="true"
+            android:scrollbars="horizontal">
+        <com.android.calculator2.tools.ToolOutputTextView
+            android:id="@+id/programmer_value_out"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:background="@null"
-            android:ellipsize="end"
-            android:maxLines="1"
+            android:singleLine="true"
+            android:scrollHorizontally="true"
             android:cursorVisible="false"
             android:textAppearance="?attr/textAppearanceTitleMedium"
             android:textColor="?colorOnSurfaceVariant"
             android:textIsSelectable="true" />
+        </HorizontalScrollView>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/programmer_chip_out"
@@ -69,7 +81,14 @@
             android:text="@string/programmer_hex" />
     </LinearLayout>
 
-    <TextView
+    <com.android.calculator2.tools.ToolOutputTextView
+        android:id="@+id/programmer_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+    <com.android.calculator2.tools.ToolOutputTextView
         android:id="@+id/programmer_width_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
