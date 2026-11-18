@@ -99,6 +99,10 @@ done
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent KEYCODE_WAKEUP || true
 
+# Retain early field-edit events until the full regression finishes, for the separate
+# BMI selection investigation. This changes logging only, not focus or selection behavior.
+adb logcat -G 16M || true
+
 # Run the whole instrumented class, not just the screenshot method: the geometry and mode-pill
 # guards (pillShowsEveryToolWithoutScrolling, scientificPadDoesNotMoveDisplay, ...) only protect
 # the UI if they actually execute on the emulator.
@@ -109,6 +113,16 @@ else
     test_result=$?
 fi
 cat "$log_file"
+if ((test_result != 0)); then
+    adb logcat -d -v threadtime FieldToolMode:D '*:S' > build/field-cursor-diagnostic.log || true
+    # Report the actual selection received with the first digit replacing BMI's default.
+    # Keep these separate from the display-row failure/validation annotations.
+    while IFS= read -r line; do
+        safe=${line//%/%25}
+        safe=${safe//$'\r'/%0D}
+        echo "::notice title=BMI default replacement trace::$safe"
+    done < <(grep "onDigit:.*value='175'" build/field-cursor-diagnostic.log | head -n 12 || true)
+fi
 connected_seconds=$((SECONDS-phase_start))
 echo "::notice title=Phase duration::connectedDebugAndroidTest phase (build + install + 26 tests) took ${connected_seconds}s"
 
