@@ -273,7 +273,7 @@ public class WindowConfigurationTest {
         });
         int[] before=selection(R.id.tool_field_1);
         Map<String,String> model=modelSnapshot();
-        String result=displaySnapshot().get(R.id.result);
+        String result=displaySnapshot().get(R.id.formula);
         device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
         assertArrayEquals(before,selection(R.id.tool_field_1));
         digits("9");
@@ -281,7 +281,14 @@ public class WindowConfigurationTest {
         assertEquals("193",after.get("field1"));
         assertEquals("active field retained",model.get("activeField"),after.get("activeField"));
         assertEquals("other field unchanged",model.get("field0"),after.get("field0"));
-        assertNotEquals("BMI recomputed",result,displaySnapshot().get(R.id.result));
+        assertNotEquals("numeric BMI recomputed",result,displaySnapshot().get(R.id.formula));
+        scenario.onActivity(a -> {
+            java.math.BigDecimal height=new java.math.BigDecimal(after.get("field0"));
+            com.android.calculator2.tools.model.BmiCalculator.Result computed=
+                com.android.calculator2.tools.model.BmiCalculator.compute(height,new java.math.BigDecimal("193"),
+                    new java.math.MathContext(10,java.math.RoundingMode.HALF_UP));
+            assertTrue(((TextView)a.findViewById(R.id.formula)).getText().toString().contains(computed.bmi.toPlainString()));
+        });
     }
     @Test public void toolGesturesDoNotOpenHistory() throws Exception {
         key(R.id.mode_segment_convert);
@@ -306,22 +313,40 @@ public class WindowConfigurationTest {
             TextView v=a.findViewById(R.id.unit_result_text);
             assertTrue("output remains selectable for copy",v.getSelectionStart()!=v.getSelectionEnd());
         });
-        onView(withId(android.R.id.copy)).perform(click());
+        // Floating toolbar lives in a separate window; locate the real system action there.
+        String copyLabel=InstrumentationRegistry.getInstrumentation().getTargetContext().getString(android.R.string.copy);
+        androidx.test.uiautomator.UiObject2 copy=device.wait(
+            androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text(copyLabel)),5000);
+        assertNotNull("system floating Copy action",copy);copy.click();
         awaitMotionState(R.id.start_state);
         scenario.onActivity(a -> {
             android.content.ClipboardManager cb=(android.content.ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE);
             assertTrue("real copy populated clipboard",cb.hasPrimaryClip());
         });
+        // Let Android's clipboard overlay disappear before touching tool controls.
+        SystemClock.sleep(7000);
+        device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
         // Vertical scroll starts inside tool content, not from the handle.
+        int[] initialScroll={0};
+        scenario.onActivity(a -> initialScroll[0]=converterScroll(a).getScrollY());
         scenario.onActivity(a -> {
             Rect r=new Rect();assertTrue(a.findViewById(R.id.tool_control_slot).getGlobalVisibleRect(r));
             rect[0]=r.centerX();rect[1]=r.top+r.height()/4;rect[2]=r.bottom-r.height()/4;
         });
         assertTrue(device.swipe(rect[0],rect[2],rect[0],rect[1],30));
         awaitMotionState(R.id.start_state);
+        scenario.onActivity(a -> assertTrue("actual converter scrolling moved content",
+            converterScroll(a).getScrollY()>initialScroll[0]));
         assertTrue(device.swipe(rect[0],rect[1],rect[0],rect[2],30));
         awaitMotionState(R.id.start_state);
         dragHistoryFromVisibleHandle();
+    }
+    private android.widget.ScrollView converterScroll(Calculator a) {
+        android.view.ViewParent p=a.findViewById(R.id.unit_input_text).getParent();
+        while(!(p instanceof android.widget.ScrollView)) {
+            assertNotNull("converter has a scroll viewport",p);p=p.getParent();
+        }
+        return (android.widget.ScrollView)p;
     }
     @Test public void landscapeScientificKeyBounds() throws Exception {
         onView(withId(R.id.mode_segment_scientific)).perform(click());
