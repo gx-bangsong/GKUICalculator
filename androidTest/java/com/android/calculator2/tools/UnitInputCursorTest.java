@@ -144,6 +144,35 @@ public class UnitInputCursorTest {
                 assertFalse(snapshot.toString(), v.isShown()));
     }
 
+    @Test public void unitSharedRowsRestoreAcrossModes() {
+        onView(withId(R.id.formula)).check(matches(withEffectiveVisibility(Visibility.GONE)));
+        onView(withId(R.id.result)).check(matches(withEffectiveVisibility(Visibility.GONE)));
+        onView(withId(R.id.formula_scroll_view))
+                .check(matches(withEffectiveVisibility(Visibility.GONE)));
+        onView(withId(R.id.mode_segment_basic)).perform(click());
+        onView(withId(R.id.formula_scroll_view)).check(matches(isDisplayed()));
+        onView(withId(R.id.formula)).check(matches(withEffectiveVisibility(Visibility.VISIBLE)));
+        onView(withId(R.id.clr)).perform(click());
+        digits("2");
+        onView(withId(R.id.op_add)).perform(click());
+        digits("3");
+        onView(withId(R.id.formula)).check(matches(withText("2+3")));
+        // Another tool still needs the shared output rows (unlike units).
+        onView(withContentDescription(R.string.tool_bmi)).perform(click());
+        onView(withId(R.id.formula)).check(matches(withEffectiveVisibility(Visibility.VISIBLE)));
+        onView(withId(R.id.result)).check(matches(withEffectiveVisibility(Visibility.VISIBLE)));
+        onView(withId(R.id.mode_segment_convert)).perform(click());
+        onView(withId(R.id.formula)).check(matches(withEffectiveVisibility(Visibility.GONE)));
+        onView(withId(R.id.result)).check(matches(withEffectiveVisibility(Visibility.GONE)));
+        onView(withId(R.id.clr)).perform(click());
+        digits("175");
+        tapAt(1);
+        digits("98");
+        onView(withId(R.id.unit_input_text)).check(matches(withText("19875")));
+        caret(3);
+        onView(withId(R.id.unit_result_text)).check(matches(withText("19875000")));
+    }
+
     @Test public void unitResultsAreReadOnlyAndSelectable() {
         for (int id : new int[]{R.id.unit_result_text, R.id.unit_result_2_text}) {
             onView(withId(id)).check(matches(isDisplayed())).check((view, error) -> {

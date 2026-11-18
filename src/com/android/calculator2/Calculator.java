@@ -1600,7 +1600,7 @@ public class Calculator extends AppCompatActivity
     public void setToolResult(@NonNull CharSequence text) {
         Log.d("ToolDebug", "setToolResult: [" + text + "] len=" + text.length()
                 + " resultTextSize(px)=" + mResultText.getTextSize());
-        if (mIsOneLine) {
+        if (mIsOneLine && !unitOwnsDisplayRows()) {
             mResultText.setVisibility(View.VISIBLE);
         }
         mLastToolResult = text;
@@ -1641,6 +1641,12 @@ public class Calculator extends AppCompatActivity
         return extractNumber(value);
     }
 
+    /** Units render input and both results inside tool_control_slot, not the shared rows. */
+    private boolean unitOwnsDisplayRows() {
+        return mToolManager != null && mToolManager.getActive() != null
+                && ToolId.UNIT.equals(mToolManager.getActive().getId());
+    }
+
     @Override
     public void prepareForToolDisplay() {
         // CalculatorResult normally asks the evaluator to run again after every layout. Tool
@@ -1676,10 +1682,20 @@ public class Calculator extends AppCompatActivity
         // Reset any transforms/text the calculator applied so the tool owns the surface.
         restoreDisplayPositions();
         mFormulaText.changeTextTo("");
+        // Empty text is not enough: these selectable shared views still own an Editor and
+        // can draw a caret below the converter. Do not disable touch/selection globally.
+        final int sharedVisibility = unitOwnsDisplayRows() ? View.GONE : View.VISIBLE;
+        mFormulaContainer.setVisibility(sharedVisibility);
+        mFormulaText.setVisibility(sharedVisibility);
+        mResultText.setVisibility(sharedVisibility);
     }
 
     @Override
     public void restoreCalculatorDisplay() {
+        // Restore explicitly even when setState(INPUT) is a no-op (already in INPUT).
+        mFormulaContainer.setVisibility(View.VISIBLE);
+        mFormulaText.setVisibility(View.VISIBLE);
+        mResultText.setVisibility(mIsOneLine ? View.INVISIBLE : View.VISIBLE);
         // Reclaim the display for the calculator and re-drive it from the evaluator.
         if (mToolControlSlot != null) {
             mToolControlSlot.removeAllViews();
