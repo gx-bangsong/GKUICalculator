@@ -237,6 +237,7 @@ required = {
         "taxSurvivesActualRotation", "mortgageSurvivesActualRotation",
         "unitSurvivesActualRotation", "currencySurvivesActualRotation",
         "landscapeScientificKeyBounds",
+        "landscapeHistoryExpandCollapseKeepsKeyboardRegion",
     ],
     "com.android.calculator2.tools.ToolRolesAndCurrencyTest": [
         "sharedOutputsAreReadOnlyAcrossTools",
@@ -437,6 +438,7 @@ required = {
         "taxSurvivesActualRotation", "mortgageSurvivesActualRotation",
         "unitSurvivesActualRotation", "currencySurvivesActualRotation",
         "landscapeScientificKeyBounds",
+        "landscapeHistoryExpandCollapseKeepsKeyboardRegion",
     ],
     "com.android.calculator2.tools.ToolRolesAndCurrencyTest": [
         "sharedOutputsAreReadOnlyAcrossTools",
@@ -680,6 +682,25 @@ PY
     failure_summary=$(printf '%s\n' "$failure_summary" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e ':a' -e 'N' -e '$!ba' -e 's/\n/%0A/g')
     echo "::warning title=Instrumented test failure details::$failure_summary"
 fi
+
+# Window functional results stay separate from screenshot/evidence status.
+python3 - <<'PYWINDOW'
+from pathlib import Path
+import xml.etree.ElementTree as ET
+rows=[]
+for p in Path("build/outputs/androidTest-results").rglob("TEST-*.xml"):
+    root=ET.parse(p).getroot()
+    for case in root.iter("testcase"):
+        if case.get("classname", "").endswith("WindowConfigurationTest"):
+            status="FAIL" if case.find("failure") is not None or case.find("error") is not None else "SKIP" if case.find("skipped") is not None else "PASS"
+            rows.append(case.get("name", "?")+"="+status)
+text="; ".join(rows).replace("%","%25")
+print("::notice title=Window functional results::"+text)
+PYWINDOW
+adb logcat -d -v brief WindowEvidence:I '*:S' > build/ui-screenshots/window-evidence.log || true
+window_evidence=$(grep -E 'CAPTURE_(OK|FAIL)|configDp=' build/ui-screenshots/window-evidence.log | tail -n 30 | tr '\n' ' ' || true)
+window_evidence=${window_evidence//%/%25}
+echo "::notice title=Window evidence status::${window_evidence:0:3800}"
 
 adb pull "$screenshot_dir/calculator-default.png" build/ui-screenshots/ || true
 adb pull "$screenshot_dir/calculator-units.png" build/ui-screenshots/ || true
