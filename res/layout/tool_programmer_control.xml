@@ -21,6 +21,7 @@
         android:orientation="horizontal">
 
         <HorizontalScrollView
+            android:id="@+id/programmer_input_scroll"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -54,6 +55,7 @@
         android:orientation="horizontal">
 
         <HorizontalScrollView
+            android:id="@+id/programmer_output_scroll"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"

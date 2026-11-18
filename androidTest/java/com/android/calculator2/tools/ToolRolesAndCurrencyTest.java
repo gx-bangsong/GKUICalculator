@@ -8,6 +8,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.*;
 import static org.junit.Assert.*;
 
 import android.content.*;
+import android.content.ClipboardManager;
 import android.os.SystemClock;
 import android.text.*;
 import android.view.*;
@@ -155,7 +156,7 @@ public class ToolRolesAndCurrencyTest {
         digits("2");key(R.id.op_add);readOnly(R.id.programmer_status);
         digits("3");key(R.id.eq);text(R.id.programmer_value_in,"5");
         text(R.id.programmer_value_out,"5");readOnly(R.id.programmer_value_out);readOnly(R.id.programmer_width_label);
-        key(R.id.op_div);digits("0");key(R.id.eq);readOnly(R.id.programmer_status);
+        key(R.id.op_div);digits("0");key(R.id.eq);text(R.id.programmer_status,context.getString(R.string.programmer_divide_by_zero));readOnly(R.id.programmer_status);
         onView(withId(R.id.shared_display_rows)).check(matches(withEffectiveVisibility(Visibility.GONE)));
         tool(R.string.tool_bmi);onView(withId(R.id.formula)).check(matches(isDisplayed()));
     }
@@ -164,7 +165,11 @@ public class ToolRolesAndCurrencyTest {
         text(R.id.programmer_value_out,"7FFFFFFFFFFFFFFF");
         key(R.id.programmer_chip_out);key(R.id.programmer_chip_out);
         String binary=new String(new char[63]).replace('\0','1');
-        text(R.id.programmer_value_out,binary);readOnly(R.id.programmer_value_out);
+        text(R.id.programmer_value_out,binary);
+        onView(withId(R.id.programmer_output_scroll)).perform(swipeLeft()).check((v,e)->{
+            if(e!=null)throw e;assertTrue("long binary can be browsed horizontally",v.getScrollX()>0);
+        });
+        readOnly(R.id.programmer_value_out);
     }
     @Test public void currencyTouchInsertionUpdatesBothControlledResults() {
         currency();tap(1);digits("9");text(R.id.currency_input_text,"1975");caret(2);
