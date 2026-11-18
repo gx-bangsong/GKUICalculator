@@ -1042,7 +1042,9 @@ public class WindowConfigurationTest {
         assertNotEquals(old,modelSnapshot().get("mEqualPayment"));
         assertNotEquals(previous,displaySnapshot());assertMortgageComputation();
         fingerFind(R.id.formula);evidence("mortgage-"+stage+"-results");
-        mortgageFingerCopy(R.id.formula);mortgageFingerCopy(R.id.result);
+        mortgageFingerCopy(R.id.formula);
+        fingerFind(R.id.result);evidence("mortgage-"+stage+"-aux-result");
+        mortgageFingerCopy(R.id.result);
         mortgageEdit(1,"4.1");
         assertSplitUsable();
         scenario.onActivity(a -> {
