@@ -19,6 +19,7 @@ import androidx.test.espresso.*;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.android.calculator2.Calculator;
+import com.android.calculator2.CalculatorResult;
 import com.android.calculator2.tools.data.*;
 import com.android.calculator2.tools.modes.CurrencyConverterMode;
 import com.android.calculator2.R;
@@ -114,10 +115,21 @@ public class ToolRolesAndCurrencyTest {
             assertFalse(output.onCheckIsTextEditor());
             assertNull(output.onCreateInputConnection(new EditorInfo()));
             assertFalse(output.getText() instanceof Editable);
+            assertTrue("long-press selection remains enabled "+id,output.isLongClickable());
             Selection.setSelection((Spannable)output.getText(),0,before.length());
             assertTrue("copy "+id,output.onTextContextMenuItem(android.R.id.copy));
             ClipboardManager clipboard=(ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE);
             assertEquals(before,clipboard.getPrimaryClip().getItemAt(0).coerceToText(a).toString());
+            if (output instanceof CalculatorResult) {
+                CalculatorResult shared = (CalculatorResult) output;
+                // Verify its production long-press Copy callback, not only TextView's copy.
+                assertTrue(shared.performLongClick());
+                android.view.Menu menu = new androidx.appcompat.widget.PopupMenu(a, output).getMenu();
+                assertTrue(shared.onMenuItemClick(menu.add(0,R.id.menu_copy,0,android.R.string.copy)));
+                assertEquals("copy current tool text, not a stale evaluator result",before,
+                        clipboard.getPrimaryClip().getItemAt(0).coerceToText(a).toString());
+                shared.stopActionModeOrContextMenu();
+            }
             clipboard.setPrimaryClip(ClipData.newPlainText("attempted paste","999999"));
             assertFalse(output.onTextContextMenuItem(android.R.id.paste));
             assertFalse(output.onTextContextMenuItem(android.R.id.cut));
