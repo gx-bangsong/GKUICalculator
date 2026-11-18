@@ -903,11 +903,11 @@ public class Calculator extends AppCompatActivity
         }
 
         final int id = view.getId();
-        final boolean numeric = KeyMaps.digVal(id) != KeyMaps.NOT_DIGIT || id == R.id.dec_point;
+        final boolean expressionKey = CalculatorExpr.isExpressionKey(id);
         if (mCurrentState == CalculatorState.INPUT && !haveUnprocessed()
                 && editStart >= 0 && editEnd >= 0
                 && (editStart != mFormulaText.length() || editEnd != editStart)
-                && (numeric || id == R.id.del)) {
+                && (expressionKey || id == R.id.del)) {
             int caret = mEvaluator.editAtDisplay(editStart, editEnd, id, id == R.id.del);
             if (caret >= 0) {
                 redisplayAfterFormulaChange();

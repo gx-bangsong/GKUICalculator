@@ -1211,8 +1211,8 @@ class CalculatorExpr {
     }
 
     /** Apply an edit transaction to tokens and return its new displayed caret; -1 rejects it.
-     * Only digit/decimal insertion and backspace are handled here; append operator correction
-     * and calculator RESULT-state entry retain the existing paths.
+     * Digits/backspace and semantic expression buttons are edited transactionally.
+     * Calculator RESULT-state entry retains the existing path.
      */
     int editAtDisplay(Context context, int selectionStart, int selectionEnd, int key,
             boolean backspace) {
@@ -1220,6 +1220,9 @@ class CalculatorExpr {
         int start = layout.modelOffset(Math.min(selectionStart, selectionEnd));
         int end = layout.modelOffset(Math.max(selectionStart, selectionEnd));
         if (backspace && start == end && start > 0) start--;
+        if (!backspace && KeyMaps.digVal(key) == KeyMaps.NOT_DIGIT && key != R.id.dec_point) {
+            return editSymbol(context, layout, start, end, key);
+        }
         ArrayList<EditUnit> edited = new ArrayList<>(layout.units);
         edited.subList(start, end).clear();
         if (!backspace) {
@@ -1247,6 +1250,48 @@ class CalculatorExpr {
         mExpr = rebuilt;
         EditLayout after = new EditLayout(context);
         return after.boundaries.get(Math.min(start + (backspace ? 0 : 1), after.units.size()));
+    }
+
+    /** Only expression buttons enter this transaction; control buttons keep their own paths. */
+    static boolean isExpressionKey(int key) {
+        return KeyMaps.digVal(key) != KeyMaps.NOT_DIGIT || key == R.id.dec_point
+                || KeyMaps.isBinary(key) || KeyMaps.isPrefix(key) || KeyMaps.isSuffix(key)
+                || KeyMaps.isFunc(key) || key == R.id.const_pi || key == R.id.const_e
+                || key == R.id.lparen || key == R.id.rparen || key == R.id.paren;
+    }
+
+    private static boolean appendEditUnit(CalculatorExpr target, EditUnit unit) {
+        if (unit.token != null) {
+            target.mExpr.add(unit.token instanceof Constant
+                    ? (Constant) ((Constant) unit.token).clone() : unit.token);
+            return true;
+        }
+        return target.add(unit.key);
+    }
+
+    private int editSymbol(Context context, EditLayout layout, int start, int end, int key) {
+        if (!isExpressionKey(key)) return -1;
+        CalculatorExpr prefix = new CalculatorExpr();
+        for (int i=0;i<start;i++) if (!appendEditUnit(prefix,layout.units.get(i))) return -1;
+        boolean operand = prefix.hasTrailingConstant() || prefix.hasTrailingRightParen()
+                || prefix.hasTrailingSuffix()
+                || (!prefix.mExpr.isEmpty() && prefix.mExpr.get(prefix.mExpr.size()-1) instanceof PreEval);
+        if (key == R.id.paren) {
+            key = operand && prefix.hasOpenParentheses() ? R.id.rparen : R.id.lparen;
+        }
+        if (KeyMaps.isSuffix(key) && !operand) return -1;
+        if (key == R.id.rparen && (!operand || !prefix.hasOpenParentheses())) return -1;
+        // Explicit minus uses the same local additive correction as normal pad entry.
+        if (key == R.id.op_sub) prefix.removeTrailingAdditiveOperators();
+        if (!prefix.add(key)) return -1;
+        int caret = prefix.toSpannableStringBuilder(context).length();
+        // Keep semantic tokens (functions, exponent constants, PreEval) intact. Do not parse
+        // or split their displayed labels. Numeric pieces alone may coalesce into constants.
+        for (int i=end;i<layout.units.size();i++) {
+            if (!appendEditUnit(prefix,layout.units.get(i))) return -1;
+        }
+        mExpr = prefix.mExpr;
+        return caret;
     }
 
     // Produce a string representation of the expression itself
