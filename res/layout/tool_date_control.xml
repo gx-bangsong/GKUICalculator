@@ -16,6 +16,9 @@
     <TextView
         android:id="@+id/date_start"
         style="@style/ToolFieldStyle"
+        android:textIsSelectable="false"
+        android:cursorVisible="false"
+        android:focusableInTouchMode="false"
         android:layout_weight="1"
         android:layout_width="0dp"
         android:gravity="center" />
@@ -31,6 +34,9 @@
     <TextView
         android:id="@+id/date_end"
         style="@style/ToolFieldStyle"
+        android:textIsSelectable="false"
+        android:cursorVisible="false"
+        android:focusableInTouchMode="false"
         android:layout_weight="1"
         android:layout_width="0dp"
         android:gravity="center" />
