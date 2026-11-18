@@ -864,7 +864,15 @@ public class WindowConfigurationTest {
             assertNotNull("text layout measured",text.getLayout());
             int required=text.getLayout().getHeight()+text.getCompoundPaddingTop()+text.getCompoundPaddingBottom();
             assertTrue("full vertical text measured "+id+" measured="+text.getHeight()+" required="+required,text.getHeight()>=required);
-            assertEquals("text can be fully scrolled into viewport "+id,text.getHeight(),visible.height());
+            StringBuilder chain=new StringBuilder();
+            View node=text;
+            while(node!=null) {
+                chain.append(node.getClass().getSimpleName()).append("[top=").append(node.getTop())
+                    .append(",h=").append(node.getHeight()).append(",scroll=").append(node.getScrollY())
+                    .append(",ty=").append(node.getTranslationY()).append("]");
+                node=node.getParent() instanceof View?(View)node.getParent():null;
+            }
+            assertEquals("text can be fully scrolled into viewport "+id+" visible="+visible+" ancestors="+chain,text.getHeight(),visible.height());
         });
     }
     private static class SplitSample {
