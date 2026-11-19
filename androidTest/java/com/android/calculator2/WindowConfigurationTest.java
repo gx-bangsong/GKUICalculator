@@ -1275,6 +1275,22 @@ public class WindowConfigurationTest {
     }
     private void assertLoanTypeGroup(String stage) {
         fingerFind(R.id.mortgage_type_combined);
+        // Coarse field-finding swipes can overshoot the first row of a vertical group.
+        // Align the whole group by its actual screen bounds, still using real slow swipes.
+        for(int attempt=0;attempt<16;attempt++) {
+            Rect viewport=mortgageViewport();int[] edge=new int[3];
+            scenario.onActivity(a -> {
+                View group=a.findViewById(R.id.mortgage_type_group);int[] origin=new int[2];group.getLocationOnScreen(origin);
+                edge[0]=origin[1];edge[1]=origin[1]+group.getHeight();
+                edge[2]=android.view.ViewConfiguration.get(a).getScaledTouchSlop();
+            });
+            if(edge[0]>=viewport.top&&edge[1]<=viewport.bottom)break;
+            int delta=edge[0]<viewport.top?viewport.top-edge[0]:viewport.bottom-edge[1];
+            int distance=Math.min(viewport.height()/3,Math.abs(delta)+edge[2]+1);
+            int from=delta>0?viewport.top+viewport.height()/3:viewport.bottom-viewport.height()/3;
+            assertTrue(device.swipe(viewport.right-6,from,viewport.right-6,from+(delta>0?distance:-distance),45));
+            device.waitForIdle(1000);awaitMotionState(R.id.start_state);
+        }
         scenario.onActivity(a -> {
             View group=a.findViewById(R.id.mortgage_type_group);Rect viewport=new Rect();
             assertTrue(visibleOnScreen(a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport"),viewport));
