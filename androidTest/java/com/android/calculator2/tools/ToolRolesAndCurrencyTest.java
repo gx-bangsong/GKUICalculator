@@ -186,7 +186,10 @@ public class ToolRolesAndCurrencyTest {
     @Test public void programmerMenusSwapKeepRegisterAndPendingOperation() {
         tool(R.string.tool_programmer);key(R.id.clr);digits("255");
         onView(withId(R.id.programmer_chip_in)).perform(scrollTo(),click());
-        text(R.id.programmer_value_in,"255");text(R.id.programmer_chip_in,"DEC");
+        scenario.onActivity(a -> {
+            assertEquals("opening the menu does not cycle input", "255", ((TextView)a.findViewById(R.id.programmer_value_in)).getText().toString());
+            assertEquals("DEC",((TextView)a.findViewById(R.id.programmer_chip_in)).getText().toString());
+        });
         for(int label:new int[]{R.string.programmer_hex_description,R.string.programmer_dec_description,R.string.programmer_oct_description,R.string.programmer_bin_description})
             onView(withText(label)).check(matches(isDisplayed()));
         onView(withText(R.string.programmer_hex_description)).perform(click());
