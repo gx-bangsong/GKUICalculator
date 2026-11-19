@@ -179,9 +179,9 @@ public class WindowConfigurationTest {
             key(R.id.bmi_gender_female);key(R.id.tool_field_1);key(R.id.clr);digits("83");
             selectTail(R.id.tool_field_1,1);return R.id.tool_field_1;
         } else if(name==R.string.tool_mortgage) {
-            key(R.id.mortgage_type_combined);key(R.id.mortgage_basis_toggle);key(R.id.mortgage_method);
-            key(R.id.tool_field_0);key(R.id.clr);digits("1234567");
-            key(R.id.tool_field_2);key(R.id.clr);digits("17");selectTail(R.id.tool_field_2,1);return R.id.tool_field_2;
+            fingerTap(R.id.mortgage_type_combined);fingerTap(R.id.mortgage_basis_toggle);fingerTap(R.id.mortgage_method);
+            fingerTap(R.id.tool_field_0);key(R.id.clr);digits("1234567");
+            fingerTap(R.id.tool_field_2);key(R.id.clr);digits("17");selectTail(R.id.tool_field_2,1);return R.id.tool_field_2;
         } else if(name==R.string.tool_tax) {
             key(R.id.tax_mode_toggle);key(R.id.tool_field_0);key(R.id.clr);digits("45000");
             selectTail(R.id.tool_field_0,2);return R.id.tool_field_0;
