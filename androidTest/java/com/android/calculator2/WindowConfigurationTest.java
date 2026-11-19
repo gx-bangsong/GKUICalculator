@@ -1104,7 +1104,7 @@ public class WindowConfigurationTest {
             assertTrue("natural target must fit this viewport for whole-row assertion: id="+id+" height="+geometry[4]+" viewport="+viewport.height(),geometry[4]<=viewport.height());
             // A fixed 2/3-viewport swipe can oscillate across a tall result's much smaller
             // fit interval. Converge using actual overflow plus native touch slop instead.
-            int distance=Math.min(viewport.height()/3,Math.abs(overflow)+geometry[2]+1);
+            int distance=Math.min(viewport.height()/3,Math.max(2*geometry[2]+1,Math.abs(overflow)+geometry[2]+1));
             boolean above=overflow<0;
             int from=above?viewport.top+viewport.height()/3:viewport.bottom-viewport.height()/3;
             assertTrue("finger scroll "+id,device.swipe(viewport.right-6,from,
@@ -1133,9 +1133,14 @@ public class WindowConfigurationTest {
     private void fingerTap(int id) {
         fingerFind(id);Rect rect=new Rect();scenario.onActivity(a -> visibleOnScreen(a.findViewById(id),rect));
         Log.i("MortgageForm","TAP id="+id+" bounds="+rect+" before="+modelSnapshot().get("mEqualPayment"));
+        scenario.onActivity(a -> Log.i("TaxPosition","CONTENT_TAP id="+id+" screen="+rect+" focused="+a.findViewById(id).isFocused()+" touchFocusable="+a.findViewById(id).isFocusableInTouchMode()+" state="+modelSnapshotForLog(a)));
         assertTrue(device.click(rect.centerX(),rect.centerY()));
         device.waitForIdle(2000);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+    }
+    private String modelSnapshotForLog(Calculator activity) {
+        Object fields=member(active(activity),"mFields");
+        return "bonus="+member(active(activity),"mBonusMode")+" active="+(fields instanceof ToolInputFields?((ToolInputFields)fields).getActive():-1);
     }
     private void mortgageEdit(int index,String number) {
         int id=new int[]{R.id.tool_field_0,R.id.tool_field_1,R.id.tool_field_2,R.id.tool_field_3,R.id.tool_field_4}[index];
@@ -1263,6 +1268,7 @@ public class WindowConfigurationTest {
             assertNull("switch has no editor key listener",toggle.getKeyListener());
             assertFalse("switch has no text long-click handler",toggle.isLongClickable());
             assertTrue(toggle.isClickable());assertTrue(toggle.isFocusable());
+            assertFalse("a click action must not consume the first tap just taking touch focus",toggle.isFocusableInTouchMode());
             android.view.accessibility.AccessibilityNodeInfo node=toggle.createAccessibilityNodeInfo();
             assertEquals(android.widget.Button.class.getName(),node.getClassName().toString());
             assertTrue("named action",node.getText()!=null&&!node.getText().toString().isEmpty());
