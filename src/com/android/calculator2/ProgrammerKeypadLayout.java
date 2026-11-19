@@ -109,9 +109,11 @@ final class ProgrammerKeypadLayout {
         int columns=viewport.getWidth()>=Math.ceil(640*d)?10:Math.min(5,Math.max(1,viewport.getWidth()/(int)Math.ceil(48*d)));
         int rows=(ORDER.length+columns-1)/columns;
         int height=Math.max((int)Math.ceil(48*d),viewport.getHeight()/rows);
-        grid.columns=columns;
-        grid.cellHeight=height;
-        grid.requestLayout();
+        if(grid.columns!=columns||grid.cellHeight!=height) {
+            grid.columns=columns;
+            grid.cellHeight=height;
+            grid.requestLayout();
+        }
         for(KeyHome home:homes)styleLabel(home.key);
     }
 
