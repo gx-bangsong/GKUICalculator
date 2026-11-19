@@ -282,7 +282,7 @@ entries={}
 refresh=[]
 for line in lines:
     if 'TaxPosition' not in line: continue
-    if ' REFRESH ' in line: refresh.append(line)
+    if ' REFRESH ' in line or ' KEYPAD ' in line: refresh.append(line)
     if ' ENTRY id=' in line:
         entries[(line.split(' ENTRY id=')[1].split(' ')[0],line.split(' viewport=')[1].split(' y=')[0])]=line
 text='\n'.join(list(entries.values())+refresh)

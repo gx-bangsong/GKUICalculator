@@ -1750,6 +1750,9 @@ public class WindowConfigurationTest {
                 float share=half.app.height()/(float)(half.app.height()+half.other.height());
                 assertTrue("actual half window "+half,Math.abs(share-0.5f)<0.04);
                 converterOperations(currency,stage+"-half");
+                leaveRealSplit();stableSample(false,null);device.waitForIdle(1500);
+                keypadMeasurements(stage+"-restored-full",true);evidence(stage+"-restored-full");
+                scenario.onActivity(a -> assertEquals("full window restores keypad",Boolean.FALSE,member(member(a,"mConverterKeypadLayout"),"compact")));
             }
         } catch(Throwable failure) {
             Log.e("TaxPosition",stage+" FAIL first="+String.valueOf(failure).split("\n")[0]+" window="+safeSplitSample());
@@ -1808,6 +1811,37 @@ public class WindowConfigurationTest {
         converterFind(currency,id);Rect r=new Rect();scenario.onActivity(a -> assertTrue(visibleOnScreen(a.findViewById(id),r)));
         assertTrue(device.click(r.centerX(),r.centerY()));device.waitForIdle(1000);
     }
+    private void converterKeypadAudit(String stage) throws Exception {
+        // Same APK/window, only restore the legacy allocation for the BEFORE reference.
+        scenario.onActivity(a -> ((ConverterKeypadLayout)member(a,"mConverterKeypadLayout")).setEnabled(false));
+        device.waitForIdle(1500);SystemClock.sleep(500);
+        keypadMeasurements(stage+"-before",false);evidence(stage+"-keypad-before");
+        scenario.onActivity(a -> ((ConverterKeypadLayout)member(a,"mConverterKeypadLayout")).setEnabled(true));
+        device.waitForIdle(1500);SystemClock.sleep(500);
+        keypadMeasurements(stage+"-after",true);evidence(stage+"-keypad-after");
+    }
+    private void keypadMeasurements(String stage,boolean verify) {
+        scenario.onActivity(a -> {
+            float d=a.getResources().getDisplayMetrics().density,sp=a.getResources().getDisplayMetrics().scaledDensity;
+            View pad=a.findViewById(R.id.input_pad);Object layout=member(a,"mConverterKeypadLayout");
+            boolean compact=Boolean.TRUE.equals(member(layout,"compact"));
+            StringBuilder report=new StringBuilder(stage+" KEYPAD padDp="+pad.getWidth()/d+"x"+pad.getHeight()/d+" compact="+compact+" keys=");
+            java.util.List<Rect> targets=new java.util.ArrayList<>();
+            for(int id:new int[]{R.id.digit_0,R.id.digit_1,R.id.digit_2,R.id.digit_3,R.id.digit_4,R.id.digit_5,R.id.digit_6,R.id.digit_7,R.id.digit_8,R.id.digit_9,R.id.dec_point,R.id.op_add,R.id.op_sub,R.id.op_mul,R.id.op_div,R.id.del,R.id.clr,R.id.paren,R.id.op_pct,R.id.eq}) {
+                TextView key=a.findViewById(id);Rect visible=new Rect();visibleOnScreen(key,visible);
+                report.append(a.getResources().getResourceEntryName(id)).append(':').append(key.getWidth()/d).append('x').append(key.getHeight()/d).append(" visible=").append(visible.width()/d).append('x').append(visible.height()/d).append(" sp=").append(key.getTextSize()/sp).append(';');
+                if(verify && compact) {
+                    assertTrue("48dp target "+id,key.getWidth()>=Math.ceil(48*d)&&key.getHeight()>=Math.ceil(48*d));
+                    assertEquals("whole key height",key.getHeight(),visible.height());assertEquals("whole key width",key.getWidth(),visible.width());
+                    for(Rect other:targets)assertFalse("no overlapping key targets",Rect.intersects(other,visible));
+                    targets.add(visible);
+                    if(key.getText().length()>0)assertTrue("readable fixed label",key.getTextSize()/sp>=21.9f);
+                }
+            }
+            Log.i("TaxPosition",report.toString());
+            if(verify){View slot=a.findViewById(R.id.tool_control_slot);Rect visible=new Rect();assertTrue("converter content remains reachable",visibleOnScreen(slot,visible));assertTrue("nonzero content",visible.height()>0&&visible.width()>0);}
+        });
+    }
     private void converterOperations(boolean currency,String stage) throws Exception {
         int input=currency?R.id.currency_input_text:R.id.unit_input_text;
         int primary=currency?R.id.currency_result_text:R.id.unit_result_text;
@@ -1822,7 +1856,10 @@ public class WindowConfigurationTest {
             }
         });
         evidence(stage+"-initial");
-        converterTap(currency,input);key(R.id.clr);digits("123");
+        converterKeypadAudit(stage);
+        converterTap(currency,input);key(R.id.clr);digits("12");key(R.id.dec_point);digits("34");key(R.id.del);
+        assertEquals("continuous decimal then delete","12.3",modelSnapshot().get("expression"));
+        key(R.id.clr);digits("123");
         // Place the caret with an actual screen tap at the middle text offset.
         converterFind(currency,input);int[] point=new int[2];
         scenario.onActivity(a -> {

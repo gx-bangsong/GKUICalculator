@@ -1705,6 +1705,7 @@ public class Calculator extends AppCompatActivity
     }
 
     private FieldToolViewport mFieldToolViewport;
+    private ConverterKeypadLayout mConverterKeypadLayout;
 
     boolean isMortgageViewport() {
         return mToolManager!=null&&mToolManager.getActive()!=null
@@ -1732,6 +1733,7 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void prepareForToolDisplay() {
+        if(mConverterKeypadLayout!=null)mConverterKeypadLayout.setEnabled(false);
         if(mFieldToolViewport!=null)mFieldToolViewport.setEnabled(false);
         // CalculatorResult normally asks the evaluator to run again after every layout. Tool
         // setup changes its size and padding, so disable that request before touching the view;
@@ -1785,10 +1787,17 @@ public class Calculator extends AppCompatActivity
             if(mFieldToolViewport==null)mFieldToolViewport=new FieldToolViewport(this);
             mFieldToolViewport.setEnabled(true);
         }
+        if(mToolManager!=null && mToolManager.getActive()!=null
+                && (ToolId.UNIT.equals(mToolManager.getActive().getId())
+                || ToolId.CURRENCY.equals(mToolManager.getActive().getId()))) {
+            if(mConverterKeypadLayout==null)mConverterKeypadLayout=new ConverterKeypadLayout(this);
+            mConverterKeypadLayout.setEnabled(true);
+        }
     }
 
     @Override
     public void restoreCalculatorDisplay() {
+        if(mConverterKeypadLayout!=null)mConverterKeypadLayout.setEnabled(false);
         if(mFieldToolViewport!=null)mFieldToolViewport.setEnabled(false);
         mFormulaText.removeTextChangedListener(mFormulaTextWatcher);
         mFormulaText.addTextChangedListener(mFormulaTextWatcher);
