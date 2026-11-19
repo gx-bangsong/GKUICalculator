@@ -764,8 +764,9 @@ for report in report_files:
         for failure in test:
             if failure.tag.rsplit("}", 1)[-1] not in ("failure", "error"):
                 continue
-            message = (failure.get("message") or "").strip()
-            trace = " ".join("".join(failure.itertext()).split())
+            # Full exception/tree remains in XML and HTML artifacts, never in the summary.
+            message = (failure.get("message") or "").strip().split("View Hierarchy:")[0][:700]
+            trace = " ".join("".join(failure.itertext()).split()).split("View Hierarchy:")[0][:700]
             label = ".".join(part for part in (test.get("classname"), test.get("name")) if part)
             details.append(f"XML failure {label}: {' | '.join(x for x in (message, trace) if x)}")
 
