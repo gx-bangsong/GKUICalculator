@@ -1300,6 +1300,11 @@ public class WindowConfigurationTest {
             String[] names={"digits","A-F","bitwise","DEL-AC","arithmetic"};
             View stack=a.findViewById(R.id.pad_stack);
             Log.i("TaxPosition",stage+" KEYPAD stackDp="+stack.getWidth()/d+"x"+stack.getHeight()/d);
+            if(verify) {
+                View viewport=stack.findViewWithTag("programmer_keypad_viewport");
+                assertEquals("keyboard child matches real allocated width",stack.getWidth(),viewport.getWidth());
+                assertEquals("keyboard child matches real allocated height",stack.getHeight(),viewport.getHeight());
+            }
             for(int g=0;g<groups.length;g++) {
                 StringBuilder report=new StringBuilder(stage+" KEYPAD "+names[g]+" ");
                 for(int id:groups[g]) {
@@ -1307,6 +1312,7 @@ public class WindowConfigurationTest {
                     report.append(a.getResources().getResourceEntryName(id)).append('=').append(Math.round(key.getWidth()/d*10)/10f).append('x').append(Math.round(key.getHeight()/d*10)/10f).append("dp/").append(Math.round(key.getTextSize()/sp*10)/10f).append("sp;");
                     if(verify) {
                         assertTrue("48dp target "+id,key.getWidth()>=Math.ceil(48*d)&&key.getHeight()>=Math.ceil(48*d));
+                        assertTrue("no horizontally clipped programmer column",key.getLeft()>=0&&key.getRight()<=stack.getWidth());
                         if(key.getText().length()>0) {
                             assertNotNull(key.getLayout());assertEquals("single-line key label "+id,1,key.getLayout().getLineCount());
                             assertTrue("complete key label "+id,key.getLayout().getLineWidth(0)<=key.getWidth()-key.getCompoundPaddingLeft()-key.getCompoundPaddingRight()+1);

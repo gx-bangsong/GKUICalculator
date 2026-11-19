@@ -49,6 +49,9 @@ final class ProgrammerKeypadLayout {
         activity=a;motion=a.findViewById(R.id.main_calculator);stack=a.findViewById(R.id.pad_stack);
         input=a.findViewById(R.id.input_pad);advanced=a.findViewById(R.id.advanced_pad);
         motion.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{if(enabled)motion.post(this::fit);});
+        stack.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{
+            if(enabled)sizeViewport(r-l,b-t);
+        });
     }
 
     void setEnabled(boolean value) {
@@ -90,6 +93,16 @@ final class ProgrammerKeypadLayout {
         float sp=word?18f:22f;
         float px=sp*activity.getResources().getDisplayMetrics().scaledDensity;
         if(Math.abs(key.getTextSize()-px)>.1f)key.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP,sp);
+    }
+
+    private void sizeViewport(int width,int height) {
+        if(viewport==null||width<=0||height<=0)return;
+        ViewGroup.LayoutParams p=viewport.getLayoutParams();
+        // MotionLayout can otherwise retain the child's previous full-width measurement
+        // while the outer stack already has its new narrow bounds.
+        if(p.width!=width||p.height!=height) {
+            p.width=width;p.height=height;viewport.setLayoutParams(p);
+        }
     }
 
     private void sizeKeys() {
@@ -145,6 +158,7 @@ final class ProgrammerKeypadLayout {
             compact=target;lastWidth=width;lastHeight=height;
             motion.updateState(R.id.start_state,state);
         }
+        sizeViewport(target?keyboardWidth:width,target?height:Math.round(height*ratio.getFloat()));
         sizeKeys();
     }
 
