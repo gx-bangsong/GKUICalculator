@@ -1188,6 +1188,84 @@ public class WindowConfigurationTest {
     @Test public void relationshipSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_relationship,false,false);}
     @Test public void programmerSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_programmer,false,false);}
     @Test public void taxSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_tax,false,false);}
+    @Test public void taxUpperQuarterSplitTouch() throws Exception {taxQuarter(false);}
+    @Test public void taxLowerQuarterSplitTouch() throws Exception {taxQuarter(true);}
+    private void taxQuarter(boolean bottom) throws Exception {
+        String stage=bottom?"tax-lower-25":"tax-upper-25";
+        try {
+            onView(withContentDescription(R.string.tool_tax)).perform(click());
+            enterRealSplit();
+            if(bottom) {
+                Rect divider=verifiedDivider();
+                assertTrue(device.click(divider.centerX(),divider.centerY()));SystemClock.sleep(90);
+                assertTrue(device.click(divider.centerX(),divider.centerY()));
+                long until=SystemClock.uptimeMillis()+10000;
+                while(SystemClock.uptimeMillis()<until) {
+                    SplitSample now=splitSample();
+                    if(now.multi&&now.verifiedCompanion()&&now.app.top>now.other.top)break;
+                    SystemClock.sleep(100);
+                }
+            }
+            SplitSample before=splitSample();
+            assertTrue("real target pair "+before,before.multi&&before.verifiedCompanion());
+            assertEquals("target position",bottom,before.app.top>before.other.top);
+            Rect divider=verifiedDivider();
+            assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),
+                Math.round(device.getDisplayHeight()*(bottom?0.75f:0.25f)),65));
+            device.executeShellCommand("am task focus "+splitTask);
+            SplitSample target=stableSample(true,null);logPosition(stage,target);
+            float share=target.app.height()/(float)(target.app.height()+target.other.height());
+            assertTrue("actual quarter "+target,Math.abs(share-0.25f)<0.04);
+            assertEquals(bottom,target.app.top>target.other.top);
+            evidence(stage+"-initial");
+            scenario.onActivity(a -> {
+                for(int id:new int[]{R.id.tool_field_0,R.id.tool_field_1,R.id.tool_field_2,R.id.formula,R.id.result}) {
+                    View v=a.findViewById(id);Rect r=new Rect();v.getGlobalVisibleRect(r);
+                    Log.i("TaxPosition",stage+" GEOMETRY id="+id+" measured="+v.getWidth()+"x"+v.getHeight()+" visible="+r);
+                }
+                assertNotNull("tax needs a bounded vertical viewport when content exceeds its small display",
+                    a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport"));
+            });
+            int[] size=new int[3];scenario.onActivity(a -> {
+                android.widget.ScrollView scroll=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport");
+                size[0]=scroll.getChildAt(0).getHeight();size[1]=scroll.getHeight();size[2]=scroll.getScrollY();
+            });
+            Log.i("TaxPosition",stage+" CONTENT child="+size[0]+" viewport="+size[1]+" range="+(size[0]-size[1])+" y="+size[2]);
+            assertTrue("fixture must have a scroll range",size[0]>size[1]);
+            // Find all salary fields by actual finger gestures, with complete text/caret checks.
+            taxEdit(0,"30000");taxEdit(1,"2500");taxEdit(2,"1500");
+            for(int entry:new int[]{R.id.tax_insurance_detail,R.id.tax_special_detail}) {
+                fingerTap(entry);onView(withId(android.R.id.button1)).check(matches(isDisplayed()));
+                evidence(stage+"-dialog-"+entry);onView(withId(android.R.id.button2)).perform(click());
+                awaitMotionState(R.id.start_state);
+            }
+            Map<String,String> salary=modelSnapshot();
+            for(int id:new int[]{R.id.formula,R.id.result}) {fingerFind(id);evidence(stage+"-salary-"+id);mortgageFingerCopy(id);}
+            fingerTap(R.id.tax_mode_toggle);assertEquals("true",modelSnapshot().get("mBonusMode"));
+            taxEdit(0,"45000");
+            for(int id:new int[]{R.id.formula,R.id.result}) {fingerFind(id);evidence(stage+"-bonus-"+id);mortgageFingerCopy(id);}
+            fingerTap(R.id.tax_mode_toggle);assertEquals("false",modelSnapshot().get("mBonusMode"));
+            for(int n=0;n<3;n++)assertEquals("salary fields restored",salary.get("field"+n),modelSnapshot().get("field"+n));
+            fingerFind(R.id.tool_field_1);fingerFind(R.id.tool_field_2);fingerFind(R.id.tool_field_0);
+            evidence(stage+"-returned-input");
+            Log.i("TaxPosition",stage+" SALARY_BONUS_FIELDS_DIALOGS_COPY_RETURN_PASS");
+        } catch(Throwable failure) {
+            Log.e("TaxPosition",stage+" FAIL first="+String.valueOf(failure).split("\n")[0]+" window="+safeSplitSample());
+            evidence(stage+"-failure");
+            if(failure instanceof Exception)throw (Exception)failure;throw (Error)failure;
+        }
+    }
+    private void taxEdit(int field,String value) {
+        int id=new int[]{R.id.tool_field_0,R.id.tool_field_1,R.id.tool_field_2}[field];
+        fingerTap(id);assertEquals(String.valueOf(field),modelSnapshot().get("activeField"));
+        key(R.id.clr);String typed="";
+        for(char c:value.toCharArray()) {
+            digits(String.valueOf(c));typed+=c;
+            assertEquals("real tax field model",typed,modelSnapshot().get("field"+field));
+            assertMortgageTextVisible(id);
+        }
+        assertFalse(displaySnapshot().get(R.id.formula).isEmpty());
+    }
     /** Targeted check: no upper-window editing, state checkpoints or exit gate this test. */
     @Test public void mortgageLowerQuarterRealScroll() throws Exception {
         String phase="ENTER_TARGET";

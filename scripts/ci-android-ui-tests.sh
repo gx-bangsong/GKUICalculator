@@ -99,10 +99,10 @@ done
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent KEYCODE_WAKEUP || true
 
-if [[ "${SPLIT_SCOPE:-}" == "mortgage-position-only" || "${SPLIT_SCOPE:-}" == "mortgage-lower-only" ]]; then
+if [[ "${SPLIT_SCOPE:-}" == "mortgage-position-only" || "${SPLIT_SCOPE:-}" == "mortgage-lower-only" || "${SPLIT_SCOPE:-}" == "tax-quarter-only" ]]; then
     adb shell wm size 720x1920
 fi
-if [[ "${SPLIT_SCOPE:-}" == "mortgage-only" || "${SPLIT_SCOPE:-}" == "mortgage-position-only" || "${SPLIT_SCOPE:-}" == "mortgage-lower-only" ]]; then
+if [[ "${SPLIT_SCOPE:-}" == "mortgage-only" || "${SPLIT_SCOPE:-}" == "mortgage-position-only" || "${SPLIT_SCOPE:-}" == "mortgage-lower-only" || "${SPLIT_SCOPE:-}" == "tax-quarter-only" ]]; then
     adb shell cmd locale set-app-locales com.android.calculator2.dev --locales zh-CN
 fi
 
@@ -130,6 +130,9 @@ if [[ "$split_scope" == "bmi-only" || "$split_scope" == "mortgage-only" || "$spl
 fi
 if [[ "$split_scope" == "mortgage-lower-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#mortgageLowerQuarterRealScroll"
+fi
+if [[ "$split_scope" == "tax-quarter-only" ]]; then
+    runner_classes="com.android.calculator2.WindowConfigurationTest#taxUpperQuarterSplitTouch,com.android.calculator2.WindowConfigurationTest#taxLowerQuarterSplitTouch"
 fi
 if [[ "$split_scope" == "non-split" ]]; then
     excluded=$(python3 - <<'PYEXCLUDE'
@@ -267,11 +270,11 @@ for p in Path("build/outputs/androidTest-results").rglob("TEST-*.xml"):
 text="; ".join(rows).replace("%","%25")
 print("::warning title=Window functional results::"+text)
 PYWINDOW
-adb logcat -d -v brief WindowEvidence:I SplitPhase:I MortgageForm:I MortgagePosition:I MortgageTarget:I ToolTouchCoordinates:I '*:S' > build/ui-screenshots/window-evidence.log || true
+adb logcat -d -v brief WindowEvidence:I SplitPhase:I MortgageForm:I MortgagePosition:I MortgageTarget:I TaxPosition:I ToolTouchCoordinates:I '*:S' > build/ui-screenshots/window-evidence.log || true
 mortgage_phases=$(grep -E 'MortgageForm.*(ALL_CORE_FIELDS|CONDITIONAL_TYPES|EXIT_|half task=|short task=)' build/ui-screenshots/window-evidence.log | tail -n 12 | tr '\n' ' ' || true)
 mortgage_phases=${mortgage_phases//%/%25}
 echo "::warning title=Mortgage form touch steps::${mortgage_phases:0:3800}"
-position_steps=$(grep -E 'MortgagePosition.*(CONTENT|REAL_SWIPE|PASS|calcPairFraction)|MortgageTarget' build/ui-screenshots/window-evidence.log | sed 's/ View Hierarchy:.*//' | cut -c1-1000 | tail -n 20 | tr '\n' ' ' || true)
+position_steps=$(grep -E 'MortgagePosition.*(CONTENT|REAL_SWIPE|PASS|calcPairFraction)|MortgageTarget|TaxPosition' build/ui-screenshots/window-evidence.log | sed 's/ View Hierarchy:.*//' | cut -c1-1000 | tail -n 20 | tr '\n' ' ' || true)
 position_steps=${position_steps//%/%25}
 part=1
 while IFS= read -r line || [[ -n "$line" ]]; do
@@ -409,6 +412,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     method = "mortgageScrollAtBothWindowPositions" if os.environ["SPLIT_SCOPE"] == "mortgage-position-only" else tool + "SurvivesRealSplitAndResize"
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
+
+if os.environ.get("SPLIT_SCOPE") == "tax-quarter-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["taxUpperQuarterSplitTouch","taxLowerQuarterSplitTouch"]}
 
 if os.environ.get("SPLIT_SCOPE") == "non-split":
     key="com.android.calculator2.WindowConfigurationTest"
@@ -651,6 +657,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
+if os.environ.get("SPLIT_SCOPE") == "tax-quarter-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["taxUpperQuarterSplitTouch","taxLowerQuarterSplitTouch"]}
+
 if os.environ.get("SPLIT_SCOPE") == "non-split":
     key="com.android.calculator2.WindowConfigurationTest"
     required[key]=[n for n in required[key] if "Split" not in n and n not in ("mortgageScrollAtBothWindowPositions","mortgageLowerQuarterRealScroll")]
@@ -869,7 +878,7 @@ if [[ ! -s build/ui-screenshots/calculator-default.png ]]; then
     fi
 fi
 
-if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$split_scope" != "mortgage-only" && "$split_scope" != "mortgage-position-only" && "$split_scope" != "mortgage-lower-only" && "$default_screenshot_is_from_test" != true ]]; then
+if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$split_scope" != "mortgage-only" && "$split_scope" != "mortgage-position-only" && "$split_scope" != "mortgage-lower-only" && "$split_scope" != "tax-quarter-only" && "$default_screenshot_is_from_test" != true ]]; then
     test_result=1
     echo "::error title=Missing test-generated screenshot::The selected screenshot test passed without saving calculator-default.png."
 fi
