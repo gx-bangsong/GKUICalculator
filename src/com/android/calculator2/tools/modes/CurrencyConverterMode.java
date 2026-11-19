@@ -520,8 +520,13 @@ public class CurrencyConverterMode implements ToolMode {
         if (!shown.contentEquals(view.getText())) view.setText(shown);
         view.setTextSize(mUppercaseNumbers ? UPPERCASE_TEXT_SIZE_SP : NUMBER_TEXT_SIZE_SP);
         // Long 大写 readings wrap inside their own row; ordinary numbers stay on one line.
-        view.setSingleLine(!mUppercaseNumbers);
-        view.setHorizontallyScrolling(!mUppercaseNumbers);
+        // Reapplying singleLine invalidates TextView's layout and can bring the
+        // focused selectable result back on screen during a background rate delivery.
+        // Only change the role's layout when switching number/uppercase presentation.
+        if (view.getMaxLines() != (mUppercaseNumbers ? Integer.MAX_VALUE : 1)) {
+            view.setSingleLine(!mUppercaseNumbers);
+            view.setHorizontallyScrolling(!mUppercaseNumbers);
+        }
     }
 
     @NonNull
