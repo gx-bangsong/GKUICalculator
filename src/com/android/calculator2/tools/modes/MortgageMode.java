@@ -119,25 +119,7 @@ public class MortgageMode extends FieldToolMode {
             // Reflect the restored loan model before attaching the user-change listener.
             types.check(mLoanType==LOAN_COMBINED?R.id.mortgage_type_combined:
                     mLoanType==LOAN_FUND?R.id.mortgage_type_fund:R.id.mortgage_type_commercial);
-            // Narrow content must reflow loan categories as well as numeric rows. Use their
-            // actual label/padding widths, not an assumed leftover width in a split window.
-            root.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> {
-                int required=0;
-                for(int i=0;i<types.getChildCount();i++) {
-                    TextView button=(TextView)types.getChildAt(i);
-                    required+=(int)Math.ceil(android.text.Layout.getDesiredWidth(button.getText(),button.getPaint()))
-                        +button.getPaddingLeft()+button.getPaddingRight();
-                }
-                boolean vertical=r-l<required;
-                int orientation=vertical?android.widget.LinearLayout.VERTICAL:android.widget.LinearLayout.HORIZONTAL;
-                if(types.getOrientation()==orientation)return;
-                types.setOrientation(orientation);
-                for(int i=0;i<types.getChildCount();i++) {
-                    android.widget.LinearLayout.LayoutParams lp=(android.widget.LinearLayout.LayoutParams)types.getChildAt(i).getLayoutParams();
-                    lp.width=vertical?android.view.ViewGroup.LayoutParams.MATCH_PARENT:0;
-                    lp.weight=vertical?0:1;types.getChildAt(i).setLayoutParams(lp);
-                }
-            });
+            // LoanTypeToggleGroup measures complete controls and reflows before layout.
             types.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
                 if (!isChecked) {
                     return;
