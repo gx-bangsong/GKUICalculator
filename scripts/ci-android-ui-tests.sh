@@ -868,7 +868,7 @@ if [[ ! -s build/ui-screenshots/calculator-default.png ]]; then
     fi
 fi
 
-if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$split_scope" != "mortgage-only" && "$split_scope" != "mortgage-position-only" && "$default_screenshot_is_from_test" != true ]]; then
+if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$split_scope" != "mortgage-only" && "$split_scope" != "mortgage-position-only" && "$split_scope" != "mortgage-lower-only" && "$default_screenshot_is_from_test" != true ]]; then
     test_result=1
     echo "::error title=Missing test-generated screenshot::The selected screenshot test passed without saving calculator-default.png."
 fi

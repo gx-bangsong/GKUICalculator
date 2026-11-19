@@ -201,7 +201,7 @@ jobs:
   position-evidence:
     name: Upper and lower mortgage window evidence
     needs: emulator-ui
-    if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'mortgage-position-only') }}
+    if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'mortgage-position-only' || inputs.split_scope == 'mortgage-lower-only') }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -241,13 +241,13 @@ jobs:
         run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-upper-25-scroll-result-app-review.jpg "Mortgage upper-25-scroll-result app" 0 warning
       - name: Publish lower-25-scroll-input screen
         if: always()
-        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-25-scroll-input-screen-review.jpg "Mortgage lower-25-scroll-input screen" 0 warning
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-target-25-scroll-input-screen-review.jpg "Mortgage lower-25-scroll-input screen" 0 warning
       - name: Publish lower-25-scroll-input app
         if: always()
-        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-25-scroll-input-app-review.jpg "Mortgage lower-25-scroll-input app" 0 warning
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-target-25-scroll-input-app-review.jpg "Mortgage lower-25-scroll-input app" 0 warning
       - name: Publish lower-25-scroll-result screen
         if: always()
-        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-25-scroll-result-screen-review.jpg "Mortgage lower-25-scroll-result screen" 0 warning
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-target-25-scroll-result-screen-review.jpg "Mortgage lower-25-scroll-result screen" 0 warning
       - name: Publish lower-25-scroll-result app
         if: always()
-        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-25-scroll-result-app-review.jpg "Mortgage lower-25-scroll-result app" 0 warning
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-target-25-scroll-result-app-review.jpg "Mortgage lower-25-scroll-result app" 0 warning
