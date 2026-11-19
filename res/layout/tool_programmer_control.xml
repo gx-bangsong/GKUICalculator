@@ -78,7 +78,7 @@
             android:layout_weight="1"
             android:fillViewport="true"
             android:scrollbars="horizontal">
-        <com.android.calculator2.tools.ToolOutputTextView
+        <com.android.calculator2.tools.ProgrammerOutputTextView
             android:id="@+id/programmer_value_out"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
