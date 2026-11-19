@@ -1242,8 +1242,12 @@ public class WindowConfigurationTest {
             });
             if(ready[0])return target;
             int from=viewport.centerY(),delta=viewport.height()/3;
+            int[] keyboardY={0};
+            scenario.onActivity(a -> keyboardY[0]=a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport").getScrollY());
             pointerDrag(viewport.right-4,from,from+(full[1]<viewport.top?delta:-delta));
             device.waitForIdle(1000);
+            scenario.onActivity(a -> assertEquals("left content scroll does not move keyboard",keyboardY[0],
+                    a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport").getScrollY()));
         }
         fail("programmer control unreachable by finger: "+id);return null;
     }
@@ -1261,8 +1265,15 @@ public class WindowConfigurationTest {
             });
             if(ready[0])return;
             int from=viewport.centerY(),distance=Math.max(16,viewport.height()/3);
-            pointerDrag(viewport.right-5,from,from+(position[1]<viewport.top?distance:-distance));
+            Map<Integer,String> before=displaySnapshot();int[] contentY={0};
+            scenario.onActivity(a -> contentY[0]=a.findViewById(R.id.programmer_viewport).getScrollY());
+            pointerDrag(viewport.centerX(),from,from+(position[1]<viewport.top?distance:-distance));
             device.waitForIdle(1000);
+            assertEquals("keyboard drag must not enter a key",before,displaySnapshot());
+            scenario.onActivity(a -> {
+                assertEquals("keyboard drag leaves left content independent",contentY[0],a.findViewById(R.id.programmer_viewport).getScrollY());
+                assertEquals("keyboard drag does not open history",R.id.start_state,((DisplayMotionLayout)a.findViewById(R.id.main_calculator)).getCurrentState());
+            });
         }
         fail("programmer key not reachable by finger "+id);
     }
@@ -1304,6 +1315,17 @@ public class WindowConfigurationTest {
                 View viewport=stack.findViewWithTag("programmer_keypad_viewport");
                 assertEquals("keyboard child matches real allocated width",stack.getWidth(),viewport.getWidth());
                 assertEquals("keyboard child matches real allocated height",stack.getHeight(),viewport.getHeight());
+                for(int i=0;i<ProgrammerKeypadLayout.ORDER.length;i++) {
+                    View first=a.findViewById(ProgrammerKeypadLayout.ORDER[i]);
+                    Rect bounds=new Rect(first.getLeft(),first.getTop(),first.getRight(),first.getBottom());
+                    for(int j=i+1;j<ProgrammerKeypadLayout.ORDER.length;j++) {
+                        View second=a.findViewById(ProgrammerKeypadLayout.ORDER[j]);
+                        assertFalse("no overlapping key touch cells",Rect.intersects(bounds,
+                                new Rect(second.getLeft(),second.getTop(),second.getRight(),second.getBottom())));
+                    }
+                }
+                View grid=stack.findViewWithTag("programmer_keypad_grid");
+                if(stage.equals("programmer-full-after"))assertTrue("normal portrait needs no keyboard scrolling",grid.getHeight()<=viewport.getHeight());
             }
             for(int g=0;g<groups.length;g++) {
                 StringBuilder report=new StringBuilder(stage+" KEYPAD "+names[g]+" ");
@@ -1331,6 +1353,12 @@ public class WindowConfigurationTest {
         scenario.onActivity(a -> ((ProgrammerKeypadLayout)member(a,"mProgrammerKeypadLayout")).setEnabled(true));
         device.waitForIdle(1500);SystemClock.sleep(500);
         programmerKeypadMeasure(stage+"-after",true);evidence(stage+"-keypad-after");
+        Map<Integer,String> before=displaySnapshot();
+        for(int id:ProgrammerKeypadLayout.ORDER)programmerKeyReach(id);
+        assertEquals("all 29 keys reached without entering anything",before,displaySnapshot());
+        Log.i("TaxPosition",stage+" ALL_29_KEYS_FINGER_REACH_PASS");
+        evidence(stage+"-keypad-last-row");
+        programmerKeyReach(R.id.digit_7);
     }
     private void programmerHexAndBitKeys() {
         programmerTap(R.id.programmer_chip_in);programmerMenuChoice(R.string.programmer_hex_description);
@@ -1341,6 +1369,15 @@ public class WindowConfigurationTest {
         assertEquals("XOR","AA",displaySnapshot().get(R.id.programmer_value_in));
         programmerPadTap(R.id.fun_cos);programmerPadTap(R.id.fun_sin);programmerPadTap(R.id.eq);
         assertEquals("AND","A",displaySnapshot().get(R.id.programmer_value_in));
+        programmerPadTap(R.id.fun_tan);programmerPadTap(R.id.digit_5);programmerPadTap(R.id.eq);
+        assertEquals("OR","F",displaySnapshot().get(R.id.programmer_value_in));
+        programmerPadTap(R.id.fun_ln);programmerPadTap(R.id.digit_1);programmerPadTap(R.id.eq);
+        assertEquals("last row left shift","1E",displaySnapshot().get(R.id.programmer_value_in));
+        programmerPadTap(R.id.fun_log);programmerPadTap(R.id.digit_1);programmerPadTap(R.id.eq);
+        assertEquals("last row right shift","F",displaySnapshot().get(R.id.programmer_value_in));
+        programmerPadTap(R.id.const_e);programmerPadTap(R.id.const_e);
+        assertEquals("last row NOT twice","F",displaySnapshot().get(R.id.programmer_value_in));
+        Log.i("TaxPosition","PROGRAMMER_LAST_ROW_XOR_NOT_SHIFTS_CLICK_PASS");
         programmerTap(R.id.programmer_chip_in);programmerMenuChoice(R.string.programmer_bin_description);
         scenario.onActivity(a -> {assertFalse(a.findViewById(R.id.digit_2).isEnabled());assertFalse(a.findViewById(R.id.op_sqrt).isEnabled());assertTrue(a.findViewById(R.id.fun_cos).isEnabled());});
         programmerTap(R.id.programmer_chip_in);programmerMenuChoice(R.string.programmer_dec_description);
@@ -1350,6 +1387,11 @@ public class WindowConfigurationTest {
         programmerKeypadAudit("programmer-full");programmerHexAndBitKeys();
         device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
         programmerKeypadAudit("programmer-landscape");programmerHexAndBitKeys();
+        device.setOrientationNatural();awaitOrientation(Configuration.ORIENTATION_PORTRAIT);
+        programmerKeypadMeasure("programmer-full-after",true);
+        programmerPadTap(R.id.clr);programmerPadTap(R.id.digit_1);programmerPadTap(R.id.op_add);
+        programmerPadTap(R.id.digit_2);programmerPadTap(R.id.eq);
+        assertEquals("portrait restore compute","3",displaySnapshot().get(R.id.programmer_value_in));
         key(R.id.mode_segment_basic);
         scenario.onActivity(a -> {
             assertNull(a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport"));
