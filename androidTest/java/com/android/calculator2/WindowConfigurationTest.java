@@ -1207,7 +1207,8 @@ public class WindowConfigurationTest {
                     SystemClock.sleep(100);
                 }
             }
-            SplitSample before=splitSample();
+            device.executeShellCommand("am task focus "+splitTask);
+            SplitSample before=stableSample(true,null);
             assertTrue("real target pair "+before,before.multi&&before.verifiedCompanion());
             assertEquals("target position",bottom,before.app.top>before.other.top);
             Rect divider=verifiedDivider();
