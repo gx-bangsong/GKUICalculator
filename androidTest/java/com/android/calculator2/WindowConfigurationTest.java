@@ -1321,7 +1321,8 @@ public class WindowConfigurationTest {
         Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
         String resource=context.getPackageName()+":id/"+context.getResources().getResourceEntryName(id);
         androidx.test.uiautomator.UiSelector selector=new androidx.test.uiautomator.UiSelector().resourceId(resource);
-        androidx.test.uiautomator.UiScrollable scroll=new androidx.test.uiautomator.UiScrollable(new androidx.test.uiautomator.UiSelector().scrollable(true));
+        androidx.test.uiautomator.UiScrollable scroll=new androidx.test.uiautomator.UiScrollable(new androidx.test.uiautomator.UiSelector()
+            .packageName(context.getPackageName()).className(android.widget.ScrollView.class.getName()).scrollable(true));
         scroll.setAsVerticalList();boolean reached=scroll.scrollIntoView(selector);
         if(!reached) {
             for(androidx.test.uiautomator.UiObject2 node:device.findObjects(androidx.test.uiautomator.By.scrollable(true)))

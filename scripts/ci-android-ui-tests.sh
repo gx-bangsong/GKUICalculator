@@ -274,7 +274,7 @@ adb logcat -d -v brief WindowEvidence:I SplitPhase:I MortgageForm:I MortgagePosi
 mortgage_phases=$(grep -E 'MortgageForm.*(ALL_CORE_FIELDS|CONDITIONAL_TYPES|EXIT_|half task=|short task=)' build/ui-screenshots/window-evidence.log | tail -n 12 | tr '\n' ' ' || true)
 mortgage_phases=${mortgage_phases//%/%25}
 echo "::warning title=Mortgage form touch steps::${mortgage_phases:0:3800}"
-position_steps=$(grep -E 'MortgagePosition.*(CONTENT|REAL_SWIPE|PASS|calcPairFraction)|MortgageTarget|TaxPosition' build/ui-screenshots/window-evidence.log | sed 's/ View Hierarchy:.*//' | cut -c1-1000 | tail -n 20 | tr '\n' ' ' || true)
+position_steps=$(grep -E 'MortgagePosition.*(CONTENT|REAL_SWIPE|PASS|calcPairFraction)|MortgageTarget|TaxPosition.*(RESIZE|GEOMETRY|CONTENT|REAL_SWIPE|DIALOG_ALL|PASS|FAIL)' build/ui-screenshots/window-evidence.log | sed 's/ View Hierarchy:.*//' | cut -c1-1000 | tail -n 20 | tr '\n' ' ' || true)
 position_steps=${position_steps//%/%25}
 part=1
 while IFS= read -r line || [[ -n "$line" ]]; do
