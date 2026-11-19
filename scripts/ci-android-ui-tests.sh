@@ -132,7 +132,7 @@ if [[ "$split_scope" == "mortgage-lower-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#mortgageLowerQuarterRealScroll"
 fi
 if [[ "$split_scope" == "tax-quarter-only" ]]; then
-    runner_classes="com.android.calculator2.WindowConfigurationTest#taxUpperQuarterSplitTouch,com.android.calculator2.WindowConfigurationTest#taxLowerQuarterSplitTouch,com.android.calculator2.WindowConfigurationTest#mortgageUpperQuarterSplitLoanTypes,com.android.calculator2.WindowConfigurationTest#mortgageLowerQuarterRealScroll"
+    runner_classes="com.android.calculator2.WindowConfigurationTest#taxUpperQuarterSplitTouch,com.android.calculator2.WindowConfigurationTest#taxLowerQuarterSplitTouch"
 fi
 if [[ "$split_scope" == "non-split" ]]; then
     excluded=$(python3 - <<'PYEXCLUDE'
@@ -414,7 +414,7 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
 if os.environ.get("SPLIT_SCOPE") == "tax-quarter-only":
-    required={"com.android.calculator2.WindowConfigurationTest":["taxUpperQuarterSplitTouch","taxLowerQuarterSplitTouch","mortgageUpperQuarterSplitLoanTypes","mortgageLowerQuarterRealScroll"]}
+    required={"com.android.calculator2.WindowConfigurationTest":["taxUpperQuarterSplitTouch","taxLowerQuarterSplitTouch"]}
 
 if os.environ.get("SPLIT_SCOPE") == "non-split":
     key="com.android.calculator2.WindowConfigurationTest"
@@ -658,7 +658,7 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
 if os.environ.get("SPLIT_SCOPE") == "tax-quarter-only":
-    required={"com.android.calculator2.WindowConfigurationTest":["taxUpperQuarterSplitTouch","taxLowerQuarterSplitTouch","mortgageUpperQuarterSplitLoanTypes","mortgageLowerQuarterRealScroll"]}
+    required={"com.android.calculator2.WindowConfigurationTest":["taxUpperQuarterSplitTouch","taxLowerQuarterSplitTouch"]}
 
 if os.environ.get("SPLIT_SCOPE") == "non-split":
     key="com.android.calculator2.WindowConfigurationTest"

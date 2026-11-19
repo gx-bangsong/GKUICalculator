@@ -16,3 +16,13 @@
 - Follow-up order remains tax, unit, currency. Preserve converter two-row panels, pills,
   swap, middle insertion, read-only copyable results and currency asynchronous state.
   Programmer menus/swap and large-screen left history remain separate later tasks.
+
+## Physical acceptance update: 4ad3f9e1275adea2a84bd5686b9b1c04b88691ad
+
+The user physically accepted both small fixes: salary/bonus switching no longer selects
+text or stalls, and all mortgage loan-category options display and switch correctly in
+small windows. Preserve both controls and the mortgage layout; normal regression only.
+This is NOT acceptance of all tax split workflows. Remaining tax work is real result
+reach/copy, bonus calculation/copy, return-and-edit and state retention. Native modal
+scrolling remains physically confirmed; unfinished automation is not a product defect.
+Unit and currency baseline/adaptation proceed independently of full system split chains.

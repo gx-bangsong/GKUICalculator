@@ -1091,10 +1091,24 @@ public class WindowConfigurationTest {
                 });
                 if(stable[0]) {assertMortgageTextVisible(id);return;}
             }
-            int top=viewport.top+Math.max(8,viewport.height()/6),bottom=viewport.bottom-Math.max(8,viewport.height()/6);
-            boolean above=target[0]<viewport.top;
-            assertTrue("finger scroll "+id,device.swipe(viewport.right-6,above?top:bottom,
-                viewport.right-6,above?bottom:top,35));
+            int[] geometry=new int[5];
+            scenario.onActivity(a -> {
+                View view=a.findViewById(id);int[] location=new int[2];view.getLocationOnScreen(location);
+                geometry[0]=location[1];geometry[1]=location[1]+view.getHeight();
+                geometry[2]=android.view.ViewConfiguration.get(a).getScaledTouchSlop();
+                geometry[3]=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport").getScrollY();
+                geometry[4]=view.getHeight();
+            });
+            int overflow=geometry[0]<viewport.top?geometry[0]-viewport.top:geometry[1]-viewport.bottom;
+            if(attempt<4||attempt==23)Log.i("TaxPosition","CONTENT_TARGET id="+id+" attempt="+attempt+" top="+geometry[0]+" bottom="+geometry[1]+" height="+geometry[4]+" viewport="+viewport+" scrollY="+geometry[3]+" overflow="+overflow);
+            assertTrue("natural target must fit this viewport for whole-row assertion: id="+id+" height="+geometry[4]+" viewport="+viewport.height(),geometry[4]<=viewport.height());
+            // A fixed 2/3-viewport swipe can oscillate across a tall result's much smaller
+            // fit interval. Converge using actual overflow plus native touch slop instead.
+            int distance=Math.min(viewport.height()/3,Math.abs(overflow)+geometry[2]+1);
+            boolean above=overflow<0;
+            int from=above?viewport.top+viewport.height()/3:viewport.bottom-viewport.height()/3;
+            assertTrue("finger scroll "+id,device.swipe(viewport.right-6,from,
+                viewport.right-6,from+(above?distance:-distance),45));
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();awaitMotionState(R.id.start_state);
         }
         fail("control cannot be reached with finger scroll: "+id);
@@ -1191,7 +1205,9 @@ public class WindowConfigurationTest {
     @Test public void taxUpperQuarterSplitTouch() throws Exception {taxQuarter(false);}
     @Test public void taxLowerQuarterSplitTouch() throws Exception {taxQuarter(true);}
     private void establishQuarterWindow(int mode,boolean bottom,String stage) throws Exception {
-        onView(withContentDescription(mode)).perform(click());
+        if(mode==R.string.tool_unit||mode==R.string.tool_currency) {
+            key(R.id.mode_segment_convert);if(mode==R.string.tool_currency)key(R.id.mode_segment_convert);
+        } else onView(withContentDescription(mode)).perform(click());
         enterRealSplit();
         SplitSample entry=splitSample();
         if((entry.app.top>entry.other.top)!=bottom) {
@@ -1348,8 +1364,9 @@ public class WindowConfigurationTest {
             fingerTap(R.id.tax_mode_toggle);assertEquals("false",modelSnapshot().get("mBonusMode"));
             for(int n=0;n<3;n++)assertEquals("salary fields restored",salary.get("field"+n),modelSnapshot().get("field"+n));
             fingerFind(R.id.tool_field_1);fingerFind(R.id.tool_field_2);fingerFind(R.id.tool_field_0);
+            taxEdit(0,"31000");assertTaxComputation();
             evidence(stage+"-returned-input");
-            Log.i("TaxPosition",stage+" CORE_SALARY_BONUS_SWITCH_COPY_RETURN_PASS");
+            Log.i("TaxPosition",stage+" CORE_SALARY_BONUS_SWITCH_COPY_RETURN_EDIT_PASS");
             resizePosition(bottom,0.5f);resizePosition(bottom,0.25f);
             Log.i("TaxPosition",stage+" RESIZE_STATE_PASS");
             // Modal automation is independent of already-completed core operations.
