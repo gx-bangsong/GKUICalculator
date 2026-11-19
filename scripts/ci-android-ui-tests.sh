@@ -862,6 +862,8 @@ while IFS= read -r item; do
 done < <(adb shell 'ls /sdcard/window-*.json' 2>/dev/null || true)
 
 
+adb pull /sdcard/window-tax-dialog-failure.xml build/ui-screenshots/ || true
+
 default_screenshot_is_from_test=false
 if [[ -s build/ui-screenshots/calculator-default.png ]]; then
     default_screenshot_is_from_test=true

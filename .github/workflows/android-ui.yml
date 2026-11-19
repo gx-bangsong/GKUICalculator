@@ -92,6 +92,30 @@ jobs:
             echo "::notice title=Android AVD free space::$(df -h "$HOME/.android/avd" | tail -n 1 | sed 's/%/%25/g')"
           script: SPLIT_SCOPE=${{ inputs.split_scope || 'tax-quarter-only' }} bash scripts/ci-android-ui-tests.sh
 
+      - name: Prepare tax window review images
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'tax-quarter-only') }}
+        run: |
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PYTAX'
+          from pathlib import Path
+          from PIL import Image
+          for source in Path('build/ui-screenshots').glob('window-tax-*.png'):
+              image=Image.open(source).convert('RGB');image.thumbnail((360,1200))
+              image.save(source.with_name(source.stem+'-review.jpg'),quality=40,optimize=True)
+          PYTAX
+      - name: Publish tax lower window evidence
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'tax-quarter-only') }}
+        run: |
+          source=build/ui-screenshots/window-tax-lower-25-failure-review.jpg
+          if [[ ! -f "$source" ]]; then source=build/ui-screenshots/window-tax-lower-25-returned-input-review.jpg; fi
+          bash scripts/ci-publish-preview.sh "$source" "Tax lower window" 0 warning
+      - name: Publish tax upper window evidence
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'tax-quarter-only') }}
+        run: |
+          source=build/ui-screenshots/window-tax-upper-25-failure-review.jpg
+          if [[ ! -f "$source" ]]; then source=build/ui-screenshots/window-tax-upper-25-returned-input-review.jpg; fi
+          bash scripts/ci-publish-preview.sh "$source" "Tax upper window" 0 warning
+
       # Each step gets its own check-annotation budget, so the base64 previews live in steps of
       # their own: inside the test step they were silently truncated and every review read a
       # half-decoded frame.

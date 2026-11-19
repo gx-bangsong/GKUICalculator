@@ -1293,7 +1293,18 @@ public class WindowConfigurationTest {
             assertTrue(device.pressKeyCode(android.view.KeyEvent.KEYCODE_A,android.view.KeyEvent.META_CTRL_ON));
             assertTrue(device.pressKeyCode(android.view.KeyEvent.KEYCODE_DEL));
             device.executeShellCommand("input text "+(id==R.id.si_base_input?"10000":"1"));
-            device.waitForIdle(1000);assertTrue(device.pressBack());device.waitForIdle(1000);
+            device.waitForIdle(1000);
+            // Back can first dismiss the editor's selection mode instead of the IME.
+            // Close only a verified input-method window; never blindly dismiss the dialog.
+            for(int attempt=0;attempt<3;attempt++) {
+                boolean ime=false;
+                for(android.view.accessibility.AccessibilityWindowInfo window:InstrumentationRegistry.getInstrumentation().getUiAutomation().getWindows())
+                    if(window.getType()==android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD)ime=true;
+                Log.i("TaxPosition",stage+" DIALOG_INPUT id="+id+" ime="+ime+" closeAttempt="+attempt);
+                if(!ime)break;
+                assertTrue(device.pressBack());device.waitForIdle(1000);
+            }
+            onView(withId(android.R.id.button1)).check(matches(isDisplayed()));
         }
         if(!insurance) {
             for(int id:new int[]{R.id.ded_edu_share,R.id.ded_continuing,R.id.ded_mortgage_share,R.id.ded_rent,R.id.ded_infant_share}) {
@@ -1311,7 +1322,13 @@ public class WindowConfigurationTest {
         String resource=context.getPackageName()+":id/"+context.getResources().getResourceEntryName(id);
         androidx.test.uiautomator.UiSelector selector=new androidx.test.uiautomator.UiSelector().resourceId(resource);
         androidx.test.uiautomator.UiScrollable scroll=new androidx.test.uiautomator.UiScrollable(new androidx.test.uiautomator.UiSelector().scrollable(true));
-        scroll.setAsVerticalList();assertTrue("dialog entry reachable by actual scrolling "+resource,scroll.scrollIntoView(selector));
+        scroll.setAsVerticalList();boolean reached=scroll.scrollIntoView(selector);
+        if(!reached) {
+            for(androidx.test.uiautomator.UiObject2 node:device.findObjects(androidx.test.uiautomator.By.scrollable(true)))
+                Log.e("TaxPosition","DIALOG_SCROLL_FAIL target="+resource+" scrollable="+node.getResourceName()+" bounds="+node.getVisibleBounds());
+            device.dumpWindowHierarchy("/sdcard/window-tax-dialog-failure.xml");
+        }
+        assertTrue("dialog entry reachable by actual scrolling "+resource,reached);
         return device.findObject(selector);
     }
     private void assertTaxComputation() {
