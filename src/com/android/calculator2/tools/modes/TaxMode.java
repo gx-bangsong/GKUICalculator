@@ -159,6 +159,44 @@ public class TaxMode extends FieldToolMode {
             special.setOnClickListener(v -> showSpecialDialog(context));
         }
         updateModeUi();
+        // Preserve the existing grouped tax controls on wide windows; reflow only when
+        // their real label/value widths no longer fit. Never replace fields or selections.
+        for(int id:new int[]{R.id.tool_field_0,R.id.tool_field_1,R.id.tool_field_2}) {
+            TextView field=root.findViewById(id);
+            field.setSingleLine(false);field.setMaxLines(Integer.MAX_VALUE);
+            field.setHorizontallyScrolling(false);
+        }
+        Runnable reflow=() -> {
+            reflowTaxRow(root.findViewById(R.id.tax_action_row));
+            reflowTaxRow(root.findViewById(R.id.tax_deduction_row));
+        };
+        root.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> reflow.run());
+        for(int id:new int[]{R.id.tax_mode_toggle,R.id.tool_field_0,R.id.tool_field_1,R.id.tool_field_2})
+            ((TextView)root.findViewById(id)).addTextChangedListener(new android.text.TextWatcher() {
+                public void beforeTextChanged(CharSequence s,int start,int count,int after) {}
+                public void onTextChanged(CharSequence s,int start,int before,int count) {}
+                public void afterTextChanged(android.text.Editable text) {root.post(reflow);}
+            });
+        root.post(reflow);
+    }
+
+    private static void reflowTaxRow(android.widget.LinearLayout row) {
+        if(row.getWidth()==0)return;
+        int needed=0;
+        for(int i=0;i<row.getChildCount();i++) {
+            TextView child=(TextView)row.getChildAt(i);
+            if(child.getVisibility()!=View.GONE)needed+=(int)Math.ceil(android.text.Layout.getDesiredWidth(child.getText(),child.getPaint()))
+                +child.getPaddingLeft()+child.getPaddingRight();
+        }
+        boolean vertical=needed>row.getWidth()-row.getPaddingLeft()-row.getPaddingRight();
+        int orientation=vertical?android.widget.LinearLayout.VERTICAL:android.widget.LinearLayout.HORIZONTAL;
+        if(row.getOrientation()==orientation)return;
+        row.setOrientation(orientation);
+        for(int i=0;i<row.getChildCount();i++) {
+            View child=row.getChildAt(i);android.widget.LinearLayout.LayoutParams p=(android.widget.LinearLayout.LayoutParams)child.getLayoutParams();
+            p.width=vertical?android.view.ViewGroup.LayoutParams.MATCH_PARENT:0;p.weight=vertical?0:1;
+            child.setLayoutParams(p);
+        }
     }
 
     /** Flips between monthly-salary withholding and the year-end bonus calculation. */

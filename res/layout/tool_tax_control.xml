@@ -9,6 +9,7 @@
     android:paddingBottom="@dimen/tool_bar_vertical_padding">
 
     <LinearLayout
+        android:id="@+id/tax_action_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal">
@@ -16,7 +17,7 @@
         <!-- Switches between monthly-salary withholding and the year-end bonus calculation. -->
         <TextView
             android:id="@+id/tax_mode_toggle"
-            style="@style/ToolFieldStyle"
+            style="@style/TaxFieldStyle"
             android:layout_width="0dp"
             android:layout_weight="1"
             android:textColor="?colorPrimary" />
@@ -25,7 +26,7 @@
              place a text cursor or expose the long-press selection menu. -->
         <TextView
             android:id="@+id/tax_insurance_detail"
-            style="@style/ToolFieldStyle"
+            style="@style/TaxFieldStyle"
             android:layout_width="0dp"
             android:layout_weight="1"
             android:textColor="?colorOnSurfaceVariant"
@@ -38,7 +39,7 @@
              place a text cursor or expose the long-press selection menu. -->
         <TextView
             android:id="@+id/tax_special_detail"
-            style="@style/ToolFieldStyle"
+            style="@style/TaxFieldStyle"
             android:layout_width="0dp"
             android:layout_weight="1"
             android:textColor="?colorOnSurfaceVariant"
@@ -50,18 +51,19 @@
 
     <com.android.calculator2.tools.ToolFieldEditText
         android:id="@+id/tool_field_0"
-        style="@style/ToolFieldStyle"
+        style="@style/TaxFieldStyle"
         android:background="@null"
         android:inputType="text" />
 
     <LinearLayout
+        android:id="@+id/tax_deduction_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
         <com.android.calculator2.tools.ToolFieldEditText
             android:id="@+id/tool_field_1"
-            style="@style/ToolFieldStyle"
+            style="@style/TaxFieldStyle"
             android:layout_width="0dp"
             android:layout_weight="1"
             android:background="@null"
@@ -69,7 +71,7 @@
 
         <com.android.calculator2.tools.ToolFieldEditText
             android:id="@+id/tool_field_2"
-            style="@style/ToolFieldStyle"
+            style="@style/TaxFieldStyle"
             android:layout_width="0dp"
             android:layout_weight="1"
             android:background="@null"

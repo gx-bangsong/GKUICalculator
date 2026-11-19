@@ -159,6 +159,13 @@
         <item name="android:cursorVisible">true</item>
     </style>
 
+    <!-- Tax keeps its compact rows when they fit and natural touch height when they reflow. -->
+    <style name="TaxFieldStyle" parent="ToolFieldStyle">
+        <item name="android:minHeight">44dp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+    </style>
+
     <!-- Mortgage is a discoverable form, not three weighted fragments of one row. -->
     <style name="MortgageFieldStyle" parent="ToolFieldStyle">
         <item name="android:layout_width">match_parent</item>
