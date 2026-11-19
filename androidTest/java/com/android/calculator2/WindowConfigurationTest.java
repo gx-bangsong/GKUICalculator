@@ -1399,6 +1399,18 @@ public class WindowConfigurationTest {
             assertEquals(R.id.input_pad,((View)a.findViewById(R.id.digit_0).getParent()).getId());
             assertEquals(a.getString(R.string.op_sqrt),((TextView)a.findViewById(R.id.op_sqrt)).getText().toString());
         });
+        for(boolean currency:new boolean[]{false,true}) {
+            key(R.id.mode_segment_convert);
+            scenario.onActivity(a -> {
+                assertNull("no programmer scroll container in converters",a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport"));
+                assertEquals(R.id.input_pad,((View)a.findViewById(R.id.digit_0).getParent()).getId());
+                assertEquals(a.getString(R.string.op_sqrt),((TextView)a.findViewById(R.id.op_sqrt)).getText().toString());
+            });
+            key(R.id.clr);digits("12");key(R.id.op_add);digits("3");key(R.id.eq);
+            assertEquals("converter input after programmer exit","15",modelSnapshot().get("expression"));
+            assertConverterComputation(currency);
+        }
+        Log.i("TaxPosition","PROGRAMMER_PORTRAIT_BASIC_UNIT_CURRENCY_RESTORE_PASS");
     }
     private void programmerQuarter(boolean bottom) throws Exception {
         String stage="programmer-"+(bottom?"lower":"upper")+"-25";
@@ -1428,6 +1440,19 @@ public class WindowConfigurationTest {
                 assertEquals(View.GONE,a.findViewById(R.id.shared_display_rows).getVisibility());
             });
             Log.i("TaxPosition",stage+" PROGRAMMER_MENU_SWAP_COMPUTE_COPY_PASS");
+            Map<Integer,String> beforeExpand=displaySnapshot();
+            Rect divider=verifiedDivider();
+            assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),bottom?1:device.getDisplayHeight()-1,80));
+            SplitSample expanded=stableSample(false,null);
+            Log.i("TaxPosition",stage+" EXPANDED "+expanded);
+            programmerKeypadMeasure("programmer-full-after",true);
+            assertEquals("result preserved on real quarter to full expansion",beforeExpand,displaySnapshot());
+            scenario.onActivity(a -> assertEquals("full window clamps away short-window keyboard scroll",0,
+                    a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport").getScrollY()));
+            programmerPadTap(R.id.op_add);programmerPadTap(R.id.digit_1);programmerPadTap(R.id.eq);
+            assertEquals("continued calculation after expansion","16",displaySnapshot().get(R.id.programmer_value_in));
+            evidence(stage+"-expanded-full");
+            Log.i("TaxPosition",stage+" QUARTER_TO_FULL_RESTORE_PASS");
         } catch(Throwable e) {
             Log.e("TaxPosition",stage+" FAIL "+e);evidence(stage+"-failure");
             if(e instanceof Exception)throw (Exception)e;throw (Error)e;
