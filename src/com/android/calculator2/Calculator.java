@@ -1706,6 +1706,7 @@ public class Calculator extends AppCompatActivity
 
     private FieldToolViewport mFieldToolViewport;
     private ConverterKeypadLayout mConverterKeypadLayout;
+    private ProgrammerKeypadLayout mProgrammerKeypadLayout;
 
     boolean isMortgageViewport() {
         return mToolManager!=null&&mToolManager.getActive()!=null
@@ -1866,6 +1867,7 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void setProgrammerPadMode(boolean enabled, int radix) {
+        if(!enabled && mProgrammerKeypadLayout!=null)mProgrammerKeypadLayout.setEnabled(false);
         // Programmer keys A-F and bitwise operators live in this pad, so force it visible while
         // the mode is active and restore the user's scientific-pad preference afterward.
         applyAdvancedPadVisibility(enabled || mScientificVisible);
@@ -1912,6 +1914,10 @@ public class Calculator extends AppCompatActivity
             findViewById(digitIds[digit]).setEnabled(!enabled || digit < radix);
         }
         findViewById(R.id.dec_point).setEnabled(!enabled);
+        if(enabled) {
+            if(mProgrammerKeypadLayout==null)mProgrammerKeypadLayout=new ProgrammerKeypadLayout(this);
+            mProgrammerKeypadLayout.setEnabled(true);
+        }
     }
 
     private void restoreScientificPadLabels() {
