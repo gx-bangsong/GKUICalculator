@@ -1773,6 +1773,8 @@ public class WindowConfigurationTest {
                 int[] at=new int[2];view.getLocationOnScreen(at);box[0]=at[1];box[1]=at[1]+view.getHeight();
                 box[2]=view.getHeight();box[3]=android.view.ViewConfiguration.get(a).getScaledTouchSlop();box[4]=scroll.getScrollY();
                 Rect actual=new Rect();ready[0]=visibleOnScreen(view,actual)&&actual.height()==view.getHeight()&&viewport.contains(actual)&&view.getHeight()>0;
+                if(!ready[0] && (id==R.id.unit_from || id==R.id.unit_input_text))
+                    Log.i("TaxPosition","ENTRY id="+id+" screen="+new Rect(at[0],at[1],at[0]+view.getWidth(),at[1]+view.getHeight())+" visible="+actual+" viewport="+viewport+" y="+scroll.getScrollY()+" remaining="+Math.max(0,scroll.getChildAt(0).getHeight()-scroll.getHeight()-scroll.getScrollY())+" ownScroll="+view.getScrollX()+","+view.getScrollY()+" focus="+view.isFocused());
             });
             if(ready[0]) {
                 scenario.onActivity(a -> {
@@ -1841,8 +1843,8 @@ public class WindowConfigurationTest {
             converterFind(true,R.id.currency_update_label);
             for(int refresh=0;refresh<2;refresh++) {
             final int refreshCase=refresh;
-            int[] geometryBefore=new int[4];int[] geometryAfter=new int[4];String[] labelBefore={null};
-            scenario.onActivity(a -> { currencyGeometry(a,scroll,geometryBefore);labelBefore[0]=((TextView)a.findViewById(R.id.currency_update_label)).getText().toString(); });
+            int[] geometryBefore=new int[5];int[] geometryAfter=new int[5];String[] labelBefore={null};String[] focus=new String[2];
+            scenario.onActivity(a -> { currencyGeometry(a,scroll,geometryBefore);focus[0]=String.valueOf(a.getCurrentFocus()==null?null:a.getCurrentFocus().getId());labelBefore[0]=((TextView)a.findViewById(R.id.currency_update_label)).getText().toString(); });
             int[] savedSelection=selection(input);int[] position=new int[2];scenario.onActivity(a -> position[0]=scroll.getScrollY());
             Map<String,String> savedModel=modelSnapshot();
             scenario.onActivity(a -> a.getWindow().getDecorView().post(() -> {
@@ -1855,10 +1857,10 @@ public class WindowConfigurationTest {
             }));
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();device.waitForIdle(1500);
             scenario.onActivity(a -> position[1]=scroll.getScrollY());
+            scenario.onActivity(a -> {currencyGeometry(a,scroll,geometryAfter);focus[1]=String.valueOf(a.getCurrentFocus()==null?null:a.getCurrentFocus().getId());});
+            Log.i("TaxPosition",stage+" REFRESH case="+(refreshCase==0?"same-label":"changed-label")+" beforeY="+position[0]+" afterY="+position[1]+" before[content,viewport,range,anchorScreen,anchorContent]="+java.util.Arrays.toString(geometryBefore)+" after="+java.util.Arrays.toString(geometryAfter)+" focus="+java.util.Arrays.toString(focus)+" expressionPreserved="+savedModel.equals(modelSnapshot())+" selection="+java.util.Arrays.toString(savedSelection)+"->"+java.util.Arrays.toString(selection(input)));
             assertEquals("external rate callback preserves real expression",savedModel,modelSnapshot());
             assertArrayEquals("rate callback preserves native selection",savedSelection,selection(input));
-            scenario.onActivity(a -> currencyGeometry(a,scroll,geometryAfter));
-            Log.i("TaxPosition",stage+" REFRESH case="+refreshCase+" beforeY="+position[0]+" afterY="+position[1]+" before[content,viewport,range,anchor]="+java.util.Arrays.toString(geometryBefore)+" after="+java.util.Arrays.toString(geometryAfter));
             assertEquals("rate callback keeps scroll except necessary new-boundary clamp",Math.min(position[0],geometryAfter[2]),position[1]);
             assertEquals("visible result anchor moves only by legal boundary adjustment",geometryBefore[3]+position[0]-position[1],geometryAfter[3]);
             if(refreshCase==1)assertConverterComputation(true);
@@ -1882,6 +1884,7 @@ public class WindowConfigurationTest {
         geometry[1]=scroll.getHeight()-scroll.getPaddingTop()-scroll.getPaddingBottom();
         geometry[2]=Math.max(0,geometry[0]-geometry[1]);
         int[] at=new int[2];activity.findViewById(R.id.currency_result_2_text).getLocationOnScreen(at);geometry[3]=at[1];
+        int[] root=new int[2];scroll.getLocationOnScreen(root);geometry[4]=at[1]-root[1]+scroll.getScrollY();
     }
     @SuppressWarnings("unchecked")
     private void assertConverterComputation(boolean currency) {
