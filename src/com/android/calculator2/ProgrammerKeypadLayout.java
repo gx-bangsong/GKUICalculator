@@ -28,7 +28,7 @@ final class ProgrammerKeypadLayout {
     private KeyGrid grid;
     private ConstraintSet normal;
     private boolean enabled,compact;
-    private int oldOrientation,oldInputVisibility,oldAdvancedVisibility,lastWidth,lastHeight;
+    private int oldOrientation,oldInputVisibility,oldAdvancedVisibility,lastWidth,lastHeight,lastLeft,lastRight;
 
     private static final class KeyHome {
         final TextView key;
@@ -148,31 +148,44 @@ final class ProgrammerKeypadLayout {
             normal=new ConstraintSet();normal.clone(motion.getConstraintSet(R.id.start_state));
         }
         float d=activity.getResources().getDisplayMetrics().density;
-        int width=motion.getWidth()-motion.getPaddingLeft()-motion.getPaddingRight();
+        android.graphics.Insets bars=activity.getWindowManager().getCurrentWindowMetrics().getWindowInsets()
+                .getInsets(android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout());
+        int left=Math.max(0,bars.left-motion.getPaddingLeft()),right=Math.max(0,bars.right-motion.getPaddingRight());
+        int width=motion.getWidth()-motion.getPaddingLeft()-motion.getPaddingRight()-left-right;
         int height=motion.getHeight()-motion.getPaddingTop()-motion.getPaddingBottom();
         int keyboardWidth=(int)Math.ceil(240*d),contentMin=(int)Math.ceil(140*d);
         android.util.TypedValue ratio=new android.util.TypedValue();
         activity.getResources().getValue(R.dimen.layout_pads_ratio,ratio,true);
         boolean target=width>=keyboardWidth+contentMin&&width<2*keyboardWidth+contentMin
                 &&height*ratio.getFloat()<Math.ceil(6*48*d);
-        if(target!=compact||width!=lastWidth||height!=lastHeight) {
+        if(target!=compact||width!=lastWidth||height!=lastHeight||left!=lastLeft||right!=lastRight) {
             ConstraintSet state=new ConstraintSet();state.clone(normal);
             if(target) {
                 View bar=activity.findViewById(R.id.tool_bar);
                 int barHeight=activity.getResources().getDimensionPixelSize(R.dimen.mode_segment_height)+bar.getPaddingTop()+bar.getPaddingBottom();
                 for(int id:new int[]{R.id.display,R.id.tool_bar,R.id.pad_stack})
-                    for(int anchor:new int[]{ConstraintSet.TOP,ConstraintSet.BOTTOM,ConstraintSet.START,ConstraintSet.END})state.clear(id,anchor);
+                    for(int anchor:new int[]{ConstraintSet.TOP,ConstraintSet.BOTTOM,ConstraintSet.START,ConstraintSet.END,ConstraintSet.LEFT,ConstraintSet.RIGHT})state.clear(id,anchor);
                 state.constrainWidth(R.id.pad_stack,keyboardWidth);state.constrainHeight(R.id.pad_stack,height);
-                state.connect(R.id.pad_stack,ConstraintSet.END,ConstraintSet.PARENT_ID,ConstraintSet.END);
+                state.connect(R.id.pad_stack,ConstraintSet.RIGHT,ConstraintSet.PARENT_ID,ConstraintSet.RIGHT,right);
                 state.connect(R.id.pad_stack,ConstraintSet.TOP,ConstraintSet.PARENT_ID,ConstraintSet.TOP);
                 state.constrainWidth(R.id.tool_bar,width-keyboardWidth);state.constrainHeight(R.id.tool_bar,barHeight);
-                state.connect(R.id.tool_bar,ConstraintSet.START,ConstraintSet.PARENT_ID,ConstraintSet.START);
+                state.connect(R.id.tool_bar,ConstraintSet.LEFT,ConstraintSet.PARENT_ID,ConstraintSet.LEFT,left);
                 state.connect(R.id.tool_bar,ConstraintSet.BOTTOM,ConstraintSet.PARENT_ID,ConstraintSet.BOTTOM);
                 state.constrainWidth(R.id.display,width-keyboardWidth);state.constrainHeight(R.id.display,Math.max(1,height-barHeight));
-                state.connect(R.id.display,ConstraintSet.START,ConstraintSet.PARENT_ID,ConstraintSet.START);
+                state.connect(R.id.display,ConstraintSet.LEFT,ConstraintSet.PARENT_ID,ConstraintSet.LEFT,left);
                 state.connect(R.id.display,ConstraintSet.TOP,ConstraintSet.PARENT_ID,ConstraintSet.TOP);
             }
-            compact=target;lastWidth=width;lastHeight=height;
+            if(!target&&(left>0||right>0)) {
+                // The activity is edge-to-edge. Keep this mode's actual touch cells out of
+                // side navigation/cutouts, without changing other modes or global insets.
+                for(int id:new int[]{R.id.display,R.id.tool_bar,R.id.pad_stack}) {
+                    for(int anchor:new int[]{ConstraintSet.LEFT,ConstraintSet.RIGHT,ConstraintSet.START,ConstraintSet.END})state.clear(id,anchor);
+                    state.constrainWidth(id,width);
+                    state.connect(id,ConstraintSet.LEFT,ConstraintSet.PARENT_ID,ConstraintSet.LEFT,left);
+                    state.connect(id,ConstraintSet.RIGHT,ConstraintSet.PARENT_ID,ConstraintSet.RIGHT,right);
+                }
+            }
+            compact=target;lastWidth=width;lastHeight=height;lastLeft=left;lastRight=right;
             motion.updateState(R.id.start_state,state);
         }
         sizeViewport(target?keyboardWidth:width,target?height:Math.round(height*ratio.getFloat()));

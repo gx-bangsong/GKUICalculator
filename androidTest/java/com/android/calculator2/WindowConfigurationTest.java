@@ -1335,6 +1335,11 @@ public class WindowConfigurationTest {
                     TextView key=a.findViewById(id);
                     report.append(a.getResources().getResourceEntryName(id)).append('=').append(Math.round(key.getWidth()/d*10)/10f).append('x').append(Math.round(key.getHeight()/d*10)/10f).append("dp/").append(Math.round(key.getTextSize()/sp*10)/10f).append("sp;");
                     if(verify) {
+                        android.view.WindowMetrics metrics=a.getWindowManager().getCurrentWindowMetrics();
+                        android.graphics.Insets bars=metrics.getWindowInsets().getInsets(android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout());
+                        int[] screen=new int[2];key.getLocationOnScreen(screen);
+                        assertTrue("key cannot be behind side navigation "+id+" x="+screen[0]+" width="+key.getWidth()+" window="+metrics.getBounds()+" bars="+bars,
+                                screen[0]>=metrics.getBounds().left+bars.left&&screen[0]+key.getWidth()<=metrics.getBounds().right-bars.right);
                         assertTrue("48dp target "+stage+" id="+id+" actual="+key.getWidth()/d+"x"+key.getHeight()/d+"dp",key.getWidth()>=Math.ceil(48*d)&&key.getHeight()>=Math.ceil(48*d));
                         assertTrue("no horizontally clipped programmer column id="+id+" bounds="+key.getLeft()+".."+key.getRight()+" stack="+stack.getWidth(),key.getLeft()>=0&&key.getRight()<=stack.getWidth());
                         if(key.getText().length()>0) {
