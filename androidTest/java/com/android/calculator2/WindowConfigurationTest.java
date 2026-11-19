@@ -1312,7 +1312,7 @@ public class WindowConfigurationTest {
                     report.append(a.getResources().getResourceEntryName(id)).append('=').append(Math.round(key.getWidth()/d*10)/10f).append('x').append(Math.round(key.getHeight()/d*10)/10f).append("dp/").append(Math.round(key.getTextSize()/sp*10)/10f).append("sp;");
                     if(verify) {
                         assertTrue("48dp target "+id,key.getWidth()>=Math.ceil(48*d)&&key.getHeight()>=Math.ceil(48*d));
-                        assertTrue("no horizontally clipped programmer column",key.getLeft()>=0&&key.getRight()<=stack.getWidth());
+                        assertTrue("no horizontally clipped programmer column id="+id+" bounds="+key.getLeft()+".."+key.getRight()+" stack="+stack.getWidth(),key.getLeft()>=0&&key.getRight()<=stack.getWidth());
                         if(key.getText().length()>0) {
                             assertNotNull(key.getLayout());assertEquals("single-line key label "+id,1,key.getLayout().getLineCount());
                             assertTrue("complete key label "+id,key.getLayout().getLineWidth(0)<=key.getWidth()-key.getCompoundPaddingLeft()-key.getCompoundPaddingRight()+1);

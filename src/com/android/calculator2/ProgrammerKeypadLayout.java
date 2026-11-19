@@ -3,7 +3,6 @@ package com.android.calculator2;
 
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.GridLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -26,7 +25,7 @@ final class ProgrammerKeypadLayout {
     private final View input,advanced;
     private final List<KeyHome> homes=new ArrayList<>();
     private ScrollView viewport;
-    private GridLayout grid;
+    private KeyGrid grid;
     private ConstraintSet normal;
     private boolean enabled,compact;
     private int oldOrientation,oldInputVisibility,oldAdvancedVisibility,lastWidth,lastHeight;
@@ -63,8 +62,7 @@ final class ProgrammerKeypadLayout {
             viewport=new ScrollView(activity);viewport.setTag("programmer_keypad_viewport");
             viewport.setContentDescription(activity.getString(R.string.programmer_keypad_scroll));viewport.setFillViewport(false);
             viewport.setVerticalScrollBarEnabled(true);viewport.setScrollbarFadingEnabled(false);
-            grid=new GridLayout(activity);grid.setTag("programmer_keypad_grid");
-            grid.setUseDefaultMargins(false);grid.setAlignmentMode(GridLayout.ALIGN_BOUNDS);
+            grid=new KeyGrid();grid.setTag("programmer_keypad_grid");
             homes.clear();
             for(int id:ORDER)homes.add(new KeyHome(activity.findViewById(id)));
             for(KeyHome home:homes) {
@@ -111,20 +109,37 @@ final class ProgrammerKeypadLayout {
         int columns=viewport.getWidth()>=Math.ceil(640*d)?10:Math.min(5,Math.max(1,viewport.getWidth()/(int)Math.ceil(48*d)));
         int rows=(ORDER.length+columns-1)/columns;
         int height=Math.max((int)Math.ceil(48*d),viewport.getHeight()/rows);
-        if(grid.getColumnCount()!=columns||grid.getRowCount()!=rows) {
-            grid.removeAllViews();grid.setColumnCount(columns);grid.setRowCount(rows);
+        grid.columns=columns;
+        grid.cellHeight=height;
+        grid.requestLayout();
+        for(KeyHome home:homes)styleLabel(home.key);
+    }
+
+    /** Exact cells: no intrinsic button minimum or GridLayout constraint may widen a column. */
+    private final class KeyGrid extends ViewGroup {
+        int columns=5,cellHeight=1;
+        KeyGrid(){super(activity);}
+        @Override protected ViewGroup.LayoutParams generateDefaultLayoutParams() {
+            return new ViewGroup.LayoutParams(-1,-1);
         }
-        for(int i=0;i<homes.size();i++) {
-            TextView key=homes.get(i).key;
-            int width=(i%columns+1)*viewport.getWidth()/columns-(i%columns)*viewport.getWidth()/columns;
-            GridLayout.LayoutParams p=new GridLayout.LayoutParams(GridLayout.spec(i/columns),GridLayout.spec(i%columns));
-            p.width=width;p.height=height;p.setMargins(0,0,0,0);
-            ViewGroup.LayoutParams old=key.getLayoutParams();
-            if(key.getParent()==null)grid.addView(key,p);
-            else if(!(old instanceof GridLayout.LayoutParams)||old.width!=width||old.height!=height
-                    ||((GridLayout.LayoutParams)old).columnSpec.equals(p.columnSpec)==false
-                    ||((GridLayout.LayoutParams)old).rowSpec.equals(p.rowSpec)==false)key.setLayoutParams(p);
-            styleLabel(key);
+        @Override protected void onMeasure(int widthSpec,int heightSpec) {
+            int width=MeasureSpec.getSize(widthSpec);
+            int rows=(getChildCount()+columns-1)/columns;
+            for(int i=0;i<getChildCount();i++) {
+                int col=i%columns;
+                int cellWidth=(col+1)*width/columns-col*width/columns;
+                getChildAt(i).measure(MeasureSpec.makeMeasureSpec(cellWidth,MeasureSpec.EXACTLY),
+                        MeasureSpec.makeMeasureSpec(cellHeight,MeasureSpec.EXACTLY));
+            }
+            setMeasuredDimension(width,rows*cellHeight);
+        }
+        @Override protected void onLayout(boolean changed,int l,int t,int r,int b) {
+            int width=r-l;
+            for(int i=0;i<getChildCount();i++) {
+                int col=i%columns,row=i/columns;
+                getChildAt(i).layout(col*width/columns,row*cellHeight,
+                        (col+1)*width/columns,(row+1)*cellHeight);
+            }
         }
     }
 
