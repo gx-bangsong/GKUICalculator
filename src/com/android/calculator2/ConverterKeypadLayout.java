@@ -28,6 +28,9 @@ final class ConverterKeypadLayout {
         for(int i=0;i<vertical.length;i++)vertical[i]=View.generateViewId();
         for(int i=0;i<horizontal.length;i++)horizontal[i]=View.generateViewId();
         motion.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{if(enabled)motion.post(this::fit);});
+        for(int id:order) keys.findViewById(id).addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{
+            if(enabled && compact)((TextView)v).setTextSize(TypedValue.COMPLEX_UNIT_SP,22);
+        });
     }
 
     void setEnabled(boolean value) {
