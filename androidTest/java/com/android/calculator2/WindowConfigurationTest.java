@@ -1765,6 +1765,7 @@ public class WindowConfigurationTest {
     }
     private void converterFind(boolean currency,int id) {
         android.widget.ScrollView scroll=converterViewport(currency);
+        int dragLoss=-1,lastY=0,lastDistance=0;
         for(int attempt=0;attempt<40;attempt++) {
             Rect viewport=new Rect();int[] box=new int[5];boolean[] ready={false};
             scenario.onActivity(a -> {
@@ -1773,7 +1774,7 @@ public class WindowConfigurationTest {
                 int[] at=new int[2];view.getLocationOnScreen(at);box[0]=at[1];box[1]=at[1]+view.getHeight();
                 box[2]=view.getHeight();box[3]=android.view.ViewConfiguration.get(a).getScaledTouchSlop();box[4]=scroll.getScrollY();
                 Rect actual=new Rect();ready[0]=visibleOnScreen(view,actual)&&actual.height()==view.getHeight()&&viewport.contains(actual)&&view.getHeight()>0;
-                if(!ready[0] && (id==R.id.unit_from || id==R.id.unit_input_text))
+                if(!ready[0] && !currency)
                     Log.i("TaxPosition","ENTRY id="+id+" screen="+new Rect(at[0],at[1],at[0]+view.getWidth(),at[1]+view.getHeight())+" visible="+actual+" viewport="+viewport+" y="+scroll.getScrollY()+" remaining="+Math.max(0,scroll.getChildAt(0).getHeight()-scroll.getHeight()-scroll.getScrollY())+" ownScroll="+view.getScrollX()+","+view.getScrollY()+" focus="+view.isFocused()+" localVisible="+view.getLocalVisibleRect(new Rect()));
             });
             if(ready[0]) {
@@ -1787,7 +1788,15 @@ public class WindowConfigurationTest {
             }
             assertTrue("natural converter row fits viewport: id="+id+" height="+box[2]+" viewport="+viewport,box[2]>0&&box[2]<=viewport.height());
             int overflow=box[0]<viewport.top?box[0]-viewport.top:box[1]-viewport.bottom;
-            int distance=Math.min(viewport.height()/3,Math.max(2*box[3]+1,Math.abs(overflow)+box[3]+1));
+            // A 71px row can exactly fill a 71px viewport. A minimum 2*slop
+            // drag oscillates over that fit interval. Learn the distance consumed by
+            // interception from the previous real gesture; converge to actual overflow.
+            if(dragLoss<0)dragLoss=box[3]+1;
+            int moved=Math.abs(box[4]-lastY);
+            if(lastDistance>0 && moved>0 && moved<=lastDistance)
+                dragLoss=lastDistance-moved;
+            int distance=Math.min(viewport.height()/3,Math.max(box[3]+1,Math.abs(overflow)+dragLoss));
+            lastY=box[4];lastDistance=distance;
             boolean down=overflow<0;int from=down?viewport.top+viewport.height()/3:viewport.bottom-viewport.height()/3;
             if(attempt<4||attempt==39)Log.i("TaxPosition","CONVERTER_CONTENT_TARGET id="+id+" attempt="+attempt+" y="+box[4]+" top="+box[0]+" bottom="+box[1]+" height="+box[2]+" overflow="+overflow+" viewport="+viewport);
             pointerDrag(viewport.right-6,from,from+(down?distance:-distance));
