@@ -606,4 +606,11 @@
     <string name="programmer_width_32">32-bit</string>
     <string name="programmer_width_64">64-bit</string>
     <string name="programmer_unsigned_menu">Unsigned display</string>
+    <string name="programmer_hex_description">HEX Hexadecimal (base 16)</string>
+    <string name="programmer_dec_description">DEC Decimal (base 10)</string>
+    <string name="programmer_oct_description">OCT Octal (base 8)</string>
+    <string name="programmer_bin_description">BIN Binary (base 2)</string>
+    <string name="programmer_swap">Swap input and output bases</string>
+    <string name="programmer_input_base">Input base: %1$s</string>
+    <string name="programmer_output_base">Output base: %1$s</string>
 </resources>

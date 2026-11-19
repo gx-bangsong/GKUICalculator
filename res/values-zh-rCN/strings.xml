@@ -293,4 +293,11 @@
     <string name="programmer_width_32">32 位</string>
     <string name="programmer_width_64">64 位</string>
     <string name="programmer_unsigned_menu">无符号显示</string>
+    <string name="programmer_hex_description">HEX 十六进制</string>
+    <string name="programmer_dec_description">DEC 十进制</string>
+    <string name="programmer_oct_description">OCT 八进制</string>
+    <string name="programmer_bin_description">BIN 二进制</string>
+    <string name="programmer_swap">交换输入和输出进制</string>
+    <string name="programmer_input_base">输入进制：%1$s</string>
+    <string name="programmer_output_base">输出进制：%1$s</string>
 </resources>

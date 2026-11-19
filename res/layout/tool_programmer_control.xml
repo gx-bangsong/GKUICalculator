@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
      Programmer: like the unit converter, two numeral systems one above the other, each with a
-     toggle chip alongside that cycles HEX / DEC / OCT / BIN. The width / signedness conversion
+     anchored radix menu alongside. A swap action preserves the register value. The width / signedness conversion
      options live in the activity overflow menu.
 -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="false">
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -39,14 +43,26 @@
             android:textIsSelectable="true" />
         </HorizontalScrollView>
 
-        <com.google.android.material.button.MaterialButton
+        <TextView
             android:id="@+id/programmer_chip_in"
-            style="@style/Widget.Material3.Button.OutlinedButton"
+            style="@style/ToolDropdownStyle"
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
             android:minWidth="64dp"
             android:text="@string/programmer_dec" />
     </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/programmer_swap"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="start"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/programmer_swap"
+        android:padding="12dp"
+        android:src="@drawable/ic_unit_swap"
+        android:tint="?colorOnSurfaceVariant" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -74,11 +90,12 @@
             android:textIsSelectable="true" />
         </HorizontalScrollView>
 
-        <com.google.android.material.button.MaterialButton
+        <TextView
             android:id="@+id/programmer_chip_out"
-            style="@style/Widget.Material3.Button.OutlinedButton"
+            style="@style/ToolDropdownStyle"
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
             android:minWidth="64dp"
             android:text="@string/programmer_hex" />
     </LinearLayout>
@@ -101,3 +118,5 @@
         android:textColor="?colorOnSurfaceVariant" />
 
 </LinearLayout>
+
+</ScrollView>

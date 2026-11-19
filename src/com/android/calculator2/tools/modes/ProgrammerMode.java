@@ -23,7 +23,7 @@ import com.android.calculator2.tools.ToolId;
 import com.android.calculator2.tools.ToolMode;
 import com.android.calculator2.tools.model.ProgrammerCalculator;
 import com.android.calculator2.tools.model.ProgrammerCalculator.Operation;
-import com.google.android.material.button.MaterialButton;
+import androidx.appcompat.widget.PopupMenu;
 
 import java.math.BigDecimal;
 
@@ -236,17 +236,11 @@ public final class ProgrammerMode implements ToolMode {
         if (valueIn != null) valueIn.setShowSoftInputOnFocus(false);
         final TextView valueOut = mControlRoot.findViewById(R.id.programmer_value_out);
         if (valueOut != null) valueOut.setShowSoftInputOnFocus(false);
-        final MaterialButton chipIn = mControlRoot.findViewById(R.id.programmer_chip_in);
-        if (chipIn != null) {
-            chipIn.setOnClickListener(v -> changeRadix(nextRadix(mRadix, mSecondRadix)));
-        }
-        final MaterialButton chipOut = mControlRoot.findViewById(R.id.programmer_chip_out);
-        if (chipOut != null) {
-            chipOut.setOnClickListener(v -> {
-                mSecondRadix = nextRadix(mSecondRadix, mRadix);
-                redisplay();
-            });
-        }
+        final TextView chipIn = mControlRoot.findViewById(R.id.programmer_chip_in);
+        chipIn.setOnClickListener(v -> showRadixMenu(chipIn, true));
+        final TextView chipOut = mControlRoot.findViewById(R.id.programmer_chip_out);
+        chipOut.setOnClickListener(v -> showRadixMenu(chipOut, false));
+        mControlRoot.findViewById(R.id.programmer_swap).setOnClickListener(v -> swapRadices());
         slot.removeAllViews();
         slot.addView(mControlRoot);
         slot.setVisibility(View.VISIBLE);
@@ -399,13 +393,17 @@ public final class ProgrammerMode implements ToolMode {
         if (valueOut != null) {
             valueOut.setText(fmt(value, mSecondRadix));
         }
-        final MaterialButton chipIn = mControlRoot.findViewById(R.id.programmer_chip_in);
+        final TextView chipIn = mControlRoot.findViewById(R.id.programmer_chip_in);
         if (chipIn != null) {
             chipIn.setText(radixNameRes(mRadix));
+            chipIn.setContentDescription(mHost.getContext().getString(R.string.programmer_input_base,
+                    mHost.getContext().getString(radixNameRes(mRadix))));
         }
-        final MaterialButton chipOut = mControlRoot.findViewById(R.id.programmer_chip_out);
+        final TextView chipOut = mControlRoot.findViewById(R.id.programmer_chip_out);
         if (chipOut != null) {
             chipOut.setText(radixNameRes(mSecondRadix));
+            chipOut.setContentDescription(mHost.getContext().getString(R.string.programmer_output_base,
+                    mHost.getContext().getString(radixNameRes(mSecondRadix))));
         }
         final TextView widthLabel = mControlRoot.findViewById(R.id.programmer_width_label);
         if (widthLabel != null) {
@@ -416,20 +414,37 @@ public final class ProgrammerMode implements ToolMode {
         }
     }
 
-    /** The next radix in the HEX/DEC/OCT/BIN cycle that is not {@code excluded}. */
-    private static int nextRadix(int current, int excluded) {
-        final int[] order = {16, 10, 8, 2};
-        for (int i = 0; i < order.length; i++) {
-            if (order[i] == current) {
-                for (int step = 1; step <= order.length; step++) {
-                    final int candidate = order[(i + step) % order.length];
-                    if (candidate != excluded) {
-                        return candidate;
-                    }
-                }
-            }
+    private void showRadixMenu(TextView anchor, boolean input) {
+        PopupMenu menu = new PopupMenu(anchor.getContext(), anchor);
+        int[] radices = {16, 10, 8, 2};
+        int[] labels = {R.string.programmer_hex_description, R.string.programmer_dec_description,
+                R.string.programmer_oct_description, R.string.programmer_bin_description};
+        for (int i=0; i<radices.length; i++) {
+            menu.getMenu().add(0, radices[i], i, labels[i]).setCheckable(true)
+                    .setChecked(radices[i] == (input ? mRadix : mSecondRadix));
         }
-        return current;
+        menu.getMenu().setGroupCheckable(0,true,true);
+        menu.setOnMenuItemClickListener(item -> {
+            if (input) changeRadix(item.getItemId());
+            else { mSecondRadix=item.getItemId(); redisplay(); }
+            return true;
+        });
+        menu.show();
+    }
+
+    private void swapRadices() {
+        // Re-encode the canonical register, not fmt(): width/signedness may mask the
+        // displayed value. Keep the accumulator, pending operation, error and entry mode.
+        final long value = currentValue();
+        final int previous = mRadix;
+        mRadix = mSecondRadix;
+        mSecondRadix = previous;
+        setEntry(value);
+        if (mPendingOperation != null) {
+            mExpression = fmt(mAccumulator, mRadix) + " " + symbol(mPendingOperation);
+        }
+        if (mHost != null) mHost.setProgrammerPadMode(true,mRadix);
+        redisplay();
     }
 
     private static int radixNameRes(int radix) {
