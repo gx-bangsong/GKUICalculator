@@ -58,7 +58,9 @@ final class ProgrammerKeypadLayout {
         if(!enabled) {
             enabled=true;oldOrientation=stack.getOrientation();
             oldInputVisibility=input.getVisibility();oldAdvancedVisibility=advanced.getVisibility();
-            normal=new ConstraintSet();normal.clone(motion.getConstraintSet(R.id.start_state));
+            // During Activity restoration MotionLayout has not resolved its empty start
+            // ConstraintSet from the XML children yet. Capture only after the first layout.
+            normal=null;
             viewport=new ScrollView(activity);viewport.setTag("programmer_keypad_viewport");
             viewport.setContentDescription(activity.getString(R.string.programmer_keypad_scroll));viewport.setFillViewport(false);
             viewport.setVerticalScrollBarEnabled(true);viewport.setScrollbarFadingEnabled(false);
@@ -141,7 +143,10 @@ final class ProgrammerKeypadLayout {
     }
 
     private void fit() {
-        if(!enabled||motion.getCurrentState()!=R.id.start_state)return;
+        if(!enabled||motion.getCurrentState()!=R.id.start_state||motion.getWidth()==0||motion.getHeight()==0)return;
+        if(normal==null) {
+            normal=new ConstraintSet();normal.clone(motion.getConstraintSet(R.id.start_state));
+        }
         float d=activity.getResources().getDisplayMetrics().density;
         int width=motion.getWidth()-motion.getPaddingLeft()-motion.getPaddingRight();
         int height=motion.getHeight()-motion.getPaddingTop()-motion.getPaddingBottom();
@@ -188,7 +193,8 @@ final class ProgrammerKeypadLayout {
             home.key.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,home.size);
         }
         input.setVisibility(oldInputVisibility);advanced.setVisibility(oldAdvancedVisibility);
-        stack.setOrientation(oldOrientation);motion.updateState(R.id.start_state,normal);
+        stack.setOrientation(oldOrientation);
+        if(normal!=null)motion.updateState(R.id.start_state,normal);
         viewport=null;grid=null;compact=false;lastWidth=lastHeight=0;homes.clear();
     }
 }
