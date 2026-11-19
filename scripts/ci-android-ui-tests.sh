@@ -99,10 +99,10 @@ done
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent KEYCODE_WAKEUP || true
 
-if [[ "${SPLIT_SCOPE:-}" == "mortgage-position-only" ]]; then
+if [[ "${SPLIT_SCOPE:-}" == "mortgage-position-only" || "${SPLIT_SCOPE:-}" == "mortgage-lower-only" ]]; then
     adb shell wm size 720x1920
 fi
-if [[ "${SPLIT_SCOPE:-}" == "mortgage-only" || "${SPLIT_SCOPE:-}" == "mortgage-position-only" ]]; then
+if [[ "${SPLIT_SCOPE:-}" == "mortgage-only" || "${SPLIT_SCOPE:-}" == "mortgage-position-only" || "${SPLIT_SCOPE:-}" == "mortgage-lower-only" ]]; then
     adb shell cmd locale set-app-locales com.android.calculator2.dev --locales zh-CN
 fi
 
@@ -127,6 +127,19 @@ if [[ "$split_scope" == "bmi-only" || "$split_scope" == "mortgage-only" || "$spl
         runner_classes="com.android.calculator2.WindowConfigurationTest#mortgageScrollAtBothWindowPositions"
     fi
     echo "::notice title=Split execution scope::One $tool diagnostic only; remaining acceptance and regression deferred, not passed."
+fi
+if [[ "$split_scope" == "mortgage-lower-only" ]]; then
+    runner_classes="com.android.calculator2.WindowConfigurationTest#mortgageLowerQuarterRealScroll"
+fi
+if [[ "$split_scope" == "non-split" ]]; then
+    excluded=$(python3 - <<'PYEXCLUDE'
+import re
+s=open('androidTest/java/com/android/calculator2/WindowConfigurationTest.java').read()
+names=re.findall(r'@Test public void (\w+)\(',s)
+print(','.join('com.android.calculator2.WindowConfigurationTest#'+n for n in names if 'Split' in n or n in ('mortgageScrollAtBothWindowPositions','mortgageLowerQuarterRealScroll')))
+PYEXCLUDE
+)
+    runner_scope+=("-Pandroid.testInstrumentationRunnerArguments.notClass=$excluded")
 fi
 if [[ "$split_scope" == "representative" ]]; then
     excluded=""
@@ -254,11 +267,11 @@ for p in Path("build/outputs/androidTest-results").rglob("TEST-*.xml"):
 text="; ".join(rows).replace("%","%25")
 print("::warning title=Window functional results::"+text)
 PYWINDOW
-adb logcat -d -v brief WindowEvidence:I SplitPhase:I MortgageForm:I MortgagePosition:I ToolTouchCoordinates:I '*:S' > build/ui-screenshots/window-evidence.log || true
+adb logcat -d -v brief WindowEvidence:I SplitPhase:I MortgageForm:I MortgagePosition:I MortgageTarget:I ToolTouchCoordinates:I '*:S' > build/ui-screenshots/window-evidence.log || true
 mortgage_phases=$(grep -E 'MortgageForm.*(ALL_CORE_FIELDS|CONDITIONAL_TYPES|EXIT_|half task=|short task=)' build/ui-screenshots/window-evidence.log | tail -n 12 | tr '\n' ' ' || true)
 mortgage_phases=${mortgage_phases//%/%25}
 echo "::warning title=Mortgage form touch steps::${mortgage_phases:0:3800}"
-position_steps=$(grep 'MortgagePosition' build/ui-screenshots/window-evidence.log | tail -n 24 | tr '\n' ' ' || true)
+position_steps=$(grep -E 'MortgagePosition.*(CONTENT|REAL_SWIPE|PASS|calcPairFraction)|MortgageTarget' build/ui-screenshots/window-evidence.log | sed 's/ View Hierarchy:.*//' | cut -c1-1000 | tail -n 20 | tr '\n' ' ' || true)
 position_steps=${position_steps//%/%25}
 part=1
 while IFS= read -r line || [[ -n "$line" ]]; do

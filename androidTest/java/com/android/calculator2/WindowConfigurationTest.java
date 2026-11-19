@@ -1188,6 +1188,45 @@ public class WindowConfigurationTest {
     @Test public void relationshipSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_relationship,false,false);}
     @Test public void programmerSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_programmer,false,false);}
     @Test public void taxSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_tax,false,false);}
+    /** Targeted check: no upper-window editing, state checkpoints or exit gate this test. */
+    @Test public void mortgageLowerQuarterRealScroll() throws Exception {
+        String phase="ENTER_TARGET";
+        try {
+            onView(withContentDescription(R.string.tool_mortgage)).perform(click());
+            enterRealSplit();
+            // Only the system positioning required to establish the target, not the full chain.
+            Rect divider=verifiedDivider();
+            assertTrue(device.click(divider.centerX(),divider.centerY()));SystemClock.sleep(90);
+            assertTrue(device.click(divider.centerX(),divider.centerY()));
+            long until=SystemClock.uptimeMillis()+10000;
+            while(SystemClock.uptimeMillis()<until) {
+                SplitSample sample=splitSample();
+                if(sample.multi&&sample.verifiedCompanion()&&sample.app.top>sample.other.top)break;
+                SystemClock.sleep(100);
+            }
+            SplitSample lower=splitSample();
+            assertTrue("verified calculator in lower system split "+lower,
+                lower.multi&&lower.verifiedCompanion()&&lower.app.top>lower.other.top);
+            divider=verifiedDivider();
+            assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),
+                Math.round(device.getDisplayHeight()*0.75f),65));
+            // Shell focus is window activation, not direct field focus or scrolling.
+            device.executeShellCommand("am task focus "+splitTask);
+            SplitSample target=stableSample(true,null);logPosition("lower-target-25",target);
+            float share=target.app.height()/(float)(target.app.height()+target.other.height());
+            assertTrue("lower quarter actual share="+share+" "+target,
+                target.app.top>target.other.top&&target.verifiedCompanion()&&Math.abs(share-0.25f)<0.04);
+            phase="CONTENT_SCROLL";
+            positionMortgageScroll("lower-target-25",false);
+            Log.i("MortgageTarget","PASS content scroll/edit/copy/return; handle/state tested separately");
+        } catch(Throwable failure) {
+            String first=String.valueOf(failure).split("\n")[0];
+            Log.e("MortgageTarget","FAIL phase="+phase+" first="+first+" window="+safeSplitSample());
+            evidence("mortgage-lower-target-failure");
+            if(failure instanceof Exception)throw (Exception)failure;
+            throw (Error)failure;
+        }
+    }
     @Test public void mortgageScrollAtBothWindowPositions() throws Exception {
         onView(withContentDescription(R.string.tool_mortgage)).perform(click());
         evidence("mortgage-position-full");
@@ -1295,7 +1334,8 @@ public class WindowConfigurationTest {
         stableSample(true,null);
         checkpoint.verify();
     }
-    private void positionMortgageScroll(String stage) throws Exception {
+    private void positionMortgageScroll(String stage) throws Exception {positionMortgageScroll(stage,true);}
+    private void positionMortgageScroll(String stage,boolean testHistory) throws Exception {
         Rect viewport=mortgageViewport();int[] sizes=new int[4];
         scenario.onActivity(a -> {
             android.widget.ScrollView scroll=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport");
@@ -1324,6 +1364,10 @@ public class WindowConfigurationTest {
         if("true".equals(modelSnapshot().get("mLprBasis")))fingerTap(R.id.mortgage_basis_toggle);
         mortgageTouchSequence(stage);
         if(stage.endsWith("25"))mortgageConditionalTypes(stage);
+        fingerFind(R.id.tool_field_1);fingerFind(R.id.tool_field_2);
+        evidence("mortgage-"+stage+"-returned-rate-years");
+        Log.i("MortgagePosition",stage+" CONTENT_SCROLL_EDIT_COPY_RETURN_PASS");
+        if(!testHistory)return;
         // Leave the toolbar reachable for a possible system focus change during a swap.
         for(int n=0;n<20;n++) {
             boolean[] up={false};scenario.onActivity(a -> up[0]=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport").canScrollVertically(-1));
