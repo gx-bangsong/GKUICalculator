@@ -1781,7 +1781,7 @@ public class WindowConfigurationTest {
             }
             assertTrue("natural converter row fits viewport: id="+id+" height="+box[2]+" viewport="+viewport,box[2]>0&&box[2]<=viewport.height());
             int overflow=box[0]<viewport.top?box[0]-viewport.top:box[1]-viewport.bottom;
-            int distance=Math.min(viewport.height()/3,Math.abs(overflow)+box[3]+1);
+            int distance=Math.min(viewport.height()/3,Math.max(2*box[3]+1,Math.abs(overflow)+box[3]+1));
             boolean down=overflow<0;int from=down?viewport.top+viewport.height()/3:viewport.bottom-viewport.height()/3;
             if(attempt<4||attempt==39)Log.i("TaxPosition","CONVERTER_CONTENT_TARGET id="+id+" attempt="+attempt+" y="+box[4]+" top="+box[0]+" bottom="+box[1]+" height="+box[2]+" overflow="+overflow+" viewport="+viewport);
             pointerDrag(viewport.right-6,from,from+(down?distance:-distance));
@@ -1835,6 +1835,10 @@ public class WindowConfigurationTest {
         }
         if(currency) {
             converterFind(true,R.id.currency_update_label);
+            for(int refresh=0;refresh<2;refresh++) {
+            final int refreshCase=refresh;
+            int[] geometryBefore=new int[4];int[] geometryAfter=new int[4];String[] labelBefore={null};
+            scenario.onActivity(a -> { currencyGeometry(a,scroll,geometryBefore);labelBefore[0]=((TextView)a.findViewById(R.id.currency_update_label)).getText().toString(); });
             int[] savedSelection=selection(input);int[] position=new int[2];scenario.onActivity(a -> position[0]=scroll.getScrollY());
             Map<String,String> savedModel=modelSnapshot();
             scenario.onActivity(a -> a.getWindow().getDecorView().post(() -> {
@@ -1842,15 +1846,20 @@ public class WindowConfigurationTest {
                     java.util.Map<String,java.math.BigDecimal> rates=new java.util.LinkedHashMap<>();
                     rates.put("EUR",java.math.BigDecimal.ONE);rates.put("CNY",new java.math.BigDecimal("20"));rates.put("USD",new java.math.BigDecimal("2"));rates.put("JPY",new java.math.BigDecimal("100"));
                     java.lang.reflect.Method callback=active(a).getClass().getDeclaredMethod("onRatesLoaded",com.android.calculator2.tools.data.CachedRates.class,com.android.calculator2.tools.data.ExchangeRateRepository.Source.class,CharSequence.class);
-                    callback.setAccessible(true);callback.invoke(active(a),new com.android.calculator2.tools.data.CachedRates("EUR",System.currentTimeMillis(),"2026-01-02",rates),com.android.calculator2.tools.data.ExchangeRateRepository.Source.CACHE,"test rates");
+                    callback.setAccessible(true);callback.invoke(active(a),new com.android.calculator2.tools.data.CachedRates("EUR",System.currentTimeMillis(),"2026-01-02",rates),com.android.calculator2.tools.data.ExchangeRateRepository.Source.CACHE,refreshCase==0?labelBefore[0]:"test rates");
                 } catch(Exception e) {throw new AssertionError(e);}
             }));
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();device.waitForIdle(1500);
             scenario.onActivity(a -> position[1]=scroll.getScrollY());
             assertEquals("external rate callback preserves real expression",savedModel,modelSnapshot());
             assertArrayEquals("rate callback preserves native selection",savedSelection,selection(input));
-            assertEquals("rate callback preserves user scroll",position[0],position[1]);assertConverterComputation(true);
-            Log.i("TaxPosition",stage+" ASYNC_RATE_SELECTION_SCROLL_PASS y="+position[1]);
+            scenario.onActivity(a -> currencyGeometry(a,scroll,geometryAfter));
+            Log.i("TaxPosition",stage+" REFRESH case="+refreshCase+" beforeY="+position[0]+" afterY="+position[1]+" before[content,viewport,range,anchor]="+java.util.Arrays.toString(geometryBefore)+" after="+java.util.Arrays.toString(geometryAfter));
+            assertEquals("rate callback keeps scroll except necessary new-boundary clamp",Math.min(position[0],geometryAfter[2]),position[1]);
+            assertEquals("visible result anchor moves only by legal boundary adjustment",geometryBefore[3]+position[0]-position[1],geometryAfter[3]);
+            if(refreshCase==1)assertConverterComputation(true);
+            Log.i("TaxPosition",stage+" ASYNC_RATE_SELECTION_SCROLL_PASS case="+refreshCase+" y="+position[1]);
+            }
         }
         for(int id:currency?new int[]{R.id.currency_from,R.id.currency_to,R.id.currency_to_2}:new int[]{R.id.unit_from,R.id.unit_to,R.id.unit_to_2}) {
             converterTap(currency,id);
@@ -1863,6 +1872,12 @@ public class WindowConfigurationTest {
         assertEquals(before.get("mFromIndex"),modelSnapshot().get("mToIndex"));assertEquals(before.get("mToIndex"),modelSnapshot().get("mFromIndex"));
         converterTap(currency,input);key(R.id.clr);digits("9");assertEquals("return and edit","9",modelSnapshot().get("expression"));
         evidence(stage+"-return-input");Log.i("TaxPosition",stage+" INSERT_MODELS_PRIMARY_SECONDARY_COPY_MENUS_SWAP_RETURN_PASS");
+    }
+    private void currencyGeometry(Calculator activity,android.widget.ScrollView scroll,int[] geometry) {
+        geometry[0]=scroll.getChildAt(0).getHeight();
+        geometry[1]=scroll.getHeight()-scroll.getPaddingTop()-scroll.getPaddingBottom();
+        geometry[2]=Math.max(0,geometry[0]-geometry[1]);
+        int[] at=new int[2];activity.findViewById(R.id.currency_result_2_text).getLocationOnScreen(at);geometry[3]=at[1];
     }
     @SuppressWarnings("unchecked")
     private void assertConverterComputation(boolean currency) {
