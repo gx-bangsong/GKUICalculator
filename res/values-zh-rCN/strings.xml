@@ -300,4 +300,5 @@
     <string name="programmer_swap">交换输入和输出进制</string>
     <string name="programmer_input_base">输入进制：%1$s</string>
     <string name="programmer_output_base">输出进制：%1$s</string>
+    <string name="programmer_keypad_scroll">程序员键盘，可上下滚动查看全部按键</string>
 </resources>

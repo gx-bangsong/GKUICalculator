@@ -613,4 +613,5 @@
     <string name="programmer_swap">Swap input and output bases</string>
     <string name="programmer_input_base">Input base: %1$s</string>
     <string name="programmer_output_base">Output base: %1$s</string>
+    <string name="programmer_keypad_scroll">Programmer keypad. Scroll vertically to reach all keys.</string>
 </resources>

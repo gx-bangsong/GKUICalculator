@@ -58,7 +58,7 @@ final class ProgrammerKeypadLayout {
             oldInputVisibility=input.getVisibility();oldAdvancedVisibility=advanced.getVisibility();
             normal=new ConstraintSet();normal.clone(motion.getConstraintSet(R.id.start_state));
             viewport=new ScrollView(activity);viewport.setTag("programmer_keypad_viewport");
-            viewport.setContentDescription("Programmer keys");viewport.setFillViewport(false);
+            viewport.setContentDescription(activity.getString(R.string.programmer_keypad_scroll));viewport.setFillViewport(false);
             viewport.setVerticalScrollBarEnabled(true);viewport.setScrollbarFadingEnabled(false);
             grid=new GridLayout(activity);grid.setTag("programmer_keypad_grid");
             grid.setUseDefaultMargins(false);grid.setAlignmentMode(GridLayout.ALIGN_BOUNDS);
