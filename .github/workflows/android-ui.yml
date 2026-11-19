@@ -121,13 +121,13 @@ jobs:
       - name: Publish currency upper keypad comparison
         if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'conversion-windows-only') }}
         run: |
-          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-upper-25-keypad-before-review.jpg "currency upper keypad before" 0 warning
-          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-upper-25-keypad-after-review.jpg "currency upper keypad after" 0 warning
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-upper-25-keypad-before-review.jpg "currency upper keypad before" 0 notice
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-upper-25-keypad-after-review.jpg "currency upper keypad after" 0 notice
       - name: Publish currency lower keypad comparison
         if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'conversion-windows-only') }}
         run: |
-          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-lower-25-keypad-before-review.jpg "currency lower keypad before" 0 warning
-          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-lower-25-keypad-after-review.jpg "currency lower keypad after" 0 warning
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-lower-25-keypad-before-review.jpg "currency lower keypad before" 0 notice
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-lower-25-keypad-after-review.jpg "currency lower keypad after" 0 notice
 
       - name: Prepare tax window review images
         if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'tax-quarter-only') }}
