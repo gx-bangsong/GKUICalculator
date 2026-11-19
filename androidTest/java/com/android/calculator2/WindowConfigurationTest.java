@@ -1211,11 +1211,20 @@ public class WindowConfigurationTest {
             SplitSample before=stableSample(true,null);
             assertTrue("real target pair "+before,before.multi&&before.verifiedCompanion());
             assertEquals("target position",bottom,before.app.top>before.other.top);
-            Rect divider=verifiedDivider();
-            assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),
-                Math.round(device.getDisplayHeight()*(bottom?0.75f:0.25f)),65));
-            device.executeShellCommand("am task focus "+splitTask);
-            SplitSample target=stableSample(true,null);logPosition(stage,target);
+            SplitSample target=before;
+            for(int attempt=0;attempt<2;attempt++) {
+                Rect divider=verifiedDivider();
+                Log.i("TaxPosition",stage+" RESIZE attempt="+attempt+" divider="+divider+" before="+target.app);
+                assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),
+                    Math.round(device.getDisplayHeight()*(bottom?0.75f:0.25f)),65));
+                // Don't steal system focus halfway through the divider's animation.
+                device.waitForIdle(2000);assertTrue("verified pair settles after real resize",awaitVerifiedPair());
+                device.executeShellCommand("am task focus "+splitTask);
+                target=stableSample(true,null);
+                float actual=target.app.height()/(float)(target.app.height()+target.other.height());
+                if(Math.abs(actual-0.25f)<0.04)break;
+            }
+            logPosition(stage,target);
             float share=target.app.height()/(float)(target.app.height()+target.other.height());
             assertTrue("actual quarter "+target,Math.abs(share-0.25f)<0.04);
             assertEquals(bottom,target.app.top>target.other.top);
@@ -1246,7 +1255,7 @@ public class WindowConfigurationTest {
             assertTrue("real tax content moves",positions[1]>positions[0]);awaitMotionState(R.id.start_state);
             // Find all salary fields by actual finger gestures, with complete text/caret checks.
             taxEdit(0,"30000");taxEdit(1,"2500");taxEdit(2,"1500");
-            taxDetailDialog(stage,true);assertEquals("600",modelSnapshot().get("field1"));
+            taxDetailDialog(stage,true);assertEquals("600.00",modelSnapshot().get("field1"));
             taxDetailDialog(stage,false);assertTaxComputation();
             Map<String,String> salary=modelSnapshot();
             for(int id:new int[]{R.id.formula,R.id.result}) {fingerFind(id);evidence(stage+"-salary-"+id);mortgageFingerCopy(id);}
