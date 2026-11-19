@@ -1250,18 +1250,34 @@ public class WindowConfigurationTest {
     private void programmerTap(int id) {
         Rect target=programmerReach(id);assertTrue(device.click(target.centerX(),target.centerY()));device.waitForIdle(1000);
     }
+    private void programmerMenuChoice(int label) {
+        String text=InstrumentationRegistry.getInstrumentation().getTargetContext().getString(label);
+        for(int attempt=0;attempt<8;attempt++) {
+            androidx.test.uiautomator.UiObject2 list=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.clazz("android.widget.ListView")),3000);
+            assertNotNull("anchored programmer menu",list);
+            Rect bounds=list.getVisibleBounds();
+            androidx.test.uiautomator.UiObject2 item=device.findObject(androidx.test.uiautomator.By.text(text));
+            if(item!=null) {
+                Rect visible=item.getVisibleBounds();
+                if(!visible.isEmpty()&&bounds.contains(visible)){item.click();device.waitForIdle(1000);return;}
+            }
+            assertTrue("finger scroll radix menu",device.swipe(bounds.centerX(),bounds.bottom-8,bounds.centerX(),bounds.top+8,35));
+            device.waitForIdle(1000);
+        }
+        fail("radix menu entry unreachable: "+text);
+    }
     private void programmerQuarter(boolean bottom) throws Exception {
         String stage="programmer-"+(bottom?"lower":"upper")+"-25";
         try {
             establishQuarterWindow(R.string.tool_programmer,bottom,stage);
             key(R.id.clr);digits("10");
             programmerTap(R.id.programmer_chip_out);evidence(stage+"-menu");
-            onView(withText(R.string.programmer_bin_description)).perform(click());
+            programmerMenuChoice(R.string.programmer_bin_description);
             assertEquals("1010",displaySnapshot().get(R.id.programmer_value_out));
             programmerTap(R.id.programmer_swap);
             assertEquals("1010",displaySnapshot().get(R.id.programmer_value_in));
             assertEquals("10",displaySnapshot().get(R.id.programmer_value_out));
-            programmerTap(R.id.programmer_chip_in);onView(withText(R.string.programmer_dec_description)).perform(click());
+            programmerTap(R.id.programmer_chip_in);programmerMenuChoice(R.string.programmer_dec_description);
             assertEquals("10",displaySnapshot().get(R.id.programmer_value_in));
             key(R.id.op_add);digits("5");key(R.id.eq);
             assertEquals("15",displaySnapshot().get(R.id.programmer_value_out));
