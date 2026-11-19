@@ -1711,10 +1711,15 @@ public class Calculator extends AppCompatActivity
             &&ToolId.MORTGAGE.equals(mToolManager.getActive().getId());
     }
 
+    boolean wrapsFieldToolOutput() {
+        return isMortgageViewport() || (mToolManager!=null&&mToolManager.getActive()!=null
+            &&ToolId.TAX.equals(mToolManager.getActive().getId()));
+    }
+
     private boolean usesFieldToolViewport() {
         if(mToolManager==null||mToolManager.getActive()==null)return false;
         String id=mToolManager.getActive().getId();
-        return ToolId.BMI.equals(id)||ToolId.MORTGAGE.equals(id);
+        return ToolId.BMI.equals(id)||ToolId.MORTGAGE.equals(id)||ToolId.TAX.equals(id);
     }
 
     /** These modes render all meaningful content inside tool_control_slot. */
@@ -2093,9 +2098,9 @@ public class Calculator extends AppCompatActivity
      */
     private void applyUppercaseResultLayout(boolean enabled) {
         final ViewGroup.LayoutParams params = mResultText.getLayoutParams();
-        if (enabled || isMortgageViewport()) {
+        if (enabled || wrapsFieldToolOutput()) {
             mResultText.setSingleLine(false);
-            mResultText.setMaxLines(isMortgageViewport()?Integer.MAX_VALUE:UPPERCASE_MAX_LINES);
+            mResultText.setMaxLines(wrapsFieldToolOutput()?Integer.MAX_VALUE:UPPERCASE_MAX_LINES);
             mResultText.setHorizontallyScrolling(false);
             mResultText.setEllipsize(null);
             mResultText.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);

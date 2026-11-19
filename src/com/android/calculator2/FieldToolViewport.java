@@ -7,7 +7,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import androidx.constraintlayout.widget.ConstraintSet;
 
-/** BMI/mortgage only: natural-height controls AND outputs in one bounded viewport.
+/** BMI/mortgage/tax: natural-height controls AND outputs in one bounded viewport.
  * Never replace the editable views (or their text/selection). Calculator layouts are restored
  * verbatim on leaving these tools. The handle stays outside the scrolling content.
  */
@@ -54,8 +54,8 @@ final class FieldToolViewport {
         enabled=value;
         if(value) {
             mortgage=activity.isMortgageViewport();
-            ((CalculatorFormula)formulaText).setWrapToolOutput(mortgage);
-            ((CalculatorScrollView)formula).setWrapChildToViewport(mortgage);
+            ((CalculatorFormula)formulaText).setWrapToolOutput(activity.wrapsFieldToolOutput());
+            ((CalculatorScrollView)formula).setWrapChildToViewport(activity.wrapsFieldToolOutput());
             viewport=new ScrollView(activity) {
                 @Override public boolean requestChildRectangleOnScreen(View child,android.graphics.Rect rectangle,boolean immediate) {
                     View focused=findFocus();
