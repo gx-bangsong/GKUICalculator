@@ -1229,6 +1229,58 @@ public class WindowConfigurationTest {
     }
     @Test public void dateSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_date,false,false);}
     @Test public void relationshipSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_relationship,false,false);}
+    @Test public void programmerUpperQuarterSplitMenusSwap() throws Exception {programmerQuarter(false);}
+    @Test public void programmerLowerQuarterSplitMenusSwap() throws Exception {programmerQuarter(true);}
+    private Rect programmerReach(int id) {
+        for(int attempt=0;attempt<30;attempt++) {
+            Rect viewport=new Rect(),target=new Rect();int[] full=new int[2];boolean[] ready={false};
+            scenario.onActivity(a -> {
+                View root=a.findViewById(R.id.programmer_viewport),view=a.findViewById(id);
+                assertTrue(visibleOnScreen(root,viewport));view.getLocationOnScreen(full);
+                ready[0]=visibleOnScreen(view,target)&&target.height()>=Math.min(view.getHeight(),viewport.height())
+                        &&viewport.contains(target);
+            });
+            if(ready[0])return target;
+            int from=viewport.centerY(),delta=viewport.height()/3;
+            pointerDrag(viewport.right-4,from,from+(full[1]<viewport.top?delta:-delta));
+            device.waitForIdle(1000);
+        }
+        fail("programmer control unreachable by finger: "+id);return null;
+    }
+    private void programmerTap(int id) {
+        Rect target=programmerReach(id);assertTrue(device.click(target.centerX(),target.centerY()));device.waitForIdle(1000);
+    }
+    private void programmerQuarter(boolean bottom) throws Exception {
+        String stage="programmer-"+(bottom?"lower":"upper")+"-25";
+        try {
+            establishQuarterWindow(R.string.tool_programmer,bottom,stage);
+            key(R.id.clr);digits("10");
+            programmerTap(R.id.programmer_chip_out);evidence(stage+"-menu");
+            onView(withText(R.string.programmer_bin_description)).perform(click());
+            assertEquals("1010",displaySnapshot().get(R.id.programmer_value_out));
+            programmerTap(R.id.programmer_swap);
+            assertEquals("1010",displaySnapshot().get(R.id.programmer_value_in));
+            assertEquals("10",displaySnapshot().get(R.id.programmer_value_out));
+            programmerTap(R.id.programmer_chip_in);onView(withText(R.string.programmer_dec_description)).perform(click());
+            assertEquals("10",displaySnapshot().get(R.id.programmer_value_in));
+            key(R.id.op_add);digits("5");key(R.id.eq);
+            assertEquals("15",displaySnapshot().get(R.id.programmer_value_out));
+            Rect result=programmerReach(R.id.programmer_value_out);evidence(stage+"-result");
+            assertTrue(device.swipe(result.centerX(),result.centerY(),result.centerX(),result.centerY(),90));
+            Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+            androidx.test.uiautomator.UiObject2 copy=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text(context.getString(android.R.string.copy))),5000);
+            assertNotNull("programmer real copy",copy);copy.click();
+            scenario.onActivity(a -> {
+                assertEquals("15",((android.content.ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE)).getPrimaryClip().getItemAt(0).coerceToText(a).toString());
+                TextView out=a.findViewById(R.id.programmer_value_out);assertNull(out.getKeyListener());assertFalse(out.isCursorVisible());
+                assertEquals(View.GONE,a.findViewById(R.id.shared_display_rows).getVisibility());
+            });
+            Log.i("TaxPosition",stage+" PROGRAMMER_MENU_SWAP_COMPUTE_COPY_PASS");
+        } catch(Throwable e) {
+            Log.e("TaxPosition",stage+" FAIL "+e);evidence(stage+"-failure");
+            if(e instanceof Exception)throw (Exception)e;throw (Error)e;
+        }
+    }
     @Test public void programmerSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_programmer,false,false);}
     @Test public void taxSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_tax,false,false);}
     @Test public void taxUpperQuarterSplitTouch() throws Exception {taxQuarter(false);}
