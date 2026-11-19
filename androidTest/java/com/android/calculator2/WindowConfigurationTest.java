@@ -1244,9 +1244,9 @@ public class WindowConfigurationTest {
             int from=viewport.centerY(),delta=viewport.height()/3;
             int[] keyboardY={0};
             scenario.onActivity(a -> keyboardY[0]=a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport").getScrollY());
-            // Landscape navigation can overlay the rightmost edge of the full-width
-            // control viewport. Start inside its measured centre, not behind system UI.
-            pointerDrag(viewport.centerX(),from,from+(full[1]<viewport.top?delta:-delta));
+            // The programmer viewport now excludes side system bars. Its own right edge
+            // is safe, and avoids a horizontal value scroller taking this vertical drag.
+            pointerDrag(viewport.right-4,from,from+(full[1]<viewport.top?delta:-delta));
             device.waitForIdle(1000);
             scenario.onActivity(a -> assertEquals("left content scroll does not move keyboard",keyboardY[0],
                     a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport").getScrollY()));
@@ -1284,7 +1284,7 @@ public class WindowConfigurationTest {
         int[] point=new int[2];scenario.onActivity(a -> {
             View key=a.findViewById(id);assertTrue("enabled programmer key",key.isEnabled());key.getLocationOnScreen(point);
             point[0]+=key.getWidth()/2;point[1]+=key.getHeight()/2;
-        });assertTrue(device.click(point[0],point[1]));device.waitForIdle(1000);
+        });assertTrue("programmer physical click failed id="+id+" screen="+point[0]+","+point[1],device.click(point[0],point[1]));device.waitForIdle(1000);
     }
     private void programmerMenuChoice(int label) {
         String text=InstrumentationRegistry.getInstrumentation().getTargetContext().getString(label);
