@@ -293,7 +293,10 @@ public class CurrencyConverterMode implements ToolMode {
         if (mUpdateLabel != null) {
             mUpdateLabel.setText(label);
         }
-        redisplay();
+        // A rate delivery changes outputs, not the expression or its native editor state.
+        // Re-applying setSelection here can request a caret rectangle and pull a short
+        // scrolled window back toward the input, even when its text/selection is unchanged.
+        redisplay(false);
     }
 
     private int selectionStart() {
@@ -450,6 +453,10 @@ public class CurrencyConverterMode implements ToolMode {
     // ---- computation & display ----
 
     private void redisplay() {
+        redisplay(true);
+    }
+
+    private void redisplay(boolean updateInput) {
         final ToolHost host = mHost;
         if (host == null) {
             return;
@@ -485,7 +492,7 @@ public class CurrencyConverterMode implements ToolMode {
         final String inputValueText = mInput.getValueText();
         final int start = mPendingCaret >= 0 ? mPendingCaret : selectionStart();
         final int end = mPendingCaret >= 0 ? mPendingCaret : selectionEnd();
-        if (mInputView != null) {
+        if (updateInput && mInputView != null) {
             final String shown = mUppercaseNumbers && !mEditingInput
                     ? (inputValueText == null ? "—" : ChineseNumerals.toUppercase(inputValueText))
                     : mInput.getDisplayText();
@@ -495,7 +502,7 @@ public class CurrencyConverterMode implements ToolMode {
             ((EditText) mInputView).setSelection(Math.min(start, shown.length()),
                     Math.min(end, shown.length()));
         }
-        mPendingCaret = -1;
+        if (updateInput) mPendingCaret = -1;
         setAmountText(mResultView, resultText, ChineseNumerals.toUppercase(resultText));
         setAmountText(mSecondaryResultView, secondaryResultText,
                 ChineseNumerals.toUppercase(secondaryResultText));
@@ -509,7 +516,8 @@ public class CurrencyConverterMode implements ToolMode {
         if (view == null) {
             return;
         }
-        view.setText(mUppercaseNumbers ? uppercase : number);
+        final String shown = mUppercaseNumbers ? uppercase : number;
+        if (!shown.contentEquals(view.getText())) view.setText(shown);
         view.setTextSize(mUppercaseNumbers ? UPPERCASE_TEXT_SIZE_SP : NUMBER_TEXT_SIZE_SP);
         // Long 大写 readings wrap inside their own row; ordinary numbers stay on one line.
         view.setSingleLine(!mUppercaseNumbers);
