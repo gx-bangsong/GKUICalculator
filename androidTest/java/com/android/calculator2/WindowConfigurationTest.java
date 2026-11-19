@@ -1072,6 +1072,25 @@ public class WindowConfigurationTest {
         Rect rect=new Rect();scenario.onActivity(a -> assertTrue(visibleOnScreen(a.findViewById(R.id.main_calculator)
             .findViewWithTag("field_tool_viewport"),rect)));return rect;
     }
+    /** Actual touch drag with a short stationary tail, so release does not fling past a
+     * narrow fully-visible interval. No view focus, accessibility scroll action or scrollTo. */
+    private void pointerDrag(int x,int from,int to) {
+        android.app.Instrumentation instrumentation=InstrumentationRegistry.getInstrumentation();
+        long down=SystemClock.uptimeMillis();
+        injectPointer(instrumentation,down,android.view.MotionEvent.ACTION_DOWN,x,from);
+        for(int step=1;step<=20;step++) {
+            SystemClock.sleep(8);
+            injectPointer(instrumentation,down,android.view.MotionEvent.ACTION_MOVE,x,from+(to-from)*step/20);
+        }
+        for(int held=0;held<3;held++) {SystemClock.sleep(70);injectPointer(instrumentation,down,android.view.MotionEvent.ACTION_MOVE,x,to);}
+        injectPointer(instrumentation,down,android.view.MotionEvent.ACTION_UP,x,to);
+        instrumentation.waitForIdleSync();
+    }
+    private void injectPointer(android.app.Instrumentation instrumentation,long down,int action,int x,int y) {
+        android.view.MotionEvent event=android.view.MotionEvent.obtain(down,SystemClock.uptimeMillis(),action,x,y,0);
+        event.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);
+        try {instrumentation.sendPointerSync(event);} finally {event.recycle();}
+    }
     private void fingerFind(int id) {
         for(int attempt=0;attempt<24;attempt++) {
             boolean[] complete={false};int[] target={0};Rect viewport=mortgageViewport();
@@ -1107,8 +1126,7 @@ public class WindowConfigurationTest {
             int distance=Math.min(viewport.height()/3,Math.max(2*geometry[2]+1,Math.abs(overflow)+geometry[2]+1));
             boolean above=overflow<0;
             int from=above?viewport.top+viewport.height()/3:viewport.bottom-viewport.height()/3;
-            assertTrue("finger scroll "+id,device.swipe(viewport.right-6,from,
-                viewport.right-6,from+(above?distance:-distance),45));
+            pointerDrag(viewport.right-6,from,from+(above?distance:-distance));
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();awaitMotionState(R.id.start_state);
         }
         fail("control cannot be reached with finger scroll: "+id);
@@ -1765,8 +1783,8 @@ public class WindowConfigurationTest {
             int overflow=box[0]<viewport.top?box[0]-viewport.top:box[1]-viewport.bottom;
             int distance=Math.min(viewport.height()/3,Math.abs(overflow)+box[3]+1);
             boolean down=overflow<0;int from=down?viewport.top+viewport.height()/3:viewport.bottom-viewport.height()/3;
-            Log.i("TaxPosition","CONVERTER_CONTENT_TARGET id="+id+" y="+box[4]+" overflow="+overflow+" viewport="+viewport);
-            assertTrue(device.swipe(viewport.right-6,from,viewport.right-6,from+(down?distance:-distance),40));
+            if(attempt<4||attempt==39)Log.i("TaxPosition","CONVERTER_CONTENT_TARGET id="+id+" attempt="+attempt+" y="+box[4]+" top="+box[0]+" bottom="+box[1]+" height="+box[2]+" overflow="+overflow+" viewport="+viewport);
+            pointerDrag(viewport.right-6,from,from+(down?distance:-distance));
             device.waitForIdle(1000);awaitMotionState(R.id.start_state);
         }
         fail("converter cannot be reached with actual pointer: "+id);
@@ -1799,8 +1817,7 @@ public class WindowConfigurationTest {
         });
         assertTrue(device.click(point[0],point[1]));device.waitForIdle(1000);assertArrayEquals(new int[]{2,2},selection(input));
         key(R.id.op_add);digits("45");assertEquals("middle operator and continuous digits","12+453",modelSnapshot().get("expression"));
-        String expected=currency?"93.00":"465000";
-        assertEquals("real default conversion",expected,displaySnapshot().get(primary));
+        assertConverterComputation(currency);
         for(int id:new int[]{primary,secondary}) {
             converterFind(currency,id);evidence(stage+"-result-"+id);
             scenario.onActivity(a -> {
@@ -1816,7 +1833,25 @@ public class WindowConfigurationTest {
             awaitMotionState(R.id.start_state);
             assertTrue(device.wait(androidx.test.uiautomator.Until.gone(androidx.test.uiautomator.By.res("com.android.systemui","clipboard_ui")),20000));
         }
-        if(currency)converterFind(true,R.id.currency_update_label);
+        if(currency) {
+            converterFind(true,R.id.currency_update_label);
+            int[] savedSelection=selection(input);int[] position=new int[2];scenario.onActivity(a -> position[0]=scroll.getScrollY());
+            Map<String,String> savedModel=modelSnapshot();
+            scenario.onActivity(a -> a.getWindow().getDecorView().post(() -> {
+                try {
+                    java.util.Map<String,java.math.BigDecimal> rates=new java.util.LinkedHashMap<>();
+                    rates.put("EUR",java.math.BigDecimal.ONE);rates.put("CNY",new java.math.BigDecimal("20"));rates.put("USD",new java.math.BigDecimal("2"));rates.put("JPY",new java.math.BigDecimal("100"));
+                    java.lang.reflect.Method callback=active(a).getClass().getDeclaredMethod("onRatesLoaded",com.android.calculator2.tools.data.CachedRates.class,com.android.calculator2.tools.data.ExchangeRateRepository.Source.class,CharSequence.class);
+                    callback.setAccessible(true);callback.invoke(active(a),new com.android.calculator2.tools.data.CachedRates("EUR",System.currentTimeMillis(),"2026-01-02",rates),com.android.calculator2.tools.data.ExchangeRateRepository.Source.CACHE,"test rates");
+                } catch(Exception e) {throw new AssertionError(e);}
+            }));
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();device.waitForIdle(1500);
+            scenario.onActivity(a -> position[1]=scroll.getScrollY());
+            assertEquals("external rate callback preserves real expression",savedModel,modelSnapshot());
+            assertArrayEquals("rate callback preserves native selection",savedSelection,selection(input));
+            assertEquals("rate callback preserves user scroll",position[0],position[1]);assertConverterComputation(true);
+            Log.i("TaxPosition",stage+" ASYNC_RATE_SELECTION_SCROLL_PASS y="+position[1]);
+        }
         for(int id:currency?new int[]{R.id.currency_from,R.id.currency_to,R.id.currency_to_2}:new int[]{R.id.unit_from,R.id.unit_to,R.id.unit_to_2}) {
             converterTap(currency,id);
             androidx.test.uiautomator.UiObject2 list=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.clazz("android.widget.ListView")),4000);
@@ -1828,6 +1863,30 @@ public class WindowConfigurationTest {
         assertEquals(before.get("mFromIndex"),modelSnapshot().get("mToIndex"));assertEquals(before.get("mToIndex"),modelSnapshot().get("mFromIndex"));
         converterTap(currency,input);key(R.id.clr);digits("9");assertEquals("return and edit","9",modelSnapshot().get("expression"));
         evidence(stage+"-return-input");Log.i("TaxPosition",stage+" INSERT_MODELS_PRIMARY_SECONDARY_COPY_MENUS_SWAP_RETURN_PASS");
+    }
+    @SuppressWarnings("unchecked")
+    private void assertConverterComputation(boolean currency) {
+        scenario.onActivity(a -> {
+            Object mode=active(a);java.math.BigDecimal input=((com.android.calculator2.tools.model.DecimalExpression)member(mode,"mInput")).getValue();
+            int from=(Integer)member(mode,"mFromIndex");
+            for(boolean secondary:new boolean[]{false,true}) {
+                int to=(Integer)member(mode,secondary?"mToSecondaryIndex":"mToIndex");java.math.BigDecimal expected;
+                if(currency) {
+                    java.util.List<com.android.calculator2.tools.data.CurrencyDef> currencies=(java.util.List<com.android.calculator2.tools.data.CurrencyDef>)member(mode,"mCurrencies");
+                    com.android.calculator2.tools.data.CachedRates rates=(com.android.calculator2.tools.data.CachedRates)member(mode,"mRates");assertNotNull("cached rates loaded",rates);
+                    expected=com.android.calculator2.tools.model.CurrencyConversion.convert(input,rates.rateFor(currencies.get(from).getId()),rates.rateFor(currencies.get(to).getId()),new java.math.MathContext(20,java.math.RoundingMode.HALF_UP));
+                    assertNotNull("deterministic selected currency has a test rate",expected);expected=expected.setScale(4,java.math.RoundingMode.HALF_UP);
+                } else {
+                    java.util.List<com.android.calculator2.tools.data.UnitCategory> categories=(java.util.List<com.android.calculator2.tools.data.UnitCategory>)member(mode,"mCategories");
+                    com.android.calculator2.tools.data.UnitCategory category=categories.get((Integer)member(mode,"mCategoryIndex"));
+                    assertFalse("linear baseline category",category.isAffine());
+                    expected=input.multiply(category.getUnits().get(from).getFactor()).divide(category.getUnits().get(to).getFactor(),new java.math.MathContext(15,java.math.RoundingMode.HALF_UP)).round(new java.math.MathContext(12,java.math.RoundingMode.HALF_UP));
+                }
+                int id=currency?(secondary?R.id.currency_result_2_text:R.id.currency_result_text):(secondary?R.id.unit_result_2_text:R.id.unit_result_text);
+                String actual=((TextView)a.findViewById(id)).getText().toString().replace(",","");
+                assertEquals("conversion from real selected units/rates "+actual,0,expected.compareTo(new java.math.BigDecimal(actual)));
+            }
+        });
     }
     @Test public void unitSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_unit,true,false);}
     @Test public void currencySurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_currency,true,true);}
