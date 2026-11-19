@@ -12,7 +12,7 @@ on:
       split_scope:
         description: Split execution scope (expansion only after BMI is stable)
         type: choice
-        options: [bmi-only, mortgage-only, mortgage-position-only, mortgage-lower-only, tax-quarter-only, non-split, representative, full]
+        options: [bmi-only, mortgage-only, mortgage-position-only, mortgage-lower-only, tax-quarter-only, conversion-windows-only, non-split, representative, full]
         default: bmi-only
 
 permissions:
@@ -90,7 +90,7 @@ jobs:
             if [ -w /dev/kvm ]; then echo "::notice title=KVM permissions::/dev/kvm is writable by $(id -un) (groups: $(id -Gn | tr ' ' ','))"; else echo "::warning title=KVM permissions::/dev/kvm is NOT writable by $(id -un) (groups: $(id -Gn | tr ' ' ',')) - the emulator would fall back to software emulation"; fi
             echo "::notice title=KVM device node::$(ls -l /dev/kvm 2>/dev/null | tr -s ' ' | sed 's/%/%25/g')"
             echo "::notice title=Android AVD free space::$(df -h "$HOME/.android/avd" | tail -n 1 | sed 's/%/%25/g')"
-          script: SPLIT_SCOPE=${{ inputs.split_scope || 'tax-quarter-only' }} bash scripts/ci-android-ui-tests.sh
+          script: SPLIT_SCOPE=${{ inputs.split_scope || 'conversion-windows-only' }} bash scripts/ci-android-ui-tests.sh
 
       - name: Prepare tax window review images
         if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'tax-quarter-only') }}

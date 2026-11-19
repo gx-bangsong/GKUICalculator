@@ -99,10 +99,10 @@ done
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent KEYCODE_WAKEUP || true
 
-if [[ "${SPLIT_SCOPE:-}" == "mortgage-position-only" || "${SPLIT_SCOPE:-}" == "mortgage-lower-only" || "${SPLIT_SCOPE:-}" == "tax-quarter-only" ]]; then
+if [[ "${SPLIT_SCOPE:-}" == "mortgage-position-only" || "${SPLIT_SCOPE:-}" == "mortgage-lower-only" || "${SPLIT_SCOPE:-}" == "tax-quarter-only" || "${SPLIT_SCOPE:-}" == "conversion-windows-only" ]]; then
     adb shell wm size 720x1920
 fi
-if [[ "${SPLIT_SCOPE:-}" == "mortgage-only" || "${SPLIT_SCOPE:-}" == "mortgage-position-only" || "${SPLIT_SCOPE:-}" == "mortgage-lower-only" || "${SPLIT_SCOPE:-}" == "tax-quarter-only" ]]; then
+if [[ "${SPLIT_SCOPE:-}" == "mortgage-only" || "${SPLIT_SCOPE:-}" == "mortgage-position-only" || "${SPLIT_SCOPE:-}" == "mortgage-lower-only" || "${SPLIT_SCOPE:-}" == "tax-quarter-only" || "${SPLIT_SCOPE:-}" == "conversion-windows-only" ]]; then
     adb shell cmd locale set-app-locales com.android.calculator2.dev --locales zh-CN
 fi
 
@@ -133,6 +133,9 @@ if [[ "$split_scope" == "mortgage-lower-only" ]]; then
 fi
 if [[ "$split_scope" == "tax-quarter-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#taxUpperQuarterSplitTouch,com.android.calculator2.WindowConfigurationTest#taxLowerQuarterSplitTouch"
+fi
+if [[ "$split_scope" == "conversion-windows-only" ]]; then
+    runner_classes="com.android.calculator2.WindowConfigurationTest#unitFullAndHalfSplitTouch,com.android.calculator2.WindowConfigurationTest#unitUpperQuarterSplitTouch,com.android.calculator2.WindowConfigurationTest#unitLowerQuarterSplitTouch,com.android.calculator2.WindowConfigurationTest#currencyFullAndHalfSplitTouch,com.android.calculator2.WindowConfigurationTest#currencyUpperQuarterSplitTouch,com.android.calculator2.WindowConfigurationTest#currencyLowerQuarterSplitTouch"
 fi
 if [[ "$split_scope" == "non-split" ]]; then
     excluded=$(python3 - <<'PYEXCLUDE'
@@ -416,6 +419,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
 if os.environ.get("SPLIT_SCOPE") == "tax-quarter-only":
     required={"com.android.calculator2.WindowConfigurationTest":["taxUpperQuarterSplitTouch","taxLowerQuarterSplitTouch"]}
 
+if os.environ.get("SPLIT_SCOPE") == "conversion-windows-only":
+    required={"com.android.calculator2.WindowConfigurationTest":[t+p for t in ("unit","currency") for p in ("FullAndHalfSplitTouch","UpperQuarterSplitTouch","LowerQuarterSplitTouch")]}
+
 if os.environ.get("SPLIT_SCOPE") == "non-split":
     key="com.android.calculator2.WindowConfigurationTest"
     required[key]=[n for n in required[key] if "Split" not in n and n not in ("mortgageScrollAtBothWindowPositions","mortgageLowerQuarterRealScroll")]
@@ -660,6 +666,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
 if os.environ.get("SPLIT_SCOPE") == "tax-quarter-only":
     required={"com.android.calculator2.WindowConfigurationTest":["taxUpperQuarterSplitTouch","taxLowerQuarterSplitTouch"]}
 
+if os.environ.get("SPLIT_SCOPE") == "conversion-windows-only":
+    required={"com.android.calculator2.WindowConfigurationTest":[t+p for t in ("unit","currency") for p in ("FullAndHalfSplitTouch","UpperQuarterSplitTouch","LowerQuarterSplitTouch")]}
+
 if os.environ.get("SPLIT_SCOPE") == "non-split":
     key="com.android.calculator2.WindowConfigurationTest"
     required[key]=[n for n in required[key] if "Split" not in n and n not in ("mortgageScrollAtBothWindowPositions","mortgageLowerQuarterRealScroll")]
@@ -880,7 +889,7 @@ if [[ ! -s build/ui-screenshots/calculator-default.png ]]; then
     fi
 fi
 
-if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$split_scope" != "mortgage-only" && "$split_scope" != "mortgage-position-only" && "$split_scope" != "mortgage-lower-only" && "$split_scope" != "tax-quarter-only" && "$default_screenshot_is_from_test" != true ]]; then
+if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$split_scope" != "mortgage-only" && "$split_scope" != "mortgage-position-only" && "$split_scope" != "mortgage-lower-only" && "$split_scope" != "tax-quarter-only" && "$split_scope" != "conversion-windows-only" && "$default_screenshot_is_from_test" != true ]]; then
     test_result=1
     echo "::error title=Missing test-generated screenshot::The selected screenshot test passed without saving calculator-default.png."
 fi

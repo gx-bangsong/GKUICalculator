@@ -1703,6 +1703,126 @@ public class WindowConfigurationTest {
         device.waitForIdle(2000);InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
     @Test public void mortgageSurvivesRealSplitAndResize() throws Exception {mortgageWholeFormSplit();}
+    @Test public void unitFullAndHalfSplitTouch() throws Exception {converterWindows(false,false,false);}
+    @Test public void unitUpperQuarterSplitTouch() throws Exception {converterWindows(false,true,false);}
+    @Test public void unitLowerQuarterSplitTouch() throws Exception {converterWindows(false,true,true);}
+    @Test public void currencyFullAndHalfSplitTouch() throws Exception {converterWindows(true,false,false);}
+    @Test public void currencyUpperQuarterSplitTouch() throws Exception {converterWindows(true,true,false);}
+    @Test public void currencyLowerQuarterSplitTouch() throws Exception {converterWindows(true,true,true);}
+    private void converterWindows(boolean currency,boolean quarter,boolean bottom) throws Exception {
+        String stage=(currency?"currency":"unit")+(quarter?(bottom?"-lower-25":"-upper-25"):"-full-half");
+        try {
+            InstrumentationRegistry.getInstrumentation().getTargetContext().getSharedPreferences("calc_tools",Context.MODE_PRIVATE)
+                .edit().putBoolean(currency?"currency_secondary_output":"unit_secondary_output",true).commit();
+            if(quarter)establishQuarterWindow(currency?R.string.tool_currency:R.string.tool_unit,bottom,stage);
+            else {key(R.id.mode_segment_convert);if(currency)key(R.id.mode_segment_convert);}
+            converterOperations(currency,stage+(quarter?"":"-full"));
+            if(!quarter) {
+                enterRealSplit();SplitSample half=stableSample(true,null);logPosition(stage+"-half",half);
+                float share=half.app.height()/(float)(half.app.height()+half.other.height());
+                assertTrue("actual half window "+half,Math.abs(share-0.5f)<0.04);
+                converterOperations(currency,stage+"-half");
+            }
+        } catch(Throwable failure) {
+            Log.e("TaxPosition",stage+" FAIL first="+String.valueOf(failure).split("\n")[0]+" window="+safeSplitSample());
+            evidence(stage+"-failure");if(failure instanceof Exception)throw (Exception)failure;throw (Error)failure;
+        }
+    }
+    private android.widget.ScrollView converterViewport(boolean currency) {
+        android.widget.ScrollView[] result={null};scenario.onActivity(a -> {
+            android.view.ViewParent parent=a.findViewById(currency?R.id.currency_input_text:R.id.unit_input_text).getParent();
+            while(!(parent instanceof android.widget.ScrollView)) {assertNotNull(parent);parent=parent.getParent();}
+            result[0]=(android.widget.ScrollView)parent;
+        });return result[0];
+    }
+    private void converterFind(boolean currency,int id) {
+        android.widget.ScrollView scroll=converterViewport(currency);
+        for(int attempt=0;attempt<40;attempt++) {
+            Rect viewport=new Rect();int[] box=new int[5];boolean[] ready={false};
+            scenario.onActivity(a -> {
+                assertTrue("bounded converter viewport",visibleOnScreen(scroll,viewport));View view=a.findViewById(id);
+                assertNotNull("applicable converter view",view);assertEquals(View.VISIBLE,view.getVisibility());
+                int[] at=new int[2];view.getLocationOnScreen(at);box[0]=at[1];box[1]=at[1]+view.getHeight();
+                box[2]=view.getHeight();box[3]=android.view.ViewConfiguration.get(a).getScaledTouchSlop();box[4]=scroll.getScrollY();
+                Rect actual=new Rect();ready[0]=visibleOnScreen(view,actual)&&actual.height()==view.getHeight()&&viewport.contains(actual)&&view.getHeight()>0;
+            });
+            if(ready[0]) {
+                scenario.onActivity(a -> {
+                    View view=a.findViewById(id);
+                    if(view instanceof TextView) {
+                        TextView text=(TextView)view;assertNotNull(text.getLayout());
+                        assertTrue("converter row must not vertically truncate",text.getHeight()>=text.getLayout().getHeight()+text.getCompoundPaddingTop()+text.getCompoundPaddingBottom());
+                    }
+                });return;
+            }
+            assertTrue("natural converter row fits viewport: id="+id+" height="+box[2]+" viewport="+viewport,box[2]>0&&box[2]<=viewport.height());
+            int overflow=box[0]<viewport.top?box[0]-viewport.top:box[1]-viewport.bottom;
+            int distance=Math.min(viewport.height()/3,Math.abs(overflow)+box[3]+1);
+            boolean down=overflow<0;int from=down?viewport.top+viewport.height()/3:viewport.bottom-viewport.height()/3;
+            Log.i("TaxPosition","CONVERTER_CONTENT_TARGET id="+id+" y="+box[4]+" overflow="+overflow+" viewport="+viewport);
+            assertTrue(device.swipe(viewport.right-6,from,viewport.right-6,from+(down?distance:-distance),40));
+            device.waitForIdle(1000);awaitMotionState(R.id.start_state);
+        }
+        fail("converter cannot be reached with actual pointer: "+id);
+    }
+    private void converterTap(boolean currency,int id) {
+        converterFind(currency,id);Rect r=new Rect();scenario.onActivity(a -> assertTrue(visibleOnScreen(a.findViewById(id),r)));
+        assertTrue(device.click(r.centerX(),r.centerY()));device.waitForIdle(1000);
+    }
+    private void converterOperations(boolean currency,String stage) throws Exception {
+        int input=currency?R.id.currency_input_text:R.id.unit_input_text;
+        int primary=currency?R.id.currency_result_text:R.id.unit_result_text;
+        int secondary=currency?R.id.currency_result_2_text:R.id.unit_result_2_text;
+        android.widget.ScrollView scroll=converterViewport(currency);
+        scenario.onActivity(a -> {
+            Rect visible=new Rect();visibleOnScreen(scroll,visible);
+            Log.i("TaxPosition",stage+" CONTENT child="+scroll.getChildAt(0).getHeight()+" measuredViewport="+scroll.getHeight()+" visibleViewport="+visible+" range="+(scroll.getChildAt(0).getHeight()-scroll.getHeight()));
+            for(int id:new int[]{input,primary,secondary}) {
+                View v=a.findViewById(id);Rect r=new Rect();visibleOnScreen(v,r);
+                Log.i("TaxPosition",stage+" GEOMETRY id="+id+" measured="+v.getWidth()+"x"+v.getHeight()+" visible="+r);
+            }
+        });
+        evidence(stage+"-initial");
+        converterTap(currency,input);key(R.id.clr);digits("123");
+        // Place the caret with an actual screen tap at the middle text offset.
+        converterFind(currency,input);int[] point=new int[2];
+        scenario.onActivity(a -> {
+            TextView text=a.findViewById(input);int[] at=new int[2];text.getLocationOnScreen(at);
+            point[0]=Math.round(at[0]+text.getCompoundPaddingLeft()+text.getLayout().getPrimaryHorizontal(2)-text.getScrollX());
+            point[1]=at[1]+text.getCompoundPaddingTop()+text.getLayout().getLineBottom(0)/2;
+        });
+        assertTrue(device.click(point[0],point[1]));device.waitForIdle(1000);assertArrayEquals(new int[]{2,2},selection(input));
+        key(R.id.op_add);digits("45");assertEquals("middle operator and continuous digits","12+453",modelSnapshot().get("expression"));
+        String expected=currency?"93.00":"465000";
+        assertEquals("real default conversion",expected,displaySnapshot().get(primary));
+        for(int id:new int[]{primary,secondary}) {
+            converterFind(currency,id);evidence(stage+"-result-"+id);
+            scenario.onActivity(a -> {
+                TextView result=a.findViewById(id);assertFalse(result.isCursorVisible());assertNull(result.getKeyListener());assertTrue(result.isTextSelectable());
+            });
+            Rect r=new Rect();String[] text={null};scenario.onActivity(a -> {visibleOnScreen(a.findViewById(id),r);text[0]=((TextView)a.findViewById(id)).getText().toString();});
+            assertTrue(device.swipe(r.centerX(),r.centerY(),r.centerX(),r.centerY(),90));
+            Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+            androidx.test.uiautomator.UiObject2 all=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text(context.getString(android.R.string.selectAll))),1000);if(all!=null)all.click();
+            androidx.test.uiautomator.UiObject2 copy=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text(context.getString(android.R.string.copy))),4000);
+            assertNotNull("real converter copy action",copy);copy.click();
+            scenario.onActivity(a -> assertEquals(text[0],((android.content.ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE)).getPrimaryClip().getItemAt(0).coerceToText(a).toString()));
+            awaitMotionState(R.id.start_state);
+            assertTrue(device.wait(androidx.test.uiautomator.Until.gone(androidx.test.uiautomator.By.res("com.android.systemui","clipboard_ui")),20000));
+        }
+        if(currency)converterFind(true,R.id.currency_update_label);
+        for(int id:currency?new int[]{R.id.currency_from,R.id.currency_to,R.id.currency_to_2}:new int[]{R.id.unit_from,R.id.unit_to,R.id.unit_to_2}) {
+            converterTap(currency,id);
+            androidx.test.uiautomator.UiObject2 list=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.clazz("android.widget.ListView")),4000);
+            assertNotNull("anchored selection menu",list);
+            int index=id==(currency?R.id.currency_from:R.id.unit_from)?0:id==(currency?R.id.currency_to:R.id.unit_to)?1:2;
+            assertTrue(list.getChildren().size()>index);list.getChildren().get(index).click();device.waitForIdle(1000);
+        }
+        Map<String,String> before=modelSnapshot();converterTap(currency,currency?R.id.currency_swap:R.id.unit_swap);
+        assertEquals(before.get("mFromIndex"),modelSnapshot().get("mToIndex"));assertEquals(before.get("mToIndex"),modelSnapshot().get("mFromIndex"));
+        converterTap(currency,input);key(R.id.clr);digits("9");assertEquals("return and edit","9",modelSnapshot().get("expression"));
+        evidence(stage+"-return-input");Log.i("TaxPosition",stage+" INSERT_MODELS_PRIMARY_SECONDARY_COPY_MENUS_SWAP_RETURN_PASS");
+    }
     @Test public void unitSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_unit,true,false);}
     @Test public void currencySurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_currency,true,true);}
     @Test public void scientificSurvivesRealSplitAndResize() throws Exception {
