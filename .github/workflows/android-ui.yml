@@ -92,6 +92,43 @@ jobs:
             echo "::notice title=Android AVD free space::$(df -h "$HOME/.android/avd" | tail -n 1 | sed 's/%/%25/g')"
           script: SPLIT_SCOPE=${{ inputs.split_scope || 'conversion-windows-only' }} bash scripts/ci-android-ui-tests.sh
 
+      - name: Prepare converter keypad comparisons
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'conversion-windows-only') }}
+        run: |
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PYKEYPAD'
+          from pathlib import Path
+          from PIL import Image
+          import io
+          for source in Path('build/ui-screenshots').glob('window-*-25-keypad-*.png'):
+              image=Image.open(source).convert('RGB');image.thumbnail((320,1000))
+              while True:
+                  encoded=io.BytesIO();image.save(encoded,format='JPEG',quality=40,optimize=True)
+                  if len(encoded.getvalue())<=14000: break
+                  image.thumbnail((int(image.width*.9),int(image.height*.9)))
+              source.with_name(source.stem+'-review.jpg').write_bytes(encoded.getvalue())
+          PYKEYPAD
+      - name: Publish unit upper keypad comparison
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'conversion-windows-only') }}
+        run: |
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-unit-upper-25-keypad-before-review.jpg "unit upper keypad before" 0 warning
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-unit-upper-25-keypad-after-review.jpg "unit upper keypad after" 0 warning
+      - name: Publish unit lower keypad comparison
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'conversion-windows-only') }}
+        run: |
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-unit-lower-25-keypad-before-review.jpg "unit lower keypad before" 0 warning
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-unit-lower-25-keypad-after-review.jpg "unit lower keypad after" 0 warning
+      - name: Publish currency upper keypad comparison
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'conversion-windows-only') }}
+        run: |
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-upper-25-keypad-before-review.jpg "currency upper keypad before" 0 warning
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-upper-25-keypad-after-review.jpg "currency upper keypad after" 0 warning
+      - name: Publish currency lower keypad comparison
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'conversion-windows-only') }}
+        run: |
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-lower-25-keypad-before-review.jpg "currency lower keypad before" 0 warning
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-lower-25-keypad-after-review.jpg "currency lower keypad after" 0 warning
+
       - name: Prepare tax window review images
         if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'tax-quarter-only') }}
         run: |
