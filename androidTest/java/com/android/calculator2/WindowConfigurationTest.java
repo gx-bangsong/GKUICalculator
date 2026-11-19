@@ -1250,6 +1250,12 @@ public class WindowConfigurationTest {
     private void programmerTap(int id) {
         Rect target=programmerReach(id);assertTrue(device.click(target.centerX(),target.centerY()));device.waitForIdle(1000);
     }
+    private void programmerPadTap(int id) {
+        int[] point=new int[2];scenario.onActivity(a -> {
+            View key=a.findViewById(id);assertTrue("enabled programmer key",key.isEnabled());key.getLocationOnScreen(point);
+            point[0]+=key.getWidth()/2;point[1]+=key.getHeight()/2;
+        });assertTrue(device.click(point[0],point[1]));device.waitForIdle(1000);
+    }
     private void programmerMenuChoice(int label) {
         String text=InstrumentationRegistry.getInstrumentation().getTargetContext().getString(label);
         for(int attempt=0;attempt<8;attempt++) {
@@ -1270,7 +1276,8 @@ public class WindowConfigurationTest {
         String stage="programmer-"+(bottom?"lower":"upper")+"-25";
         try {
             establishQuarterWindow(R.string.tool_programmer,bottom,stage);
-            key(R.id.clr);digits("10");
+            programmerPadTap(R.id.clr);programmerPadTap(R.id.digit_1);programmerPadTap(R.id.digit_0);
+            assertEquals("actual pre-menu input","10",displaySnapshot().get(R.id.programmer_value_in));
             programmerTap(R.id.programmer_chip_out);evidence(stage+"-menu");
             programmerMenuChoice(R.string.programmer_bin_description);
             assertEquals("1010",displaySnapshot().get(R.id.programmer_value_out));
@@ -1279,7 +1286,7 @@ public class WindowConfigurationTest {
             assertEquals("10",displaySnapshot().get(R.id.programmer_value_out));
             programmerTap(R.id.programmer_chip_in);programmerMenuChoice(R.string.programmer_dec_description);
             assertEquals("10",displaySnapshot().get(R.id.programmer_value_in));
-            key(R.id.op_add);digits("5");key(R.id.eq);
+            programmerPadTap(R.id.op_add);programmerPadTap(R.id.digit_5);programmerPadTap(R.id.eq);
             assertEquals("15",displaySnapshot().get(R.id.programmer_value_out));
             Rect result=programmerReach(R.id.programmer_value_out);evidence(stage+"-result");
             assertTrue(device.swipe(result.centerX(),result.centerY(),result.centerX(),result.centerY(),90));
