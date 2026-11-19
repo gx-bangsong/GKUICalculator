@@ -403,11 +403,17 @@ if os.environ.get("SPLIT_SCOPE", "representative") == "representative":
     required[key] = [n for n in required[key] if n not in deferred]
     print("DEFERRED expansion (not executed, not passes): " + ", ".join(deferred))
 
-if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-position-only"):
+if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-position-only", "mortgage-lower-only"):
     tool = os.environ["SPLIT_SCOPE"].split("-")[0]
     print("DIAGNOSTIC ONLY: 1 " + tool + " method; remaining acceptance and regression deferred, not passes")
     method = "mortgageScrollAtBothWindowPositions" if os.environ["SPLIT_SCOPE"] == "mortgage-position-only" else tool + "SurvivesRealSplitAndResize"
+    if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
+
+if os.environ.get("SPLIT_SCOPE") == "non-split":
+    key="com.android.calculator2.WindowConfigurationTest"
+    required[key]=[n for n in required[key] if "Split" not in n and n not in ("mortgageScrollAtBothWindowPositions","mortgageLowerQuarterRealScroll")]
+    print("Non-split regression only; system split acceptance reported separately")
 
 
 executed = {}
@@ -638,11 +644,17 @@ if os.environ.get("SPLIT_SCOPE", "representative") == "representative":
     required[key] = [n for n in required[key] if n not in deferred]
     print("DEFERRED expansion (not executed, not passes): " + ", ".join(deferred))
 
-if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-position-only"):
+if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-position-only", "mortgage-lower-only"):
     tool = os.environ["SPLIT_SCOPE"].split("-")[0]
     print("DIAGNOSTIC ONLY: 1 " + tool + " method; remaining acceptance and regression deferred, not passes")
     method = "mortgageScrollAtBothWindowPositions" if os.environ["SPLIT_SCOPE"] == "mortgage-position-only" else tool + "SurvivesRealSplitAndResize"
+    if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
+
+if os.environ.get("SPLIT_SCOPE") == "non-split":
+    key="com.android.calculator2.WindowConfigurationTest"
+    required[key]=[n for n in required[key] if "Split" not in n and n not in ("mortgageScrollAtBothWindowPositions","mortgageLowerQuarterRealScroll")]
+    print("Non-split regression only; system split acceptance reported separately")
 
 
 executed = {}
