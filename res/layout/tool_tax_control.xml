@@ -17,6 +17,11 @@
         <!-- Switches between monthly-salary withholding and the year-end bonus calculation. -->
         <TextView
             android:id="@+id/tax_mode_toggle"
+            android:textIsSelectable="false"
+            android:cursorVisible="false"
+            android:longClickable="false"
+            android:clickable="true"
+            android:focusable="true"
             style="@style/TaxFieldStyle"
             android:layout_width="0dp"
             android:layout_weight="1"

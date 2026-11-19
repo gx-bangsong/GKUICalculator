@@ -147,6 +147,13 @@ public class TaxMode extends FieldToolMode {
         final TextView modeToggle = root.findViewById(R.id.tax_mode_toggle);
         if (modeToggle != null) {
             modeToggle.setOnClickListener(v -> switchMode());
+            modeToggle.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+                @Override public void onInitializeAccessibilityNodeInfo(View host,
+                        android.view.accessibility.AccessibilityNodeInfo info) {
+                    super.onInitializeAccessibilityNodeInfo(host,info);
+                    info.setClassName(android.widget.Button.class.getName());
+                }
+            });
         }
         final TextView insurance = root.findViewById(R.id.tax_insurance_detail);
         if (insurance != null) {
