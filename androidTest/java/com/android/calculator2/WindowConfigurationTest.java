@@ -1190,44 +1190,112 @@ public class WindowConfigurationTest {
     @Test public void taxSurvivesRealSplitAndResize() throws Exception {splitTool(R.string.tool_tax,false,false);}
     @Test public void taxUpperQuarterSplitTouch() throws Exception {taxQuarter(false);}
     @Test public void taxLowerQuarterSplitTouch() throws Exception {taxQuarter(true);}
+    private void establishQuarterWindow(int mode,boolean bottom,String stage) throws Exception {
+        onView(withContentDescription(mode)).perform(click());
+        enterRealSplit();
+        SplitSample entry=splitSample();
+        if((entry.app.top>entry.other.top)!=bottom) {
+            Rect divider=verifiedDivider();
+            assertTrue(device.click(divider.centerX(),divider.centerY()));SystemClock.sleep(90);
+            assertTrue(device.click(divider.centerX(),divider.centerY()));
+            long until=SystemClock.uptimeMillis()+10000;
+            while(SystemClock.uptimeMillis()<until) {
+                SplitSample now=splitSample();
+                if(now.multi&&now.verifiedCompanion()&&(now.app.top>now.other.top)==bottom)break;
+                SystemClock.sleep(100);
+            }
+        }
+        device.executeShellCommand("am task focus "+splitTask);
+        SplitSample before=stableSample(true,null);
+        assertTrue("real target pair "+before,before.multi&&before.verifiedCompanion());
+        assertEquals("target position",bottom,before.app.top>before.other.top);
+        SplitSample target=before;
+        for(int attempt=0;attempt<2;attempt++) {
+            Rect divider=verifiedDivider();
+            Log.i("TaxPosition",stage+" RESIZE attempt="+attempt+" divider="+divider+" before="+target.app);
+            assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),
+                Math.round(device.getDisplayHeight()*(bottom?0.75f:0.25f)),65));
+            // Don't steal system focus halfway through the divider's animation.
+            device.waitForIdle(2000);assertTrue("verified pair settles after real resize",awaitVerifiedPair());
+            device.executeShellCommand("am task focus "+splitTask);
+            target=stableSample(true,null);
+            float actual=target.app.height()/(float)(target.app.height()+target.other.height());
+            if(Math.abs(actual-0.25f)<0.04)break;
+        }
+        logPosition(stage,target);
+        float share=target.app.height()/(float)(target.app.height()+target.other.height());
+        assertTrue("actual quarter "+target,Math.abs(share-0.25f)<0.04);
+        assertEquals(bottom,target.app.top>target.other.top);
+    }
+    @Test public void mortgageUpperQuarterSplitLoanTypes() throws Exception {
+        establishQuarterWindow(R.string.tool_mortgage,false,"mortgage-upper-types-25");
+        positionMortgageScroll("upper-target-25",false);
+        resizePosition(false,0.5f);assertLoanTypeGroup("upper-50");
+        resizePosition(false,0.25f);assertLoanTypeGroup("upper-return-25");
+    }
+    @Test public void taxModeSwitchIsAnActionNotSelectableText() throws Exception {
+        onView(withContentDescription(R.string.tool_tax)).perform(click());
+        assertTaxSwitchAction(false);
+    }
+    private void assertTaxSwitchAction(boolean scroll) throws Exception {
+        if(scroll)fingerFind(R.id.tax_mode_toggle);
+        Rect bounds=new Rect();Map<String,String> before=modelSnapshot();
+        scenario.onActivity(a -> {
+            TextView toggle=a.findViewById(R.id.tax_mode_toggle);
+            assertFalse("switch text cannot be selected",toggle.isTextSelectable());
+            assertFalse("switch has no caret",toggle.isCursorVisible());
+            assertNull("switch has no editor key listener",toggle.getKeyListener());
+            assertFalse("switch has no text long-click handler",toggle.isLongClickable());
+            assertTrue(toggle.isClickable());assertTrue(toggle.isFocusable());
+            android.view.accessibility.AccessibilityNodeInfo node=toggle.createAccessibilityNodeInfo();
+            assertEquals(android.widget.Button.class.getName(),node.getClassName().toString());
+            assertTrue("named action",node.getText()!=null&&!node.getText().toString().isEmpty());
+            assertTrue("accessible click action",(node.getActions()&android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)!=0);
+            assertTrue(visibleOnScreen(toggle,bounds));
+        });
+        assertTrue(device.swipe(bounds.centerX(),bounds.centerY(),bounds.centerX(),bounds.centerY(),90));
+        // A held button may dispatch its normal click on release, but never text selection.
+        if(Boolean.parseBoolean(modelSnapshot().get("mBonusMode"))) {
+            assertTrue(device.click(bounds.centerX(),bounds.centerY()));device.waitForIdle(2000);
+        }
+        for(int n=0;n<3;n++)assertEquals("hold cannot alter salary input",before.get("field"+n),modelSnapshot().get("field"+n));
+        scenario.onActivity(a -> {
+            TextView toggle=a.findViewById(R.id.tax_mode_toggle);
+            assertFalse("long press cannot create a selection",toggle.getSelectionStart()>=0&&toggle.getSelectionStart()!=toggle.getSelectionEnd());
+        });
+        String copy=InstrumentationRegistry.getInstrumentation().getTargetContext().getString(android.R.string.copy);
+        assertNull("no selection menu for the switch",device.findObject(androidx.test.uiautomator.By.text(copy)));
+        assertTrue(device.click(bounds.centerX(),bounds.centerY()));device.waitForIdle(2000);
+        assertEquals("single click activates bonus","true",modelSnapshot().get("mBonusMode"));
+        if(scroll)fingerFind(R.id.tax_mode_toggle);
+        Rect back=new Rect();scenario.onActivity(a -> assertTrue(visibleOnScreen(a.findViewById(R.id.tax_mode_toggle),back)));
+        assertTrue(device.click(back.centerX(),back.centerY()));device.waitForIdle(2000);
+        Map<String,String> expected=new TreeMap<>(before);expected.put("activeField","0");
+        assertEquals("salary model restored; switch activates field zero by existing rule",expected,modelSnapshot());
+    }
+    private void assertLoanTypeGroup(String stage) {
+        fingerFind(R.id.mortgage_type_combined);
+        scenario.onActivity(a -> {
+            View group=a.findViewById(R.id.mortgage_type_group);Rect viewport=new Rect();
+            assertTrue(visibleOnScreen(a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport"),viewport));
+            for(int id:new int[]{R.id.mortgage_type_commercial,R.id.mortgage_type_fund,R.id.mortgage_type_combined}) {
+                TextView button=a.findViewById(id);Rect r=new Rect();assertTrue(visibleOnScreen(button,r));
+                assertEquals("whole loan option width",button.getWidth(),r.width());
+                assertEquals("whole loan option height",button.getHeight(),r.height());
+                assertTrue("all loan types simultaneously inside viewport "+r+" "+viewport,r.left>=viewport.left&&r.right<=viewport.right&&r.top>=viewport.top&&r.bottom<=viewport.bottom);
+                assertTrue("loan type touch height",button.getHeight()/a.getResources().getDisplayMetrics().density>=44);
+                for(int line=0;line<button.getLayout().getLineCount();line++) {
+                    assertEquals("no shortened loan type label",0,button.getLayout().getEllipsisCount(line));
+                    assertTrue("complete loan type text",button.getLayout().getLineWidth(line)<=button.getWidth()-button.getCompoundPaddingLeft()-button.getCompoundPaddingRight()+1);
+                }
+                Log.i("MortgagePosition",stage+" LOAN_TYPE id="+id+" text="+button.getText()+" bounds="+r+" groupWidth="+group.getWidth());
+            }
+        });
+    }
     private void taxQuarter(boolean bottom) throws Exception {
         String stage=bottom?"tax-lower-25":"tax-upper-25";
         try {
-            onView(withContentDescription(R.string.tool_tax)).perform(click());
-            enterRealSplit();
-            SplitSample entry=splitSample();
-            if((entry.app.top>entry.other.top)!=bottom) {
-                Rect divider=verifiedDivider();
-                assertTrue(device.click(divider.centerX(),divider.centerY()));SystemClock.sleep(90);
-                assertTrue(device.click(divider.centerX(),divider.centerY()));
-                long until=SystemClock.uptimeMillis()+10000;
-                while(SystemClock.uptimeMillis()<until) {
-                    SplitSample now=splitSample();
-                    if(now.multi&&now.verifiedCompanion()&&(now.app.top>now.other.top)==bottom)break;
-                    SystemClock.sleep(100);
-                }
-            }
-            device.executeShellCommand("am task focus "+splitTask);
-            SplitSample before=stableSample(true,null);
-            assertTrue("real target pair "+before,before.multi&&before.verifiedCompanion());
-            assertEquals("target position",bottom,before.app.top>before.other.top);
-            SplitSample target=before;
-            for(int attempt=0;attempt<2;attempt++) {
-                Rect divider=verifiedDivider();
-                Log.i("TaxPosition",stage+" RESIZE attempt="+attempt+" divider="+divider+" before="+target.app);
-                assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),
-                    Math.round(device.getDisplayHeight()*(bottom?0.75f:0.25f)),65));
-                // Don't steal system focus halfway through the divider's animation.
-                device.waitForIdle(2000);assertTrue("verified pair settles after real resize",awaitVerifiedPair());
-                device.executeShellCommand("am task focus "+splitTask);
-                target=stableSample(true,null);
-                float actual=target.app.height()/(float)(target.app.height()+target.other.height());
-                if(Math.abs(actual-0.25f)<0.04)break;
-            }
-            logPosition(stage,target);
-            float share=target.app.height()/(float)(target.app.height()+target.other.height());
-            assertTrue("actual quarter "+target,Math.abs(share-0.25f)<0.04);
-            assertEquals(bottom,target.app.top>target.other.top);
+            establishQuarterWindow(R.string.tool_tax,bottom,stage);
             evidence(stage+"-initial");
             scenario.onActivity(a -> {
                 for(int id:new int[]{R.id.tool_field_0,R.id.tool_field_1,R.id.tool_field_2,R.id.formula,R.id.result}) {
@@ -1255,8 +1323,7 @@ public class WindowConfigurationTest {
             assertTrue("real tax content moves",positions[1]>positions[0]);awaitMotionState(R.id.start_state);
             // Find all salary fields by actual finger gestures, with complete text/caret checks.
             taxEdit(0,"30000");taxEdit(1,"2500");taxEdit(2,"1500");
-            taxDetailDialog(stage,true);assertEquals("600.00",modelSnapshot().get("field1"));
-            taxDetailDialog(stage,false);assertTaxComputation();
+            assertTaxSwitchAction(true);
             Map<String,String> salary=modelSnapshot();
             for(int id:new int[]{R.id.formula,R.id.result}) {fingerFind(id);evidence(stage+"-salary-"+id);mortgageFingerCopy(id);}
             fingerTap(R.id.tax_mode_toggle);assertEquals("true",modelSnapshot().get("mBonusMode"));
@@ -1266,6 +1333,13 @@ public class WindowConfigurationTest {
             for(int n=0;n<3;n++)assertEquals("salary fields restored",salary.get("field"+n),modelSnapshot().get("field"+n));
             fingerFind(R.id.tool_field_1);fingerFind(R.id.tool_field_2);fingerFind(R.id.tool_field_0);
             evidence(stage+"-returned-input");
+            Log.i("TaxPosition",stage+" CORE_SALARY_BONUS_SWITCH_COPY_RETURN_PASS");
+            resizePosition(bottom,0.5f);resizePosition(bottom,0.25f);
+            Log.i("TaxPosition",stage+" RESIZE_STATE_PASS");
+            // Modal automation is independent of already-completed core operations.
+            // Both dialogs are confirmed scrollable on the user's physical device.
+            taxDetailDialog(stage,true);assertEquals("600.00",modelSnapshot().get("field1"));
+            taxDetailDialog(stage,false);assertTaxComputation();
             Log.i("TaxPosition",stage+" SALARY_BONUS_FIELDS_DIALOGS_COPY_RETURN_PASS");
         } catch(Throwable failure) {
             Log.e("TaxPosition",stage+" FAIL first="+String.valueOf(failure).split("\n")[0]+" window="+safeSplitSample());
@@ -1323,7 +1397,30 @@ public class WindowConfigurationTest {
         androidx.test.uiautomator.UiSelector selector=new androidx.test.uiautomator.UiSelector().resourceId(resource);
         androidx.test.uiautomator.UiScrollable scroll=new androidx.test.uiautomator.UiScrollable(new androidx.test.uiautomator.UiSelector()
             .packageName(context.getPackageName()).className(android.widget.ScrollView.class.getName()).scrollable(true));
-        scroll.setAsVerticalList();boolean reached=scroll.scrollIntoView(selector);
+        // A center swipe can begin on a Spinner and open its forwarding popup instead of
+        // moving the dialog. Use the empty inner gutter of this app's modal ScrollView.
+        // This is a real pointer gesture, not an accessibility scroll action or scrollTo.
+        boolean reached=false,forward=true;int still=0;String previous="";
+        for(int attempt=0;attempt<90;attempt++) {
+            Rect viewport=scroll.getBounds();
+            androidx.test.uiautomator.UiObject target=device.findObject(selector);
+            if(target.exists()) {
+                Rect bounds=target.getBounds();
+                if(viewport.contains(bounds)&&!bounds.isEmpty()) {reached=true;break;}
+                forward=bounds.bottom>viewport.bottom;
+            }
+            StringBuilder signature=new StringBuilder();
+            for(androidx.test.uiautomator.UiObject2 item:device.findObjects(androidx.test.uiautomator.By.pkg(context.getPackageName())
+                    .clazz(java.util.regex.Pattern.compile("android.widget.(EditText|Spinner|CheckBox)"))))
+                signature.append(item.getResourceName()).append(item.getVisibleBounds());
+            String now=signature.toString();
+            if(now.equals(previous))still++;else still=0;
+            if(still>=2) {forward=!forward;still=0;}
+            previous=now;
+            int x=viewport.right-8,top=viewport.top+viewport.height()/5,bottom=viewport.bottom-viewport.height()/5;
+            assertTrue("real pointer within current dialog gutter",device.swipe(x,forward?bottom:top,x,forward?top:bottom,24));
+            device.waitForIdle(1000);
+        }
         if(!reached) {
             for(androidx.test.uiautomator.UiObject2 node:device.findObjects(androidx.test.uiautomator.By.scrollable(true)))
                 Log.e("TaxPosition","DIALOG_SCROLL_FAIL target="+resource+" scrollable="+node.getResourceName()+" bounds="+node.getVisibleBounds());
@@ -1499,6 +1596,15 @@ public class WindowConfigurationTest {
     }
     private void positionMortgageScroll(String stage) throws Exception {positionMortgageScroll(stage,true);}
     private void positionMortgageScroll(String stage,boolean testHistory) throws Exception {
+        assertLoanTypeGroup(stage);
+        for(int id:new int[]{R.id.mortgage_type_fund,R.id.mortgage_type_combined,R.id.mortgage_type_commercial}) {
+            fingerTap(id);
+            assertEquals("clicked loan type is the model",id==R.id.mortgage_type_fund?"1":id==R.id.mortgage_type_combined?"2":"0",modelSnapshot().get("mLoanType"));
+            scenario.onActivity(a -> assertEquals("visible checked state",id,
+                ((com.google.android.material.button.MaterialButtonToggleGroup)a.findViewById(R.id.mortgage_type_group)).getCheckedButtonId()));
+            assertLoanTypeGroup(stage);
+        }
+        evidence("mortgage-"+stage+"-types");
         Rect viewport=mortgageViewport();int[] sizes=new int[4];
         scenario.onActivity(a -> {
             android.widget.ScrollView scroll=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport");

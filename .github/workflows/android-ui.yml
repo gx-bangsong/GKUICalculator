@@ -161,6 +161,7 @@ jobs:
             build/outputs/apk/androidTest/debug/*.apk
             build/ui-screenshots/*.png
             build/ui-screenshots/*.json
+            build/ui-screenshots/*.xml
             build/ui-screenshots/*.log
             build/ui-screenshots/*-review.jpg
             build/connected-debug-android-test.log
