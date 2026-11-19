@@ -104,29 +104,24 @@ final class ProgrammerKeypadLayout {
     }
 
     private void sizeKeys() {
-        if(!enabled||viewport.getWidth()==0||viewport.getHeight()==0)return;
-        float d=activity.getResources().getDisplayMetrics().density;
-        int columns=viewport.getWidth()>=Math.ceil(640*d)?10:Math.min(5,Math.max(1,viewport.getWidth()/(int)Math.ceil(48*d)));
-        int rows=(ORDER.length+columns-1)/columns;
-        int height=Math.max((int)Math.ceil(48*d),viewport.getHeight()/rows);
-        if(grid.columns!=columns||grid.cellHeight!=height) {
-            grid.columns=columns;
-            grid.cellHeight=height;
-            grid.requestLayout();
-        }
+        if(!enabled)return;
         for(KeyHome home:homes)styleLabel(home.key);
     }
 
     /** Exact cells: no intrinsic button minimum or GridLayout constraint may widen a column. */
     private final class KeyGrid extends ViewGroup {
-        int columns=5,cellHeight=1;
+        int columns,cellHeight;
         KeyGrid(){super(activity);}
         @Override protected ViewGroup.LayoutParams generateDefaultLayoutParams() {
             return new ViewGroup.LayoutParams(-1,-1);
         }
         @Override protected void onMeasure(int widthSpec,int heightSpec) {
             int width=MeasureSpec.getSize(widthSpec);
+            float d=getResources().getDisplayMetrics().density;
+            columns=width>=Math.ceil(640*d)?10:Math.min(5,Math.max(1,width/(int)Math.ceil(48*d)));
             int rows=(getChildCount()+columns-1)/columns;
+            int available=Math.max(0,viewport.getLayoutParams().height);
+            cellHeight=Math.max((int)Math.ceil(48*d),available/rows);
             for(int i=0;i<getChildCount();i++) {
                 int col=i%columns;
                 int cellWidth=(col+1)*width/columns-col*width/columns;
@@ -194,6 +189,6 @@ final class ProgrammerKeypadLayout {
         }
         input.setVisibility(oldInputVisibility);advanced.setVisibility(oldAdvancedVisibility);
         stack.setOrientation(oldOrientation);motion.updateState(R.id.start_state,normal);
-        viewport=null;grid=null;compact=false;homes.clear();
+        viewport=null;grid=null;compact=false;lastWidth=lastHeight=0;homes.clear();
     }
 }

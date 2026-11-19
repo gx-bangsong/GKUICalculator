@@ -1333,7 +1333,7 @@ public class WindowConfigurationTest {
                     TextView key=a.findViewById(id);
                     report.append(a.getResources().getResourceEntryName(id)).append('=').append(Math.round(key.getWidth()/d*10)/10f).append('x').append(Math.round(key.getHeight()/d*10)/10f).append("dp/").append(Math.round(key.getTextSize()/sp*10)/10f).append("sp;");
                     if(verify) {
-                        assertTrue("48dp target "+id,key.getWidth()>=Math.ceil(48*d)&&key.getHeight()>=Math.ceil(48*d));
+                        assertTrue("48dp target "+stage+" id="+id+" actual="+key.getWidth()/d+"x"+key.getHeight()/d+"dp",key.getWidth()>=Math.ceil(48*d)&&key.getHeight()>=Math.ceil(48*d));
                         assertTrue("no horizontally clipped programmer column id="+id+" bounds="+key.getLeft()+".."+key.getRight()+" stack="+stack.getWidth(),key.getLeft()>=0&&key.getRight()<=stack.getWidth());
                         if(key.getText().length()>0) {
                             assertNotNull(key.getLayout());assertEquals("single-line key label "+id,1,key.getLayout().getLineCount());
@@ -1441,8 +1441,12 @@ public class WindowConfigurationTest {
             });
             Log.i("TaxPosition",stage+" PROGRAMMER_MENU_SWAP_COMPUTE_COPY_PASS");
             Map<Integer,String> beforeExpand=displaySnapshot();
-            Rect divider=verifiedDivider();
-            assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),bottom?1:device.getDisplayHeight()-1,80));
+            for(int attempt=0;attempt<2&&splitSample().multi;attempt++) {
+                Rect divider=verifiedDivider();
+                assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),bottom?1:device.getDisplayHeight()-1,80));
+                device.waitForIdle(2000);SystemClock.sleep(1000);
+                Log.i("TaxPosition",stage+" EXPAND_ATTEMPT="+attempt+" "+splitSample());
+            }
             SplitSample expanded=stableSample(false,null);
             Log.i("TaxPosition",stage+" EXPANDED "+expanded);
             programmerKeypadMeasure("programmer-full-after",true);
