@@ -71,7 +71,9 @@ final class ConverterKeypadLayout {
         TypedValue ratio=new TypedValue();
         activity.getResources().getValue(R.dimen.layout_pads_ratio,ratio,true);
         int rowMargins=2*activity.getResources().getDimensionPixelSize(R.dimen.button_vertical_margin);
-        boolean target=width>=keyboardWidth+contentMin && height>=4*keySize
+        // A broad window already has a different space budget; do not replace its
+        // existing landscape/history arrangement with a phone-width keypad column.
+        boolean target=width>=keyboardWidth+contentMin && width<2*keyboardWidth+contentMin && height>=4*keySize
             && height*ratio.getFloat()<5*(keySize+rowMargins)+top+bottom;
         if(!target){restore();return;}
         if(compact && width==lastWidth && height==lastHeight) {
