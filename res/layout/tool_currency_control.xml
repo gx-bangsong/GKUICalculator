@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Currency converter keeps the Google-style stacked amount rows but uses anchored currency menus. -->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<com.android.calculator2.tools.CurrencyRateViewport xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:fillViewport="false"
@@ -142,4 +142,4 @@
 
 </LinearLayout>
 
-</ScrollView>
+</com.android.calculator2.tools.CurrencyRateViewport>

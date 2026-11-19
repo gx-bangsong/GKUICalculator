@@ -289,6 +289,9 @@ public class CurrencyConverterMode implements ToolMode {
         if (mHost == null) {
             return; // deactivated
         }
+        if (mControlRoot instanceof com.android.calculator2.tools.CurrencyRateViewport) {
+            ((com.android.calculator2.tools.CurrencyRateViewport) mControlRoot).beginRateUpdate();
+        }
         mRates = rates;
         if (mUpdateLabel != null) {
             mUpdateLabel.setText(label);
