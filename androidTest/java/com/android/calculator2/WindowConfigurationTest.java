@@ -1143,8 +1143,12 @@ public class WindowConfigurationTest {
             assertTrue("no vertical text truncation "+id,view.getHeight()>=view.getLayout().getHeight()+view.getCompoundPaddingTop()+view.getCompoundPaddingBottom());
             {
                 assertEquals("entire form/output row width "+id,view.getWidth(),visible.width());
+                // Layout.getLineWidth includes trailing break whitespace. For tax's pure
+                // wrapped output check visible advances (getLineMax), not invisible spaces.
+                // All characters still remain in the actual view and copy assertion.
                 for(int line=0;line<view.getLayout().getLineCount();line++)
-                    assertTrue("no hidden form text horizontally id="+id+" line="+line+" lineWidth="+view.getLayout().getLineWidth(line)+" available="+(view.getWidth()-view.getCompoundPaddingLeft()-view.getCompoundPaddingRight())+" layoutWidth="+view.getLayout().getWidth()+" textSize="+view.getTextSize()+" scrollX="+view.getScrollX()+" text=["+view.getText()+"]",view.getLayout().getLineWidth(line)<=view.getWidth()-view.getCompoundPaddingLeft()-view.getCompoundPaddingRight()+1);
+                    assertTrue("no hidden form text horizontally id="+id+" line="+line+" lineWidth="+view.getLayout().getLineWidth(line)+" available="+(view.getWidth()-view.getCompoundPaddingLeft()-view.getCompoundPaddingRight())+" layoutWidth="+view.getLayout().getWidth()+" textSize="+view.getTextSize()+" scrollX="+view.getScrollX()+" text=["+view.getText()+"]",(id==R.id.formula&&active(a) instanceof com.android.calculator2.tools.modes.TaxMode
+                        ?view.getLayout().getLineMax(line):view.getLayout().getLineWidth(line))<=view.getWidth()-view.getCompoundPaddingLeft()-view.getCompoundPaddingRight()+1);
             }
         });
     }
