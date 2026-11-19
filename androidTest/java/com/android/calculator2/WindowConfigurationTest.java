@@ -1250,7 +1250,24 @@ public class WindowConfigurationTest {
     private void programmerTap(int id) {
         Rect target=programmerReach(id);assertTrue(device.click(target.centerX(),target.centerY()));device.waitForIdle(1000);
     }
+    private void programmerKeyReach(int id) {
+        for(int attempt=0;attempt<25;attempt++) {
+            Rect viewport=new Rect(),visible=new Rect();int[] position=new int[2];boolean[] ready={false};
+            scenario.onActivity(a -> {
+                View root=a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport");
+                View key=a.findViewById(id);assertNotNull(root);assertTrue(visibleOnScreen(root,viewport));
+                key.getLocationOnScreen(position);
+                ready[0]=visibleOnScreen(key,visible)&&visible.height()==key.getHeight()&&viewport.contains(visible);
+            });
+            if(ready[0])return;
+            int from=viewport.centerY(),distance=Math.max(16,viewport.height()/3);
+            pointerDrag(viewport.right-5,from,from+(position[1]<viewport.top?distance:-distance));
+            device.waitForIdle(1000);
+        }
+        fail("programmer key not reachable by finger "+id);
+    }
     private void programmerPadTap(int id) {
+        programmerKeyReach(id);
         int[] point=new int[2];scenario.onActivity(a -> {
             View key=a.findViewById(id);assertTrue("enabled programmer key",key.isEnabled());key.getLocationOnScreen(point);
             point[0]+=key.getWidth()/2;point[1]+=key.getHeight()/2;
@@ -1272,10 +1289,74 @@ public class WindowConfigurationTest {
         }
         fail("radix menu entry unreachable: "+text);
     }
+    private void programmerKeypadMeasure(String stage,boolean verify) {
+        scenario.onActivity(a -> {
+            float d=a.getResources().getDisplayMetrics().density,sp=a.getResources().getDisplayMetrics().scaledDensity;
+            int[][] groups={
+                {R.id.digit_0,R.id.digit_1,R.id.digit_2,R.id.digit_3,R.id.digit_4,R.id.digit_5,R.id.digit_6,R.id.digit_7,R.id.digit_8,R.id.digit_9},
+                {R.id.op_sqrt,R.id.const_pi,R.id.op_pow,R.id.op_fact,R.id.toggle_mode,R.id.fun_sin},
+                {R.id.fun_cos,R.id.fun_tan,R.id.toggle_inv,R.id.const_e,R.id.fun_ln,R.id.fun_log},
+                {R.id.del,R.id.clr}, {R.id.op_add,R.id.op_sub,R.id.op_mul,R.id.op_div,R.id.eq}};
+            String[] names={"digits","A-F","bitwise","DEL-AC","arithmetic"};
+            View stack=a.findViewById(R.id.pad_stack);
+            Log.i("TaxPosition",stage+" KEYPAD stackDp="+stack.getWidth()/d+"x"+stack.getHeight()/d);
+            for(int g=0;g<groups.length;g++) {
+                StringBuilder report=new StringBuilder(stage+" KEYPAD "+names[g]+" ");
+                for(int id:groups[g]) {
+                    TextView key=a.findViewById(id);
+                    report.append(a.getResources().getResourceEntryName(id)).append('=').append(Math.round(key.getWidth()/d*10)/10f).append('x').append(Math.round(key.getHeight()/d*10)/10f).append("dp/").append(Math.round(key.getTextSize()/sp*10)/10f).append("sp;");
+                    if(verify) {
+                        assertTrue("48dp target "+id,key.getWidth()>=Math.ceil(48*d)&&key.getHeight()>=Math.ceil(48*d));
+                        if(key.getText().length()>0) {
+                            assertNotNull(key.getLayout());assertEquals("single-line key label "+id,1,key.getLayout().getLineCount());
+                            assertTrue("complete key label "+id,key.getLayout().getLineWidth(0)<=key.getWidth()-key.getCompoundPaddingLeft()-key.getCompoundPaddingRight()+1);
+                            assertTrue("readable key label "+id,key.getTextSize()/sp>=17.9f);
+                        }
+                    }
+                }
+                Log.i("TaxPosition",report.toString());
+            }
+        });
+    }
+    private void programmerKeypadAudit(String stage) throws Exception {
+        scenario.onActivity(a -> ((ProgrammerKeypadLayout)member(a,"mProgrammerKeypadLayout")).setEnabled(false));
+        device.waitForIdle(1500);SystemClock.sleep(500);
+        programmerKeypadMeasure(stage+"-before",false);evidence(stage+"-keypad-before");
+        scenario.onActivity(a -> ((ProgrammerKeypadLayout)member(a,"mProgrammerKeypadLayout")).setEnabled(true));
+        device.waitForIdle(1500);SystemClock.sleep(500);
+        programmerKeypadMeasure(stage+"-after",true);evidence(stage+"-keypad-after");
+    }
+    private void programmerHexAndBitKeys() {
+        programmerTap(R.id.programmer_chip_in);programmerMenuChoice(R.string.programmer_hex_description);
+        programmerPadTap(R.id.clr);programmerPadTap(R.id.op_sqrt);programmerPadTap(R.id.const_pi);programmerPadTap(R.id.op_pow);
+        assertEquals("HEX continuous input","ABC",displaySnapshot().get(R.id.programmer_value_in));
+        programmerPadTap(R.id.del);assertEquals("AB",displaySnapshot().get(R.id.programmer_value_in));
+        programmerPadTap(R.id.toggle_inv);programmerPadTap(R.id.digit_1);programmerPadTap(R.id.eq);
+        assertEquals("XOR","AA",displaySnapshot().get(R.id.programmer_value_in));
+        programmerPadTap(R.id.fun_cos);programmerPadTap(R.id.fun_sin);programmerPadTap(R.id.eq);
+        assertEquals("AND","A",displaySnapshot().get(R.id.programmer_value_in));
+        programmerTap(R.id.programmer_chip_in);programmerMenuChoice(R.string.programmer_bin_description);
+        scenario.onActivity(a -> {assertFalse(a.findViewById(R.id.digit_2).isEnabled());assertFalse(a.findViewById(R.id.op_sqrt).isEnabled());assertTrue(a.findViewById(R.id.fun_cos).isEnabled());});
+        programmerTap(R.id.programmer_chip_in);programmerMenuChoice(R.string.programmer_dec_description);
+    }
+    @Test public void programmerKeypadFullAndLandscape() throws Exception {
+        onView(withContentDescription(R.string.tool_programmer)).perform(click());
+        programmerKeypadAudit("programmer-full");programmerHexAndBitKeys();
+        device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
+        programmerKeypadAudit("programmer-landscape");programmerHexAndBitKeys();
+        key(R.id.mode_segment_basic);
+        scenario.onActivity(a -> {
+            assertNull(a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport"));
+            assertEquals(R.id.advanced_pad,((View)a.findViewById(R.id.op_sqrt).getParent()).getId());
+            assertEquals(R.id.input_pad,((View)a.findViewById(R.id.digit_0).getParent()).getId());
+            assertEquals(a.getString(R.string.op_sqrt),((TextView)a.findViewById(R.id.op_sqrt)).getText().toString());
+        });
+    }
     private void programmerQuarter(boolean bottom) throws Exception {
         String stage="programmer-"+(bottom?"lower":"upper")+"-25";
         try {
             establishQuarterWindow(R.string.tool_programmer,bottom,stage);
+            programmerKeypadAudit(stage);programmerHexAndBitKeys();
             programmerPadTap(R.id.clr);programmerPadTap(R.id.digit_1);programmerPadTap(R.id.digit_0);
             assertEquals("actual pre-menu input","10",displaySnapshot().get(R.id.programmer_value_in));
             programmerTap(R.id.programmer_chip_out);evidence(stage+"-menu");
