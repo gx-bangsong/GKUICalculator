@@ -1808,7 +1808,8 @@ public class WindowConfigurationTest {
         fail("converter cannot be reached with actual pointer: "+id);
     }
     private void converterTap(boolean currency,int id) {
-        converterFind(currency,id);Rect r=new Rect();scenario.onActivity(a -> assertTrue(visibleOnScreen(a.findViewById(id),r)));
+        converterFind(currency,id);device.waitForIdle(1500);converterFind(currency,id);
+        Rect r=new Rect();scenario.onActivity(a -> assertTrue(visibleOnScreen(a.findViewById(id),r)));
         assertTrue(device.click(r.centerX(),r.centerY()));device.waitForIdle(1000);
     }
     private void converterKeypadAudit(String stage) throws Exception {
@@ -1952,7 +1953,10 @@ public class WindowConfigurationTest {
                 }
                 int id=currency?(secondary?R.id.currency_result_2_text:R.id.currency_result_text):(secondary?R.id.unit_result_2_text:R.id.unit_result_text);
                 String actual=((TextView)a.findViewById(id)).getText().toString().replace(",","");
-                assertEquals("conversion from real selected units/rates "+actual,0,expected.compareTo(new java.math.BigDecimal(actual)));
+                if(Boolean.TRUE.equals(member(mode,"mUppercaseNumbers"))) {
+                    String number=currency?new java.text.DecimalFormat("#,##0.00##").format(expected):expected.stripTrailingZeros().toPlainString();
+                    assertEquals("uppercase conversion from actual selection",com.android.calculator2.tools.model.ChineseNumerals.toUppercase(number),((TextView)a.findViewById(id)).getText().toString());
+                } else assertEquals("conversion from real selected units/rates "+actual,0,expected.compareTo(new java.math.BigDecimal(actual)));
             }
         });
     }

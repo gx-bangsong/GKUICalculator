@@ -17,6 +17,8 @@ final class ConverterKeypadLayout {
     private final int left, top, right, bottom;
     private boolean enabled, compact;
     private int lastWidth, lastHeight;
+    private final int[][] keyPadding=new int[20][4];
+    private final int[] keyLines=new int[20];
     private final int[] order = {R.id.digit_7,R.id.digit_8,R.id.digit_9,R.id.del,R.id.clr,
         R.id.digit_4,R.id.digit_5,R.id.digit_6,R.id.op_mul,R.id.op_div,
         R.id.digit_1,R.id.digit_2,R.id.digit_3,R.id.op_add,R.id.op_sub,
@@ -28,6 +30,11 @@ final class ConverterKeypadLayout {
         for(int i=0;i<vertical.length;i++)vertical[i]=View.generateViewId();
         for(int i=0;i<horizontal.length;i++)horizontal[i]=View.generateViewId();
         motion.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{if(enabled)motion.post(this::fit);});
+        for(int i=0;i<order.length;i++) {
+            TextView key=keys.findViewById(order[i]);
+            keyPadding[i]=new int[]{key.getPaddingLeft(),key.getPaddingTop(),key.getPaddingRight(),key.getPaddingBottom()};
+            keyLines[i]=key.getMaxLines();
+        }
         for(int id:order) keys.findViewById(id).addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{
             if(enabled && compact)((TextView)v).setTextSize(TypedValue.COMPLEX_UNIT_SP,22);
         });
@@ -43,6 +50,10 @@ final class ConverterKeypadLayout {
         compact=false;
         motion.updateState(R.id.start_state,normal);
         normalKeys.applyTo(keys);
+        for(int i=0;i<order.length;i++) {
+            TextView key=keys.findViewById(order[i]);int[] p=keyPadding[i];
+            key.setSingleLine(false);key.setMaxLines(keyLines[i]);key.setPadding(p[0],p[1],p[2],p[3]);
+        }
         keys.setPadding(left,top,right,bottom);
         // HapticButton recalculates its normal responsive label on the restored size change.
         keys.requestLayout();
@@ -98,6 +109,9 @@ final class ConverterKeypadLayout {
         }
         compact=true;lastWidth=width;lastHeight=height;
         keys.setPadding(0,0,0,0);grid.applyTo(keys);
+        for(int id:order) {
+            TextView key=keys.findViewById(id);key.setSingleLine(true);key.setEllipsize(null);key.setPadding(0,0,0,0);
+        }
         motion.updateState(R.id.start_state,state);
         activity.findViewById(R.id.advanced_pad).setVisibility(View.GONE);
         motion.post(this::fit);
