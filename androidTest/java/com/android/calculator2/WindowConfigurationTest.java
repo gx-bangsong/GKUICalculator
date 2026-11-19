@@ -1195,14 +1195,15 @@ public class WindowConfigurationTest {
         try {
             onView(withContentDescription(R.string.tool_tax)).perform(click());
             enterRealSplit();
-            if(bottom) {
+            SplitSample entry=splitSample();
+            if((entry.app.top>entry.other.top)!=bottom) {
                 Rect divider=verifiedDivider();
                 assertTrue(device.click(divider.centerX(),divider.centerY()));SystemClock.sleep(90);
                 assertTrue(device.click(divider.centerX(),divider.centerY()));
                 long until=SystemClock.uptimeMillis()+10000;
                 while(SystemClock.uptimeMillis()<until) {
                     SplitSample now=splitSample();
-                    if(now.multi&&now.verifiedCompanion()&&now.app.top>now.other.top)break;
+                    if(now.multi&&now.verifiedCompanion()&&(now.app.top>now.other.top)==bottom)break;
                     SystemClock.sleep(100);
                 }
             }
