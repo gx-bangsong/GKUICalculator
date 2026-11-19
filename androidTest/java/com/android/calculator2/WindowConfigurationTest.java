@@ -1244,7 +1244,9 @@ public class WindowConfigurationTest {
             int from=viewport.centerY(),delta=viewport.height()/3;
             int[] keyboardY={0};
             scenario.onActivity(a -> keyboardY[0]=a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport").getScrollY());
-            pointerDrag(viewport.right-4,from,from+(full[1]<viewport.top?delta:-delta));
+            // Landscape navigation can overlay the rightmost edge of the full-width
+            // control viewport. Start inside its measured centre, not behind system UI.
+            pointerDrag(viewport.centerX(),from,from+(full[1]<viewport.top?delta:-delta));
             device.waitForIdle(1000);
             scenario.onActivity(a -> assertEquals("left content scroll does not move keyboard",keyboardY[0],
                     a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport").getScrollY()));
