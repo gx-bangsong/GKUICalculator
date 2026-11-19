@@ -179,6 +179,54 @@ public class ToolRolesAndCurrencyTest {
         tool(R.string.tool_relationship);
         onView(withId(R.id.formula)).check((v,e)->assertTrue(((TextView)v).isCursorVisible()));
     }
+    private void programmerBase(int anchor,int label) {
+        onView(withId(anchor)).perform(scrollTo(),click());
+        onView(withText(label)).perform(click());
+    }
+    @Test public void programmerMenusSwapKeepRegisterAndPendingOperation() {
+        tool(R.string.tool_programmer);key(R.id.clr);digits("255");
+        onView(withId(R.id.programmer_chip_in)).perform(scrollTo(),click());
+        text(R.id.programmer_value_in,"255");text(R.id.programmer_chip_in,"DEC");
+        for(int label:new int[]{R.string.programmer_hex_description,R.string.programmer_dec_description,R.string.programmer_oct_description,R.string.programmer_bin_description})
+            onView(withText(label)).check(matches(isDisplayed()));
+        onView(withText(R.string.programmer_hex_description)).perform(click());
+        text(R.id.programmer_value_in,"FF");
+        programmerBase(R.id.programmer_chip_out,R.string.programmer_bin_description);
+        text(R.id.programmer_value_out,"11111111");
+        onView(withId(R.id.programmer_swap)).perform(scrollTo(),click());
+        text(R.id.programmer_chip_in,"BIN");text(R.id.programmer_chip_out,"HEX");
+        text(R.id.programmer_value_in,"11111111");text(R.id.programmer_value_out,"FF");
+        programmerBase(R.id.programmer_chip_in,R.string.programmer_oct_description);text(R.id.programmer_value_in,"377");
+        programmerBase(R.id.programmer_chip_in,R.string.programmer_dec_description);
+        programmerBase(R.id.programmer_chip_out,R.string.programmer_hex_description);
+        key(R.id.clr);digits("25");key(R.id.op_add);digits("5");
+        onView(withId(R.id.programmer_swap)).perform(scrollTo(),click());
+        text(R.id.programmer_status,"19 +");key(R.id.eq);
+        text(R.id.programmer_value_in,"1E");text(R.id.programmer_value_out,"30");
+        key(R.id.op_div);key(R.id.digit_0);key(R.id.eq);
+        String error=context.getString(R.string.programmer_divide_by_zero);
+        text(R.id.programmer_status,error);
+        onView(withId(R.id.programmer_swap)).perform(scrollTo(),click());text(R.id.programmer_status,error);
+        readOnly(R.id.programmer_value_out);
+        onView(withId(R.id.programmer_value_in)).check((v,e)->{if(e!=null)throw e;assertNotNull(((TextView)v).getEditableText());});
+        onView(withId(R.id.shared_display_rows)).check(matches(withEffectiveVisibility(Visibility.GONE)));
+    }
+    @Test public void programmerSwapPreservesWidthSignednessAndCanonicalValue() {
+        tool(R.string.tool_programmer);key(R.id.clr);digits("255");
+        androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(context);
+        onView(withText(R.string.programmer_width_8)).perform(click());
+        text(R.id.programmer_value_in,"-1");
+        onView(withId(R.id.programmer_swap)).perform(scrollTo(),click());
+        text(R.id.programmer_value_in,"-1");text(R.id.programmer_value_out,"-1");
+        androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(context);
+        onView(withText(R.string.programmer_unsigned_menu)).perform(click());
+        text(R.id.programmer_value_in,"FF");text(R.id.programmer_value_out,"255");
+        onView(withId(R.id.programmer_swap)).perform(scrollTo(),click());
+        text(R.id.programmer_value_in,"255");text(R.id.programmer_value_out,"FF");
+        androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(context);
+        onView(withText(R.string.programmer_width_64)).perform(click());
+        text(R.id.programmer_value_in,"255");text(R.id.programmer_value_out,"FF");
+    }
     @Test public void programmerPanelHasOnlyTwoValuesAndStatus() {
         tool(R.string.tool_programmer);key(R.id.clr);
         onView(withId(R.id.programmer_status)).check(matches(withEffectiveVisibility(Visibility.GONE)));
@@ -192,7 +240,7 @@ public class ToolRolesAndCurrencyTest {
     @Test public void programmerLongBinaryOutputIsCompleteAndCopyable() {
         tool(R.string.tool_programmer);key(R.id.clr);digits("9223372036854775807");
         text(R.id.programmer_value_out,"7FFFFFFFFFFFFFFF");readOnly(R.id.programmer_value_out);
-        key(R.id.programmer_chip_out);key(R.id.programmer_chip_out);
+        programmerBase(R.id.programmer_chip_out,R.string.programmer_bin_description);
         String binary=new String(new char[63]).replace('\0','1');
         text(R.id.programmer_value_out,binary);
         onView(withId(R.id.programmer_output_scroll)).perform(swipeLeft()).check((v,e)->{

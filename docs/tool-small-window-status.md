@@ -26,3 +26,8 @@ This is NOT acceptance of all tax split workflows. Remaining tax work is real re
 reach/copy, bonus calculation/copy, return-and-edit and state retention. Native modal
 scrolling remains physically confirmed; unfinished automation is not a product defect.
 Unit and currency baseline/adaptation proceed independently of full system split chains.
+
+## 转换键盘真机验收
+用户已真机验收 `52b5434970d0d8466f4c88bcf16f09960f94473c`：单位、汇率小窗键盘及本轮输入、菜单、滚动、交换、复制体验通过。保留，不因上25%建窗/动态恢复自动化未完成而重做；这些自动化限制独立保留。
+
+后续独立清单：程序员进制下拉与交换完成后，再处理大屏左历史右计算、历史下滑及edge-to-edge、工具条长按名称提示、外部选中文本转换建议可行性调查，不混入程序员提交。

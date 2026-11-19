@@ -187,7 +187,9 @@ public class WindowConfigurationTest {
             selectTail(R.id.tool_field_0,2);return R.id.tool_field_0;
         } else if(name==R.string.tool_programmer) {
             menu(R.string.programmer_width_16);menu(R.string.programmer_unsigned_menu);
-            key(R.id.clr);digits("27");key(R.id.programmer_chip_in);key(R.id.programmer_chip_out);
+            key(R.id.clr);digits("27");key(R.id.programmer_chip_in);
+            onView(withText(R.string.programmer_hex_description)).perform(click());
+            key(R.id.programmer_chip_out);onView(withText(R.string.programmer_bin_description)).perform(click());
             key(R.id.op_add);digits("3");selectTail(R.id.programmer_value_in,1);return R.id.programmer_value_in;
         } else if(name==R.string.tool_date) {
             date(R.id.date_start,2025,2,3);date(R.id.date_end,2026,4,5);return 0;
