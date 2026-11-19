@@ -1233,13 +1233,20 @@ public class WindowConfigurationTest {
             });
             Log.i("TaxPosition",stage+" CONTENT child="+size[0]+" viewport="+size[1]+" range="+(size[0]-size[1])+" y="+size[2]);
             assertTrue("fixture must have a scroll range",size[0]>size[1]);
+            for(int n=0;n<24;n++) {
+                int[] y={0};scenario.onActivity(a -> y[0]=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport").getScrollY());
+                if(y[0]==0)break;swipeMortgageViewport(false);
+            }
+            int[] positions=new int[2];
+            scenario.onActivity(a -> positions[0]=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport").getScrollY());
+            swipeMortgageViewport(true);
+            scenario.onActivity(a -> positions[1]=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport").getScrollY());
+            Log.i("TaxPosition",stage+" REAL_SWIPE before="+positions[0]+" after="+positions[1]);
+            assertTrue("real tax content moves",positions[1]>positions[0]);awaitMotionState(R.id.start_state);
             // Find all salary fields by actual finger gestures, with complete text/caret checks.
             taxEdit(0,"30000");taxEdit(1,"2500");taxEdit(2,"1500");
-            for(int entry:new int[]{R.id.tax_insurance_detail,R.id.tax_special_detail}) {
-                fingerTap(entry);onView(withId(android.R.id.button1)).check(matches(isDisplayed()));
-                evidence(stage+"-dialog-"+entry);onView(withId(android.R.id.button2)).perform(click());
-                awaitMotionState(R.id.start_state);
-            }
+            taxDetailDialog(stage,true);assertEquals("600",modelSnapshot().get("field1"));
+            taxDetailDialog(stage,false);assertTaxComputation();
             Map<String,String> salary=modelSnapshot();
             for(int id:new int[]{R.id.formula,R.id.result}) {fingerFind(id);evidence(stage+"-salary-"+id);mortgageFingerCopy(id);}
             fingerTap(R.id.tax_mode_toggle);assertEquals("true",modelSnapshot().get("mBonusMode"));
@@ -1265,7 +1272,56 @@ public class WindowConfigurationTest {
             assertEquals("real tax field model",typed,modelSnapshot().get("field"+field));
             assertMortgageTextVisible(id);
         }
-        assertFalse(displaySnapshot().get(R.id.formula).isEmpty());
+        assertTaxComputation();
+    }
+    private void taxDetailDialog(String stage,boolean insurance) throws Exception {
+        fingerTap(insurance?R.id.tax_insurance_detail:R.id.tax_special_detail);
+        int[] editors=insurance?new int[]{R.id.si_base_input,R.id.si_rate_0,R.id.si_rate_1,R.id.si_rate_2,R.id.si_rate_3,R.id.si_rate_4,R.id.si_rate_5}
+            :new int[]{R.id.ded_edu_children,R.id.ded_medical,R.id.ded_elderly_shared,R.id.ded_infant_children};
+        for(int id:editors) {
+            dialogReach(id).click();device.waitForIdle(1000);
+            assertTrue(device.pressKeyCode(android.view.KeyEvent.KEYCODE_A,android.view.KeyEvent.META_CTRL_ON));
+            assertTrue(device.pressKeyCode(android.view.KeyEvent.KEYCODE_DEL));
+            device.executeShellCommand("input text "+(id==R.id.si_base_input?"10000":"1"));
+            device.waitForIdle(1000);assertTrue(device.pressBack());device.waitForIdle(1000);
+        }
+        if(!insurance) {
+            for(int id:new int[]{R.id.ded_edu_share,R.id.ded_continuing,R.id.ded_mortgage_share,R.id.ded_rent,R.id.ded_infant_share}) {
+                dialogReach(id).click();device.waitForIdle(1000);
+                device.pressDPadDown();device.pressEnter();device.waitForIdle(1000);
+            }
+            for(int id:new int[]{R.id.ded_mortgage,R.id.ded_elderly_only})dialogReach(id).click();
+        }
+        evidence(stage+(insurance?"-insurance-detail":"-special-detail"));
+        onView(withId(android.R.id.button1)).perform(click());awaitMotionState(R.id.start_state);
+        Log.i("TaxPosition",stage+" DIALOG_ALL_ENTRIES_APPLY "+(insurance?"insurance":"special"));
+    }
+    private androidx.test.uiautomator.UiObject dialogReach(int id) throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        String resource=context.getPackageName()+":id/"+context.getResources().getResourceEntryName(id);
+        androidx.test.uiautomator.UiSelector selector=new androidx.test.uiautomator.UiSelector().resourceId(resource);
+        androidx.test.uiautomator.UiScrollable scroll=new androidx.test.uiautomator.UiScrollable(new androidx.test.uiautomator.UiSelector().scrollable(true));
+        scroll.setAsVerticalList();assertTrue("dialog entry reachable by actual scrolling "+resource,scroll.scrollIntoView(selector));
+        return device.findObject(selector);
+    }
+    private void assertTaxComputation() {
+        Map<String,String> model=modelSnapshot();Map<Integer,String> outputs=displaySnapshot();
+        java.math.BigDecimal amount=new java.math.BigDecimal(model.get("field0"));
+        java.math.MathContext mc=new java.math.MathContext(20,java.math.RoundingMode.HALF_UP);
+        com.android.calculator2.tools.data.TaxTable table=com.android.calculator2.tools.data.TaxTable.load(InstrumentationRegistry.getInstrumentation().getTargetContext());
+        java.math.BigDecimal tax,after,last=null;
+        if(Boolean.parseBoolean(model.get("mBonusMode"))) {
+            com.android.calculator2.tools.model.IncomeTaxCalculator.BonusResult r=com.android.calculator2.tools.model.IncomeTaxCalculator.computeYearEndBonus(amount,table,mc);
+            tax=r.tax;after=r.afterTax;
+        } else {
+            com.android.calculator2.tools.model.IncomeTaxCalculator.Result r=com.android.calculator2.tools.model.IncomeTaxCalculator.computeAnnual(amount,
+                new java.math.BigDecimal(model.get("field1")),new java.math.BigDecimal(model.get("field2")),table,mc);
+            tax=r.annualTax;after=r.annualAfterTax;last=r.lastMonthWithholding;
+        }
+        java.text.DecimalFormat money=new java.text.DecimalFormat("0.##");
+        assertTrue("primary tax recomputed",outputs.get(R.id.formula).replace(",","").contains(money.format(tax.setScale(2,java.math.RoundingMode.HALF_UP))));
+        assertTrue("after-tax result recomputed",outputs.get(R.id.result).replace(",","").contains(money.format(after.setScale(2,java.math.RoundingMode.HALF_UP))));
+        if(last!=null)assertTrue("last-month auxiliary recomputed",outputs.get(R.id.result).replace(",","").contains(money.format(last.setScale(2,java.math.RoundingMode.HALF_UP))));
     }
     /** Targeted check: no upper-window editing, state checkpoints or exit gate this test. */
     @Test public void mortgageLowerQuarterRealScroll() throws Exception {
