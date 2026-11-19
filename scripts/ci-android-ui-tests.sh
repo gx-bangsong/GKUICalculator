@@ -275,10 +275,21 @@ print("::warning title=Window functional results::"+text)
 PYWINDOW
 adb logcat -d -v brief WindowEvidence:I SplitPhase:I MortgageForm:I MortgagePosition:I MortgageTarget:I TaxPosition:I ToolTouchCoordinates:I '*:S' > build/ui-screenshots/window-evidence.log || true
 # Keep the two remaining acceptance failures readable without downloading artifacts.
-while IFS= read -r detail; do
-    detail=${detail//%/%25}
-    echo "::notice title=Converter continuity evidence::$detail"
-done < <(grep -E 'TaxPosition.*REFRESH|TaxPosition.*ENTRY' build/ui-screenshots/window-evidence.log | awk '!seen[$0]++' | tail -n 32)
+converter_evidence=$(python3 - <<'PYCONVERTER'
+from pathlib import Path
+lines=Path('build/ui-screenshots/window-evidence.log').read_text(errors='replace').splitlines()
+entries={}
+refresh=[]
+for line in lines:
+    if 'TaxPosition' not in line: continue
+    if ' REFRESH ' in line: refresh.append(line)
+    if ' ENTRY id=' in line:
+        entries[line.split(' ENTRY id=')[1].split(' ')[0]]=line
+text='\n'.join(list(entries.values())+refresh)
+print(text.replace('%','%25').replace('\r','%0D').replace('\n','%0A'))
+PYCONVERTER
+)
+echo "::notice title=Converter continuity evidence::$converter_evidence"
 mortgage_phases=$(grep -E 'MortgageForm.*(ALL_CORE_FIELDS|CONDITIONAL_TYPES|EXIT_|half task=|short task=)' build/ui-screenshots/window-evidence.log | tail -n 12 | tr '\n' ' ' || true)
 mortgage_phases=${mortgage_phases//%/%25}
 echo "::warning title=Mortgage form touch steps::${mortgage_phases:0:3800}"

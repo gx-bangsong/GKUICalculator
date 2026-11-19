@@ -1774,7 +1774,7 @@ public class WindowConfigurationTest {
                 box[2]=view.getHeight();box[3]=android.view.ViewConfiguration.get(a).getScaledTouchSlop();box[4]=scroll.getScrollY();
                 Rect actual=new Rect();ready[0]=visibleOnScreen(view,actual)&&actual.height()==view.getHeight()&&viewport.contains(actual)&&view.getHeight()>0;
                 if(!ready[0] && (id==R.id.unit_from || id==R.id.unit_input_text))
-                    Log.i("TaxPosition","ENTRY id="+id+" screen="+new Rect(at[0],at[1],at[0]+view.getWidth(),at[1]+view.getHeight())+" visible="+actual+" viewport="+viewport+" y="+scroll.getScrollY()+" remaining="+Math.max(0,scroll.getChildAt(0).getHeight()-scroll.getHeight()-scroll.getScrollY())+" ownScroll="+view.getScrollX()+","+view.getScrollY()+" focus="+view.isFocused());
+                    Log.i("TaxPosition","ENTRY id="+id+" screen="+new Rect(at[0],at[1],at[0]+view.getWidth(),at[1]+view.getHeight())+" visible="+actual+" viewport="+viewport+" y="+scroll.getScrollY()+" remaining="+Math.max(0,scroll.getChildAt(0).getHeight()-scroll.getHeight()-scroll.getScrollY())+" ownScroll="+view.getScrollX()+","+view.getScrollY()+" focus="+view.isFocused()+" localVisible="+view.getLocalVisibleRect(new Rect()));
             });
             if(ready[0]) {
                 scenario.onActivity(a -> {
