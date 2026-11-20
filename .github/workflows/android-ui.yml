@@ -12,8 +12,13 @@ on:
       split_scope:
         description: Split execution scope (expansion only after BMI is stable)
         type: choice
-        options: [bmi-only, mortgage-only, mortgage-position-only, mortgage-lower-only, tax-quarter-only, conversion-windows-only, programmer-only, history-only, history-edge-only, tooltip-only, remaining-modes-only, external-text-probe-only, non-split, representative, full]
+        options: [bmi-only, mortgage-only, mortgage-position-only, mortgage-lower-only, tax-quarter-only, conversion-windows-only, programmer-only, history-only, history-edge-only, tooltip-only, remaining-modes-only, ime-return-only, external-text-probe-only, non-split, representative, full]
         default: bmi-only
+      emulator_api:
+        description: Android API for the selected regression (does not alter targetSdk)
+        type: choice
+        options: ['30', '34']
+        default: '34'
 
 permissions:
   contents: read
@@ -74,7 +79,7 @@ jobs:
       - name: Run instrumented UI tests and capture screens
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: ${{ inputs.split_scope == 'external-text-probe-only' && 30 || 34 }}
+          api-level: ${{ inputs.split_scope == 'external-text-probe-only' && '30' || inputs.emulator_api || '34' }}
           target: default
           arch: x86_64
           profile: pixel_2

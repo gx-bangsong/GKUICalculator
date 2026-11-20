@@ -948,6 +948,107 @@ public class WindowConfigurationTest {
         assertTrue("Measured deficiencies (first 12): "+failures.subList(0,Math.min(12,failures.size())),failures.isEmpty());
     }
 
+    private final java.util.List<String> imeVisibleFrames=new java.util.ArrayList<>();
+    private View imeObservedDecor;
+    private boolean observeIme;
+    private String imeFrameState="";
+    private final Runnable imeFrameObserver=new Runnable() {
+        @Override public void run() {
+            if(!observeIme)return;
+            View decor=imeObservedDecor;android.view.WindowInsets insets=decor.getRootWindowInsets();
+            boolean visible=insets!=null&&insets.isVisible(android.view.WindowInsets.Type.ime());
+            String state="focus="+decor.hasWindowFocus()+" ime="+visible;
+            if(!state.equals(imeFrameState)){Log.i("ImeReturn","FRAME "+SystemClock.uptimeMillis()+" "+state);imeFrameState=state;}
+            if(decor.hasWindowFocus()&&visible)imeVisibleFrames.add(state+" at="+SystemClock.uptimeMillis());
+            decor.postOnAnimation(this);
+        }
+    };
+    private void imeTrace(String stage,int fieldId) {
+        scenario.onActivity(a -> {
+            View focus=a.getCurrentFocus();TextView field=a.findViewById(fieldId);
+            Log.i("ImeReturn",stage+" API="+Build.VERSION.SDK_INT+" mode="+((com.android.calculator2.tools.ToolMode)active(a)).getId()
+                +" focus="+(focus==null?"null":focus.getId())+" editor="+fieldId+" identity="+System.identityHashCode(field)
+                +" attached="+field.isAttachedToWindow()+" showSoftInputOnFocus="+field.getShowSoftInputOnFocus()
+                +" inputType="+field.getInputType()+" softInputMode="+a.getWindow().getAttributes().softInputMode
+                +" selection="+field.getSelectionStart()+":"+field.getSelectionEnd());
+            assertFalse("self-keypad editor must not summon IME",field.getShowSoftInputOnFocus());
+            assertEquals("Activity owns manifest IME policy",android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN,
+                a.getWindow().getAttributes().softInputMode&android.view.WindowManager.LayoutParams.SOFT_INPUT_MASK_STATE);
+        });
+    }
+    private void imeReturnThroughOverview() throws Exception {
+        assertTrue("open actual recent tasks",device.pressRecentApps());SystemClock.sleep(600);
+        String label=InstrumentationRegistry.getInstrumentation().getTargetContext().getString(R.string.app_name);
+        androidx.test.uiautomator.UiObject2 snapshot=null;
+        // Select the calculator's card, not an Activity restart, task-focus shell command or recreate.
+        for(int attempt=0;attempt<6&&snapshot==null;attempt++) {
+            androidx.test.uiautomator.UiObject2 title=device.findObject(androidx.test.uiautomator.By.text(label));
+            if(title==null)title=device.findObject(androidx.test.uiautomator.By.desc(label));
+            for(int parent=0;title!=null&&parent<5;parent++,title=title.getParent()) {
+                snapshot=title.findObject(androidx.test.uiautomator.By.res(java.util.regex.Pattern.compile(".*:id/snapshot")));
+                if(snapshot!=null)break;
+            }
+            if(snapshot==null){device.swipe(device.getDisplayWidth()/4,device.getDisplayHeight()/2,device.getDisplayWidth()*3/4,device.getDisplayHeight()/2,30);SystemClock.sleep(350);}
+        }
+        assertNotNull("ENVIRONMENT: calculator overview card thumbnail must be identified by app title",snapshot);
+        snapshot.click();
+        remainingAwaitLayout("IME overview return");SystemClock.sleep(800);
+    }
+    @Test public void imeRealRecentsKeepsCaretWithoutKeyboard() throws Exception {
+        assertEquals("this regression must run on Android 11",30,Build.VERSION.SDK_INT);
+        try {
+            scenario.onActivity(a -> {imeObservedDecor=a.getWindow().getDecorView();observeIme=true;imeObservedDecor.postOnAnimation(imeFrameObserver);});
+            int[] modes={0,0,R.string.tool_bmi,R.string.tool_unit,R.string.tool_currency,R.string.tool_programmer,R.string.tool_relationship};
+            int[] fields={R.id.formula,R.id.formula,R.id.tool_field_0,R.id.unit_input_text,R.id.currency_input_text,R.id.programmer_value_in,R.id.formula};
+            for(int n=0;n<modes.length;n++) {
+                final int index=n,fieldId=fields[n];boolean relationship=n==6;
+                remainingModeTap(R.id.mode_segment_basic,0);
+                if(n==1)remainingModeTap(R.id.mode_segment_scientific,0);
+                if(modes[n]!=0)remainingModeTap(0,modes[n]);
+                if(!relationship) {
+                    Rect field=remainingFind(fieldId);assertTrue(device.click(field.centerX(),field.centerY()));
+                    scenario.onActivity(a -> {TextView v=a.findViewById(fieldId);Selection.setSelection((Spannable)v.getText(),0,v.length());});
+                    for(int digit:new int[]{R.id.digit_1,R.id.digit_2,R.id.digit_3,R.id.digit_4})remainingFingerKey(digit);
+                } else {remainingFingerKey(R.id.digit_7);remainingFingerKey(R.id.digit_7);}
+                Rect r=remainingFind(fieldId);assertTrue(device.click(r.centerX(),r.centerY()));
+                scenario.onActivity(a -> {TextView v=a.findViewById(fieldId);Selection.setSelection((Spannable)v.getText(),Math.min(2,v.length()));});
+                for(boolean foreignIme:new boolean[]{false,true}) {
+                    String[] before={""};int[] range=new int[2],identity=new int[1];
+                    scenario.onActivity(a -> {TextView v=a.findViewById(fieldId);before[0]=v.getText().toString();range[0]=v.getSelectionStart();range[1]=v.getSelectionEnd();identity[0]=System.identityHashCode(v);});
+                    imeTrace("before mode#"+index+" foreign="+foreignIme,fieldId);
+                    if(foreignIme) {
+                        Context test=InstrumentationRegistry.getInstrumentation().getContext();
+                        android.content.Intent intent=new android.content.Intent().setComponent(new android.content.ComponentName(test,
+                            com.android.calculator2.fixture.ImeCompanionActivity.class)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                        InstrumentationRegistry.getInstrumentation().getTargetContext().startActivity(intent);
+                        SystemClock.sleep(1000);
+                        String ims=device.executeShellCommand("dumpsys input_method");
+                        assertTrue("foreign task really shows its keyboard",ims.contains("mInputShown=true")||ims.contains("isInputViewShown=true"));
+                        Log.i("ImeReturn","FOREIGN_IME_VISIBLE calculator must not hide companion keyboard");
+                    }
+                    imeReturnThroughOverview();imeTrace("after mode#"+index+" foreign="+foreignIme,fieldId);
+                    scenario.onActivity(a -> {TextView v=a.findViewById(fieldId);
+                        assertEquals("return did not remount editor",identity[0],System.identityHashCode(v));
+                        assertEquals(before[0],v.getText().toString());assertEquals(range[0],v.getSelectionStart());assertEquals(range[1],v.getSelectionEnd());
+                        assertTrue("retain editor focus",v.hasFocus());
+                        assertTrue("no visible IME frame, including transient flash: "+imeVisibleFrames,imeVisibleFrames.isEmpty());
+                    });
+                    if(!relationship&&!foreignIme) {
+                        remainingFingerKey(R.id.digit_9);
+                        scenario.onActivity(a -> assertEquals("12|34 then recents then 9", "12934",((TextView)a.findViewById(fieldId)).getText().toString()));
+                        remainingFingerKey(R.id.del);
+                        scenario.onActivity(a -> {TextView v=a.findViewById(fieldId);Selection.setSelection((Spannable)v.getText(),1,3);});
+                    }
+                }
+                remainingFingerKey(R.id.digit_9);
+                if(!relationship)scenario.onActivity(a -> assertEquals("range replacement survives foreign IME and recents", "194",((TextView)a.findViewById(fieldId)).getText().toString()));
+                evidence("ime-return-mode-"+n);
+            }
+        } finally {
+            scenario.onActivity(a -> {observeIme=false;if(imeObservedDecor!=null)imeObservedDecor.removeCallbacks(imeFrameObserver);});
+        }
+    }
+
     private int navigationMode() {
         Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();
         return c.getResources().getInteger(c.getResources().getIdentifier("config_navBarInteractionMode","integer","android"));

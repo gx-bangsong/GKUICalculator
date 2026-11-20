@@ -1,0 +1,9 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Separate test-APK task: a real foreign window with its own normal IME policy. -->
+        <activity android:name="com.android.calculator2.fixture.ImeCompanionActivity"
+            android:exported="true" android:label="IME regression companion"
+            android:theme="@android:style/Theme.Material.Light"
+            android:windowSoftInputMode="stateAlwaysVisible" />
+    </application>
+</manifest>

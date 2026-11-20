@@ -145,6 +145,9 @@ fi
 if [[ "$split_scope" == "programmer-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#programmerUpperQuarterSplitMenusSwap,com.android.calculator2.WindowConfigurationTest#programmerLowerQuarterSplitMenusSwap"
 fi
+if [[ "$split_scope" == "ime-return-only" ]]; then
+    runner_classes="com.android.calculator2.WindowConfigurationTest#imeRealRecentsKeepsCaretWithoutKeyboard"
+fi
 if [[ "$split_scope" == "remaining-modes-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#remainingModesUpperSplitMeasurements,com.android.calculator2.WindowConfigurationTest#remainingModesLowerSplitMeasurements"
 fi
@@ -293,10 +296,10 @@ for p in Path("build/outputs/androidTest-results").rglob("TEST-*.xml"):
 text="; ".join(rows).replace("%","%25")
 print("::warning title=Window functional results::"+text)
 PYWINDOW
-adb logcat -d -v brief RemainingWindow:I WindowEvidence:I HistoryEdge:I SplitPhase:I MortgageForm:I MortgagePosition:I MortgageTarget:I TaxPosition:I ToolTouchCoordinates:I '*:S' > build/ui-screenshots/window-evidence.log || true
+adb logcat -d -v brief ImeReturn:I RemainingWindow:I WindowEvidence:I HistoryEdge:I SplitPhase:I MortgageForm:I MortgagePosition:I MortgageTarget:I TaxPosition:I ToolTouchCoordinates:I '*:S' > build/ui-screenshots/window-evidence.log || true
 python3 - <<'PYREMAINING'
 from pathlib import Path
-lines=[s for s in Path('build/ui-screenshots/window-evidence.log').read_text(errors='replace').splitlines() if 'RemainingWindow' in s]
+lines=[s for s in Path('build/ui-screenshots/window-evidence.log').read_text(errors='replace').splitlines() if 'RemainingWindow' in s or 'ImeReturn' in s]
 chunk='';index=1
 for line in lines:
     if len(chunk)+len(line)>3000:
@@ -467,6 +470,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     method = "mortgageScrollAtBothWindowPositions" if os.environ["SPLIT_SCOPE"] == "mortgage-position-only" else tool + "SurvivesRealSplitAndResize"
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
+
+if os.environ.get("SPLIT_SCOPE") == "ime-return-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["imeRealRecentsKeepsCaretWithoutKeyboard"]}
 
 if os.environ.get("SPLIT_SCOPE") == "remaining-modes-only":
     required={"com.android.calculator2.WindowConfigurationTest":["remainingModesUpperSplitMeasurements","remainingModesLowerSplitMeasurements"]}
@@ -730,6 +736,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     method = "mortgageScrollAtBothWindowPositions" if os.environ["SPLIT_SCOPE"] == "mortgage-position-only" else tool + "SurvivesRealSplitAndResize"
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
+
+if os.environ.get("SPLIT_SCOPE") == "ime-return-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["imeRealRecentsKeepsCaretWithoutKeyboard"]}
 
 if os.environ.get("SPLIT_SCOPE") == "remaining-modes-only":
     required={"com.android.calculator2.WindowConfigurationTest":["remainingModesUpperSplitMeasurements","remainingModesLowerSplitMeasurements"]}
