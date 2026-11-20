@@ -25,6 +25,7 @@ final class DateWindowLayout {
     private ScrollView viewport;
     private ConstraintSet original;
     private boolean enabled,compact;
+    private int padVisibility;
     private String fittedGeometry="";
     private int lastWidth,lastHeight,lastLeft,lastRight;
 
@@ -74,6 +75,7 @@ final class DateWindowLayout {
         if(!compact) {
             android.util.Log.i("RemainingWindow","DATE_MOUNT geometry="+geometry);
             original=new ConstraintSet();original.clone(motion.getConstraintSet(R.id.start_state));
+            padVisibility=pad.getVisibility();
             viewport=new ScrollView(activity);viewport.setTag("field_tool_viewport");
             viewport.setFillViewport(false);viewport.setVerticalScrollBarEnabled(true);viewport.setScrollbarFadingEnabled(false);
             display.removeView(content);content.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));
@@ -92,7 +94,7 @@ final class DateWindowLayout {
         }
         if(w==lastWidth&&h==lastHeight&&left==lastLeft&&right==lastRight)return;
         ConstraintSet state=new ConstraintSet();state.clone(original);
-        for(int id:new int[]{R.id.display,R.id.tool_bar,R.id.pad_stack})
+        for(int id:new int[]{R.id.display,R.id.tool_bar})
             for(int side:new int[]{ConstraintSet.TOP,ConstraintSet.BOTTOM,ConstraintSet.LEFT,ConstraintSet.RIGHT,ConstraintSet.START,ConstraintSet.END})state.clear(id,side);
         state.constrainWidth(R.id.display,w);state.constrainHeight(R.id.display,h-barHeight);
         state.connect(R.id.display,ConstraintSet.LEFT,ConstraintSet.PARENT_ID,ConstraintSet.LEFT,left);
@@ -100,7 +102,10 @@ final class DateWindowLayout {
         state.constrainWidth(R.id.tool_bar,w);state.constrainHeight(R.id.tool_bar,barHeight);
         state.connect(R.id.tool_bar,ConstraintSet.LEFT,ConstraintSet.PARENT_ID,ConstraintSet.LEFT,left);
         state.connect(R.id.tool_bar,ConstraintSet.BOTTOM,ConstraintSet.PARENT_ID,ConstraintSet.BOTTOM);
-        state.setVisibility(R.id.pad_stack,View.GONE);state.constrainHeight(R.id.pad_stack,0);
+        // Date owns the content surface, not the keyboard's anchors, percent height or
+        // parent parameters. Hide the unused pad without installing a positionless zero-
+        // height pad in the shared MotionScene for the next calculator adapter to inherit.
+        state.setVisibilityMode(R.id.pad_stack,ConstraintSet.VISIBILITY_MODE_IGNORE);
         lastWidth=w;lastHeight=h;lastLeft=left;lastRight=right;
         motion.updateState(R.id.start_state,state);
     }
@@ -121,6 +126,6 @@ final class DateWindowLayout {
         formulaContainer.setMinimumHeight(formulaMinimum);
         ((CalculatorFormula)formula).setWrapToolOutput(false);((CalculatorScrollView)formulaContainer).setWrapChildToViewport(false);
         result.setSingleLine(true);result.setMaxLines(resultLines);
-        pad.setVisibility(View.VISIBLE);motion.updateState(R.id.start_state,original);
+        motion.updateState(R.id.start_state,original);pad.setVisibility(padVisibility);
     }
 }
