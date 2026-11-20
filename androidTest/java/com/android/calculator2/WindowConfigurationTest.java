@@ -1675,6 +1675,20 @@ public class WindowConfigurationTest {
             device.executeShellCommand("am task focus "+splitTask);
         }
     }
+    @Test public void fractionConstrainedHeightMeasurements() throws Exception {
+        try {
+            // Separate real display-size diagnostic; never label this a system split pair.
+            device.executeShellCommand("wm size 1080x650");
+            remainingAwaitLayout("fraction display650 NOT SPLIT");
+            key(R.id.mode_segment_basic);key(R.id.clr);
+            key(R.id.digit_1);key(R.id.op_div);key(R.id.digit_3);key(R.id.eq);
+            androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(
+                    InstrumentationRegistry.getInstrumentation().getTargetContext());
+            onView(withText(R.string.menu_show_fraction)).perform(click());
+            awaitFractionWindow();fractionMeasurement("before-display650-NOT-SPLIT");
+            evidence("fraction-before-display650-NOT-SPLIT");
+        } finally {device.executeShellCommand("wm size reset");}
+    }
     /** API30 exposes the divider handle's local rect offset incorrectly in UIAutomator.
      * Intersect the real system divider WINDOW with the independently measured task gap.
      * Both rectangles are screen/raw; no fixed offset or unverified gap-only injection. */
