@@ -614,6 +614,96 @@ public class WindowConfigurationTest {
         }
     }
 
+    /** Physical long press: the framework popup must be visible, not just a tooltip property. */
+    private void toolbarTooltip(int index,String stage) throws Exception {
+        String[] name={null};Rect target=new Rect(),viewport=new Rect(),window=new Rect();boolean[] fullyVisible={false};
+        for(int attempt=0;attempt<16;attempt++) {
+            scenario.onActivity(a -> {
+                android.widget.LinearLayout row=a.findViewById(R.id.mode_segments);
+                View icon=row.getChildAt(index);assertNotNull(icon);
+                CharSequence expected=index==0?a.getText(R.string.desc_mode_basic):index==1?a.getText(R.string.desc_mode_scientific):
+                    index==2?a.getText(R.string.tool_unit)+" / "+a.getText(R.string.tool_currency):icon.getContentDescription();
+                name[0]=expected.toString();assertEquals("localized name on segment "+index,name[0],icon.getTooltipText().toString());
+                assertTrue("accessibility name retained",icon.getContentDescription()!=null&&icon.getContentDescription().length()>0);
+                assertTrue("click action retained",icon.isClickable());
+                assertTrue(visibleOnScreen(a.findViewById(R.id.mode_segments_scroll),viewport));
+                int[] raw=new int[2];icon.getLocationOnScreen(raw);target.set(raw[0],raw[1],raw[0]+icon.getWidth(),raw[1]+icon.getHeight());
+                window.set(a.getWindowManager().getCurrentWindowMetrics().getBounds());
+                fullyVisible[0]=viewport.contains(target);
+            });
+            if(fullyVisible[0])break;
+            boolean right=target.right>viewport.right;
+            assertTrue(device.swipe(right?viewport.right-8:viewport.left+8,viewport.centerY(),
+                    right?viewport.left+8:viewport.right-8,viewport.centerY(),30));
+            SystemClock.sleep(150);
+        }
+        assertTrue("segment reachable by horizontal finger scroll "+stage+" "+index+" "+target+" "+viewport,fullyVisible[0]);
+        Map<String,String> model=modelSnapshot();Map<Integer,String> outputs=displaySnapshot();
+        int[] selected=selection(R.id.formula);
+        int hold=(android.view.ViewConfiguration.getLongPressTimeout()+300)/5;
+        assertTrue(device.swipe(target.centerX(),target.centerY(),target.centerX(),target.centerY(),hold));
+        androidx.test.uiautomator.UiObject2 popup=device.wait(androidx.test.uiautomator.Until.findObject(
+                androidx.test.uiautomator.By.res("android","message").text(name[0])),1500);
+        assertNotNull("visible standard tooltip "+stage+" "+index+" "+name[0],popup);
+        Rect popupBounds=popup.getVisibleBounds();
+        assertTrue("readable popup within current window "+stage+" popup="+popupBounds+" window="+window,
+                popupBounds.width()>0&&popupBounds.height()>0&&window.contains(popupBounds));
+        Log.i("WindowEvidence","TOOLTIP "+stage+" index="+index+" name="+name[0]+" anchorRaw="+target+" popupRaw="+popupBounds+" window="+window);
+        assertEquals("long press must not switch mode or change model",model,modelSnapshot());
+        assertEquals("long press must not clear/change input or output",outputs,displaySnapshot());
+        assertArrayEquals("formula selection untouched",selected,selection(R.id.formula));
+        assertTrue("tooltip dismisses normally",device.wait(androidx.test.uiautomator.Until.gone(
+                androidx.test.uiautomator.By.res("android","message").text(name[0])),3500));
+    }
+    private void toolbarTooltips(String stage) throws Exception {
+        int[] count={0};scenario.onActivity(a -> count[0]=((android.widget.LinearLayout)a.findViewById(R.id.mode_segments)).getChildCount());
+        assertEquals("all existing entries, including shared converters",9,count[0]);
+        for(int i=0;i<count[0];i++)toolbarTooltip(i,stage);
+    }
+    @Test public void toolbarTooltipNamesRotateAndRebuild() throws Exception {
+        onView(withContentDescription(R.string.tool_programmer)).perform(click());
+        int input=prepareTool(R.string.tool_programmer);Map<String,String> model=modelSnapshot();int[] selected=selection(input);
+        toolbarTooltips("portrait-programmer-pending");assertArrayEquals(selected,selection(input));
+        // A real tap after popup dismissal must still switch modes and rebuild generated icons.
+        onView(withContentDescription(R.string.tool_tax)).perform(click());
+        assertTrue(modelSnapshot().get("mode").contains("Tax"));toolbarTooltip(4,"rebuilt-tax");
+        key(R.id.mode_segment_basic);key(R.id.mode_segment_scientific);
+        scenario.onActivity(a -> assertTrue(a.findViewById(R.id.mode_segment_scientific).isSelected()));
+        device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
+        toolbarTooltips("landscape-scientific");
+        key(R.id.mode_segment_convert);toolbarTooltip(2,"units");
+        key(R.id.mode_segment_convert);toolbarTooltip(2,"currency");
+        onView(withContentDescription(R.string.tool_programmer)).perform(click());
+        assertEquals("pending programmer operation survives tooltip/mode round trip",model,modelSnapshot());
+        key(R.id.eq);assertNotEquals(model,modelSnapshot());
+    }
+    @Test public void toolbarTooltipDockedAndNarrowScroll() throws Exception {
+        String oldSize=device.executeShellCommand("wm size"),oldDensity=device.executeShellCommand("wm density");
+        java.util.regex.Matcher m=java.util.regex.Pattern.compile("Override size: (\\d+x\\d+)").matcher(oldSize);
+        String size=m.find()?m.group(1):"reset";m=java.util.regex.Pattern.compile("Override density: (\\d+)").matcher(oldDensity);
+        String density=m.find()?m.group(1):"reset";
+        try {
+            device.executeShellCommand("wm density 160");resizeHistoryWindow("1200x1800",true);toolbarTooltips("docked");
+            resizeHistoryWindow("280x800",false);
+            int[] before={0},after={0};scenario.onActivity(a -> before[0]=a.findViewById(R.id.mode_segments_scroll).getScrollX());
+            toolbarTooltips("narrow-280dp");scenario.onActivity(a -> after[0]=a.findViewById(R.id.mode_segments_scroll).getScrollX());
+            assertTrue("finger horizontal scrolling remains functional",after[0]>before[0]);
+            toolbarTooltip(0,"narrow-scroll-back");key(R.id.mode_segment_scientific);
+            scenario.onActivity(a -> assertTrue(a.findViewById(R.id.mode_segment_scientific).isSelected()));
+        } finally {device.executeShellCommand("wm size "+size);device.executeShellCommand("wm density "+density);SystemClock.sleep(900);}
+    }
+    @Test public void toolbarTooltipUpperQuarterSplit() throws Exception {toolbarTooltipQuarter(false);}
+    @Test public void toolbarTooltipLowerQuarterSplit() throws Exception {toolbarTooltipQuarter(true);}
+    private void toolbarTooltipQuarter(boolean bottom) throws Exception {
+        try {
+            establishQuarterWindow(R.string.tool_mortgage,bottom,"tooltip-"+(bottom?"lower":"upper"));
+            toolbarTooltips(bottom?"lower-quarter":"upper-quarter");
+        } finally {
+            device.executeShellCommand("am force-stop com.android.settings");
+            device.executeShellCommand("am task focus "+splitTask);SystemClock.sleep(800);
+        }
+    }
+
     private int navigationMode() {
         Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();
         return c.getResources().getInteger(c.getResources().getIdentifier("config_navBarInteractionMode","integer","android"));
