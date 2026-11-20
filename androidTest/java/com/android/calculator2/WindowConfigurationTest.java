@@ -419,6 +419,18 @@ public class WindowConfigurationTest {
         });
     }
 
+    private long[] historyAnchor() {
+        long[] anchor=new long[2];
+        scenario.onActivity(a -> {
+            androidx.recyclerview.widget.RecyclerView list=a.findViewById(R.id.history_recycler_view);
+            androidx.recyclerview.widget.LinearLayoutManager layout=(androidx.recyclerview.widget.LinearLayoutManager)list.getLayoutManager();
+            int position=layout.findFirstVisibleItemPosition();assertTrue(position>=0);
+            anchor[0]=list.getAdapter().getItemId(position);
+            anchor[1]=layout.findViewByPosition(position).getTop();
+        });
+        return anchor;
+    }
+
     @Test public void adaptiveHistoryUsesActualWindowAndKeepsToolState() throws Exception {
         String density=device.executeShellCommand("wm density");
         java.util.regex.Matcher override=java.util.regex.Pattern.compile("Override density: (\\d+)").matcher(density);
@@ -443,10 +455,37 @@ public class WindowConfigurationTest {
                 if(refreshed[0])break;SystemClock.sleep(100);
             } while(SystemClock.uptimeMillis()<until);
             assertTrue("new calculation appears in mounted history",refreshed[0]);
+            for(int row=0;row<24;row++) {
+                key(R.id.clr);digits("7");key(R.id.op_add);digits("8");key(R.id.eq);
+            }
             evidence("history-tablet-portrait");
             onView(withContentDescription(R.string.tool_programmer)).perform(click());
             int input=prepareTool(R.string.tool_programmer);
             Map<String,String> model=modelSnapshot();int[] selected=selection(input);
+            long[] initialAnchor=historyAnchor();Rect historyList=new Rect();
+            scenario.onActivity(a -> assertTrue(visibleOnScreen(a.findViewById(R.id.history_recycler_view),historyList)));
+            assertTrue(device.swipe(historyList.centerX(),historyList.top+historyList.height()/4,
+                    historyList.centerX(),historyList.bottom-historyList.height()/4,60));
+            device.waitForIdle(1000);
+            long[] scrolledAnchor=historyAnchor();
+            assertFalse("history really scrolls via finger, not scrollTo",java.util.Arrays.equals(initialAnchor,scrolledAnchor));
+            assertEquals("left scrolling cannot change right model",model,modelSnapshot());
+            // Copy from an actual visible history result, using its existing context menu.
+            Rect copy=new Rect();
+            scenario.onActivity(a -> {
+                androidx.recyclerview.widget.RecyclerView list=a.findViewById(R.id.history_recycler_view);
+                androidx.recyclerview.widget.LinearLayoutManager layout=(androidx.recyclerview.widget.LinearLayoutManager)list.getLayoutManager();
+                int position=layout.findFirstCompletelyVisibleItemPosition();assertTrue(position>=0);
+                HistoryAdapter.ViewHolder holder=(HistoryAdapter.ViewHolder)list.findViewHolderForAdapterPosition(position);
+                assertTrue(visibleOnScreen(holder.getResult(),copy));
+            });
+            assertTrue(device.swipe(copy.centerX(),copy.centerY(),copy.centerX(),copy.centerY(),90));
+            onView(withText(android.R.string.copy)).perform(click());
+            scenario.onActivity(a -> {
+                android.content.ClipboardManager clipboard=(android.content.ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE);
+                assertEquals("15",clipboard.getPrimaryClip().getItemAt(0).coerceToText(a).toString());
+            });
+            assertEquals("copy does not backfill the active tool",model,modelSnapshot());
             resizeHistoryWindow("1800x1200",true);
             assertDockedHistoryBounds();
             assertEquals(model,modelSnapshot());assertArrayEquals(selected,selection(input));
@@ -467,12 +506,85 @@ public class WindowConfigurationTest {
             evidence("history-short-single-column");
             resizeHistoryWindow("1200x1800",true);
             assertDockedHistoryBounds();assertEquals(model,modelSnapshot());
+            assertArrayEquals("same history anchor and pixel offset after window roundtrip",scrolledAnchor,historyAnchor());
             evidence("history-restored-double-column");
+            onView(org.hamcrest.Matchers.allOf(withContentDescription(androidx.appcompat.R.string.abc_action_menu_overflow_description),
+                    isDescendantOfA(withId(R.id.history_toolbar)))).perform(click());
+            onView(withText(R.string.menu_clear_history)).perform(click());
+            onView(withId(android.R.id.button1)).perform(click());
+            scenario.onActivity(a -> {
+                assertEquals(0,Evaluator.getInstance(a).getMaxIndex());
+                androidx.recyclerview.widget.RecyclerView list=a.findViewById(R.id.history_recycler_view);
+                assertEquals(1,list.getAdapter().getItemCount());
+                assertEquals(0,list.getAdapter().getItemViewType(0));
+            });
+            assertEquals("clear history cannot overwrite pending tool input",model,modelSnapshot());
             key(R.id.eq);
             assertNotEquals("restored pending calculation executes",model,modelSnapshot());
         } finally {
             device.executeShellCommand("wm size "+restoreSize);
             device.executeShellCommand("wm density "+restoreDensity);
+            SystemClock.sleep(1000);
+        }
+    }
+
+    @Test public void adaptiveHistorySurvivesTabletRealSplit() throws Exception {
+        String density=device.executeShellCommand("wm density");
+        java.util.regex.Matcher override=java.util.regex.Pattern.compile("Override density: (\\d+)").matcher(density);
+        String restoreDensity=override.find()?override.group(1):"reset";
+        String size=device.executeShellCommand("wm size");
+        override=java.util.regex.Pattern.compile("Override size: (\\d+x\\d+)").matcher(size);
+        String restoreSize=override.find()?override.group(1):"reset";
+        try {
+            device.executeShellCommand("wm density 160");
+            resizeHistoryWindow("2200x1800",true);assertDockedHistoryBounds();
+            onView(withContentDescription(R.string.tool_programmer)).perform(click());
+            int input=prepareTool(R.string.tool_programmer);
+            Map<String,String> model=modelSnapshot();int[] selected=selection(input);
+            enterRealSplit();SplitSample half=stableSample(true,null);
+            assertTrue("real Settings companion "+half,half.verifiedCompanion());
+            assertDockedHistoryBounds();
+            assertEquals(model,modelSnapshot());assertArrayEquals(selected,selection(input));
+            evidence("history-tablet-real-half");
+            boolean horizontal=half.app.right<=half.other.left||half.other.right<=half.app.left;
+            boolean leading=horizontal?half.app.left<half.other.left:half.app.top<half.other.top;
+            Rect divider=verifiedDivider();
+            int target=(horizontal?device.getDisplayWidth():device.getDisplayHeight())*(leading?1:2)/3;
+            assertTrue(device.swipe(divider.centerX(),divider.centerY(),horizontal?target:divider.centerX(),
+                    horizontal?divider.centerY():target,70));
+            SystemClock.sleep(1200);
+            device.executeShellCommand("am task focus "+splitTask);awaitRealSplit();
+            SplitSample small=stableSample(true,null);
+            assertTrue("verified companion after resize "+small,small.verifiedCompanion());
+            assertTrue("divider changes actual app window "+half+" -> "+small,
+                    horizontal?small.app.width()<half.app.width():small.app.height()<half.app.height());
+            scenario.onActivity(a -> assertFalse("one-third tablet window below width/height threshold",a.isHistoryDocked()));
+            assertEquals(model,modelSnapshot());assertArrayEquals(selected,selection(input));
+            evidence("history-tablet-real-narrow");
+            onView(withContentDescription(R.string.menu_history)).perform(click());awaitMotionState(R.id.end_state);
+            device.pressBack();awaitMotionState(R.id.start_state);
+            divider=verifiedDivider();
+            target=(horizontal?device.getDisplayWidth():device.getDisplayHeight())/2;
+            assertTrue(device.swipe(divider.centerX(),divider.centerY(),horizontal?target:divider.centerX(),
+                    horizontal?divider.centerY():target,70));
+            SystemClock.sleep(1200);device.executeShellCommand("am task focus "+splitTask);awaitRealSplit();
+            SplitSample enlarged=stableSample(true,null);
+            assertTrue(enlarged.toString(),enlarged.verifiedCompanion());
+            assertDockedHistoryBounds();assertEquals(model,modelSnapshot());assertArrayEquals(selected,selection(input));
+            evidence("history-tablet-real-enlarged");
+            divider=verifiedDivider();target=leading?(horizontal?device.getDisplayWidth():device.getDisplayHeight())-1:1;
+            assertTrue(device.swipe(divider.centerX(),divider.centerY(),horizontal?target:divider.centerX(),
+                    horizontal?divider.centerY():target,80));
+            stableSample(false,null);assertDockedHistoryBounds();
+            assertEquals(model,modelSnapshot());assertArrayEquals(selected,selection(input));
+            key(R.id.eq);assertNotEquals("pending calculation executes after real split",model,modelSnapshot());
+            evidence("history-tablet-real-full-return");
+        } finally {
+            // Bounded cleanup, even when the system cannot create a pair. Never mark that PASS.
+            device.executeShellCommand("am force-stop com.android.settings");
+            device.executeShellCommand("wm size "+restoreSize);
+            device.executeShellCommand("wm density "+restoreDensity);
+            device.executeShellCommand("am task focus "+splitTask);
             SystemClock.sleep(1000);
         }
     }

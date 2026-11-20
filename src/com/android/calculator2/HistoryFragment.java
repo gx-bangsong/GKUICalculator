@@ -38,7 +38,9 @@ public class HistoryFragment extends Fragment {
     private long mSnapshotIndex = -1;
 
     void captureScroll() {
-        if(mRecyclerView!=null&&mRecyclerView.getLayoutManager()!=null)
+        // A collapsed zero-height host must not overwrite the last visible list anchor.
+        if(mRecyclerView!=null&&mRecyclerView.getLayoutManager()!=null
+                &&mRecyclerView.getGlobalVisibleRect(new android.graphics.Rect()))
             mScroll=mRecyclerView.getLayoutManager().onSaveInstanceState();
     }
 
@@ -131,9 +133,7 @@ public class HistoryFragment extends Fragment {
         if(activity==null)return;
         final boolean isResultLayout = activity.isResultLayout();
 
-        // Snapshot display state here. For the rest of the lifecycle of this current
-        // HistoryFragment, this is what we will consider the display state.
-        // In rare cases, the display state can change after our adapter is initialized.
+        // The persistent pane observes calculator history only; tools do not add records.
         final CalculatorExpr mainExpr = mEvaluator.getExpr(Evaluator.MAIN_INDEX);
         mIsDisplayEmpty = mainExpr == null || mainExpr.isEmpty();
 
@@ -167,12 +167,17 @@ public class HistoryFragment extends Fragment {
     }
 
     @Override
+    public void onViewStateRestored(@Nullable Bundle state) {
+        super.onViewStateRestored(state);
+        restoreScroll();
+    }
+
+    @Override
     public void onDestroy() {
         super.onDestroy();
 
         if (mEvaluator != null) {
-            // Note that the view is destroyed when the fragment backstack is popped, so
-            // these are essentially called when the DragLayout is closed.
+            // The fragment now survives modal closing; release evaluations at destruction.
             mEvaluator.cancelNonMain();
         }
     }

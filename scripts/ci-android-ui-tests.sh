@@ -140,6 +140,9 @@ fi
 if [[ "$split_scope" == "programmer-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#programmerUpperQuarterSplitMenusSwap,com.android.calculator2.WindowConfigurationTest#programmerLowerQuarterSplitMenusSwap"
 fi
+if [[ "$split_scope" == "history-only" ]]; then
+    runner_classes="com.android.calculator2.WindowConfigurationTest#adaptiveHistoryUsesActualWindowAndKeepsToolState,com.android.calculator2.WindowConfigurationTest#adaptiveHistorySurvivesTabletRealSplit"
+fi
 if [[ "$split_scope" == "non-split" ]]; then
     excluded=$(python3 - <<'PYEXCLUDE'
 import re
@@ -436,6 +439,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
+if os.environ.get("SPLIT_SCOPE") == "history-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["adaptiveHistoryUsesActualWindowAndKeepsToolState","adaptiveHistorySurvivesTabletRealSplit"]}
+
 if os.environ.get("SPLIT_SCOPE") == "programmer-only":
     required={"com.android.calculator2.WindowConfigurationTest":["programmerUpperQuarterSplitMenusSwap","programmerLowerQuarterSplitMenusSwap"]}
 
@@ -686,6 +692,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     method = "mortgageScrollAtBothWindowPositions" if os.environ["SPLIT_SCOPE"] == "mortgage-position-only" else tool + "SurvivesRealSplitAndResize"
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
+
+if os.environ.get("SPLIT_SCOPE") == "history-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["adaptiveHistoryUsesActualWindowAndKeepsToolState","adaptiveHistorySurvivesTabletRealSplit"]}
 
 if os.environ.get("SPLIT_SCOPE") == "programmer-only":
     required={"com.android.calculator2.WindowConfigurationTest":["programmerUpperQuarterSplitMenusSwap","programmerLowerQuarterSplitMenusSwap"]}
