@@ -140,6 +140,9 @@ fi
 if [[ "$split_scope" == "programmer-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#programmerUpperQuarterSplitMenusSwap,com.android.calculator2.WindowConfigurationTest#programmerLowerQuarterSplitMenusSwap"
 fi
+if [[ "$split_scope" == "history-edge-only" ]]; then
+    runner_classes="com.android.calculator2.WindowConfigurationTest#historyPhoneNavigationInsetsAndRealDrag,com.android.calculator2.WindowConfigurationTest#historyRealSplitUpperAndLowerInsets,com.android.calculator2.WindowConfigurationTest#historyDockedEdgeBackgroundAndNarrowDrag"
+fi
 if [[ "$split_scope" == "history-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#adaptiveHistoryUsesActualWindowAndKeepsToolState,com.android.calculator2.WindowConfigurationTest#adaptiveHistorySurvivesTabletRealSplit"
 fi
@@ -439,6 +442,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
+if os.environ.get("SPLIT_SCOPE") == "history-edge-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["historyPhoneNavigationInsetsAndRealDrag","historyRealSplitUpperAndLowerInsets","historyDockedEdgeBackgroundAndNarrowDrag"]}
+
 if os.environ.get("SPLIT_SCOPE") == "history-only":
     required={"com.android.calculator2.WindowConfigurationTest":["adaptiveHistoryUsesActualWindowAndKeepsToolState","adaptiveHistorySurvivesTabletRealSplit"]}
 
@@ -693,6 +699,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
+if os.environ.get("SPLIT_SCOPE") == "history-edge-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["historyPhoneNavigationInsetsAndRealDrag","historyRealSplitUpperAndLowerInsets","historyDockedEdgeBackgroundAndNarrowDrag"]}
+
 if os.environ.get("SPLIT_SCOPE") == "history-only":
     required={"com.android.calculator2.WindowConfigurationTest":["adaptiveHistoryUsesActualWindowAndKeepsToolState","adaptiveHistorySurvivesTabletRealSplit"]}
 
@@ -925,6 +934,17 @@ if [[ ! -s build/ui-screenshots/calculator-default.png ]]; then
     fi
 fi
 
+if [[ "$split_scope" == "history-edge-only" ]]; then
+    for stage in nav2-portrait nav2-landscape nav0-portrait nav0-landscape upper-split lower-split after-narrow; do
+        for state in expanded collapsed-return; do
+            if [[ ! -s "build/ui-screenshots/window-history-edge-$stage-$state.png" ]]; then
+                test_result=1
+                echo "::error title=Missing history gesture screenshot::$stage $state was not saved by the selected real-gesture test."
+            fi
+        done
+    done
+fi
+
 # A history-only selection does not execute the default-screen screenshot test. Require
 # its actual wide/narrow and verified system-split images instead; no fallback can pass.
 if [[ "$split_scope" == "history-only" ]]; then
@@ -936,7 +956,7 @@ if [[ "$split_scope" == "history-only" ]]; then
     done
 fi
 
-if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$split_scope" != "mortgage-only" && "$split_scope" != "mortgage-position-only" && "$split_scope" != "mortgage-lower-only" && "$split_scope" != "tax-quarter-only" && "$split_scope" != "conversion-windows-only" && "$split_scope" != "programmer-only" && "$split_scope" != "history-only" && "$default_screenshot_is_from_test" != true ]]; then
+if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$split_scope" != "mortgage-only" && "$split_scope" != "mortgage-position-only" && "$split_scope" != "mortgage-lower-only" && "$split_scope" != "tax-quarter-only" && "$split_scope" != "conversion-windows-only" && "$split_scope" != "programmer-only" && "$split_scope" != "history-only" && "$split_scope" != "history-edge-only" && "$default_screenshot_is_from_test" != true ]]; then
     test_result=1
     echo "::error title=Missing test-generated screenshot::The selected screenshot test passed without saving calculator-default.png."
 fi

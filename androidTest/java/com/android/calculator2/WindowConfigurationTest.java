@@ -614,6 +614,173 @@ public class WindowConfigurationTest {
         }
     }
 
+    private int navigationMode() {
+        Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        return c.getResources().getInteger(c.getResources().getIdentifier("config_navBarInteractionMode","integer","android"));
+    }
+    private void setNavigationMode(int mode) throws Exception {
+        String name=mode==0?"threebutton":mode==1?"twobutton":"gestural";
+        device.executeShellCommand("cmd overlay enable-exclusive --category com.android.internal.systemui.navbar."+name);
+        SystemClock.sleep(900);
+        assertEquals("actual platform navigation mode",mode,navigationMode());
+    }
+    private void historyRawDrag(boolean open) {
+        Rect handle=new Rect();int[] target={0};
+        scenario.onActivity(a -> {
+            assertTrue("visible, genuinely hittable history handle",visibleOnScreen(a.findViewById(R.id.drag_handle_view),handle));
+            android.graphics.Insets bars=a.getWindow().getDecorView().getRootWindowInsets().getInsets(
+                    android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout());
+            Rect window=a.getWindowManager().getCurrentWindowMetrics().getBounds();
+            target[0]=open?window.bottom-bars.bottom-2:window.top+bars.top+2;
+            Log.i("HistoryEdge","DRAG open="+open+" handleRaw="+handle+" destinationY="+target[0]+" window="+window+" insets="+bars);
+        });
+        assertTrue(device.swipe(handle.centerX(),handle.centerY(),handle.centerX(),target[0],65));
+        awaitMotionState(open?R.id.end_state:R.id.start_state);
+    }
+    private void historySafeBounds(String stage) {
+        scenario.onActivity(a -> {
+            Rect window=a.getWindowManager().getCurrentWindowMetrics().getBounds();
+            android.graphics.Insets bars=a.getWindow().getDecorView().getRootWindowInsets().getInsets(
+                    android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout());
+            Rect safe=new Rect(window.left+bars.left,window.top+bars.top,window.right-bars.right,window.bottom-bars.bottom);
+            Rect toolbar=new Rect(),list=new Rect();
+            View bar=a.findViewById(R.id.history_toolbar),rows=a.findViewById(R.id.history_recycler_view);
+            assertTrue(visibleOnScreen(bar,toolbar));assertTrue(visibleOnScreen(rows,list));
+            assertEquals("entire history toolbar height "+stage,bar.getHeight(),toolbar.height());
+            assertTrue("history title/back/clear outside system bars "+stage+" toolbar="+toolbar+" safe="+safe,safe.contains(toolbar));
+            assertTrue("history list outside system bars "+stage+" list="+list+" safe="+safe,safe.contains(list));
+            assertTrue("list follows toolbar",list.top>=toolbar.bottom);
+            assertEquals("no stacked top inset on history content",0,((View)bar.getParent()).getPaddingTop());
+            assertEquals("one history fragment",1,a.getSupportFragmentManager().getFragments().stream().filter(f -> f instanceof HistoryFragment).count());
+            TextView result=a.findViewById(R.id.result);assertNull("result stays read-only",result.getKeyListener());
+            Log.i("HistoryEdge",stage+" window="+window+" safe="+safe+" toolbarRaw="+toolbar+" listRaw="+list+" docked="+a.isHistoryDocked());
+        });
+    }
+    private void historyMenu(int title) {
+        onView(org.hamcrest.Matchers.allOf(withContentDescription(androidx.appcompat.R.string.abc_action_menu_overflow_description),
+                isDescendantOfA(withId(R.id.history_toolbar)))).perform(click());
+        onView(withText(title)).perform(click());
+    }
+    private void seedHistoryForEdge() {
+        key(R.id.mode_segment_basic);historyRawDrag(true);
+        historyMenu(R.string.menu_clear_history);onView(withId(android.R.id.button1)).perform(click());awaitMotionState(R.id.start_state);
+        for(int i=0;i<10;i++){key(R.id.clr);digits("7");key(R.id.op_add);digits("8");key(R.id.eq);}
+    }
+    private void historyEndpoint(boolean oldest,String stage) {
+        boolean[] complete={false};Rect listBounds=new Rect(),resultBounds=new Rect();
+        for(int attempt=0;attempt<35;attempt++) {
+            scenario.onActivity(a -> {
+                androidx.recyclerview.widget.RecyclerView list=a.findViewById(R.id.history_recycler_view);
+                assertTrue(visibleOnScreen(list,listBounds));
+                int index=oldest?list.getAdapter().getItemCount()-1:0;
+                androidx.recyclerview.widget.RecyclerView.ViewHolder holder=list.findViewHolderForAdapterPosition(index);
+                Rect row=new Rect();complete[0]=holder!=null&&visibleOnScreen(holder.itemView,row)
+                        &&row.height()==holder.itemView.getHeight()&&listBounds.contains(row);
+                if(complete[0]) {
+                    HistoryAdapter.ViewHolder entry=(HistoryAdapter.ViewHolder)holder;
+                    complete[0]=entry.getResult()!=null&&entry.getResult().getText().toString().equals("15");
+                    if(complete[0])assertTrue(visibleOnScreen(entry.getResult(),resultBounds));
+                }
+            });
+            if(complete[0])break;
+            int from=oldest?listBounds.top+listBounds.height()/4:listBounds.bottom-listBounds.height()/4;
+            int to=oldest?listBounds.bottom-listBounds.height()/4:listBounds.top+listBounds.height()/4;
+            assertTrue(device.swipe(listBounds.left+listBounds.width()/3,from,listBounds.left+listBounds.width()/3,to,45));
+            device.waitForIdle(500);
+        }
+        assertTrue("entire "+(oldest?"oldest":"newest")+" history row reachable by finger "+stage+" list="+listBounds,complete[0]);
+        awaitMotionState(R.id.end_state);
+        int hold=Math.max(150,(android.view.ViewConfiguration.getLongPressTimeout()+250)/5);
+        assertTrue(device.swipe(resultBounds.centerX(),resultBounds.centerY(),resultBounds.centerX(),resultBounds.centerY(),hold));
+        String label=InstrumentationRegistry.getInstrumentation().getTargetContext().getString(android.R.string.copy);
+        androidx.test.uiautomator.UiObject2 copy=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text(label)),3000);
+        assertNotNull("real copy menu for history endpoint "+stage,copy);copy.click();
+        scenario.onActivity(a -> assertEquals("15",((android.content.ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE))
+                .getPrimaryClip().getItemAt(0).coerceToText(a).toString()));
+        awaitMotionState(R.id.end_state);
+    }
+    private void historyGestureStage(String stage,boolean endpoints) {
+        Map<String,String> model=modelSnapshot();Map<Integer,String> display=displaySnapshot();
+        java.util.List<String> animationErrors=new java.util.concurrent.CopyOnWriteArrayList<>();int[] samples={0};
+        int[] padding=new int[2];
+        scenario.onActivity(a -> {View m=a.findViewById(R.id.main_calculator);padding[0]=m.getPaddingTop();padding[1]=m.getPaddingBottom();});
+        androidx.constraintlayout.motion.widget.MotionLayout.TransitionListener monitor=new androidx.constraintlayout.motion.widget.MotionLayout.TransitionListener(){
+            public void onTransitionStarted(androidx.constraintlayout.motion.widget.MotionLayout m,int s,int e){}
+            public void onTransitionCompleted(androidx.constraintlayout.motion.widget.MotionLayout m,int s){}
+            public void onTransitionTrigger(androidx.constraintlayout.motion.widget.MotionLayout m,int id,boolean p,float v){}
+            public void onTransitionChange(androidx.constraintlayout.motion.widget.MotionLayout m,int s,int e,float p){
+                if(p>0&&p<1){samples[0]++;if(m.getPaddingTop()!=padding[0]||m.getPaddingBottom()!=padding[1])animationErrors.add("padding changed at "+p);}
+            }
+        };
+        scenario.onActivity(a -> ((DisplayMotionLayout)a.findViewById(R.id.main_calculator)).addTransitionListener(monitor));
+        try {
+            evidence(stage+"-collapsed");historyRawDrag(true);historySafeBounds(stage);evidence(stage+"-expanded");
+            assertTrue("actual intermediate motion frames "+stage,samples[0]>=3);
+            assertTrue("no progress-dependent/duplicate padding "+animationErrors,animationErrors.isEmpty());
+            if(endpoints){historyEndpoint(false,stage);historyEndpoint(true,stage);}
+            assertEquals("history gestures/copy do not reactivate tool",model,modelSnapshot());
+            assertEquals("history gestures/copy keep display",display,displaySnapshot());
+            historyRawDrag(false);evidence(stage+"-collapsed-return");
+            assertEquals(model,modelSnapshot());
+            historyRawDrag(true);device.pressBack();awaitMotionState(R.id.start_state);
+            scenario.onActivity(a -> assertTrue("system Back closes history, not the app",a.getWindow().getDecorView().hasWindowFocus()));
+        } finally {scenario.onActivity(a -> ((DisplayMotionLayout)a.findViewById(R.id.main_calculator)).removeTransitionListener(monitor));}
+    }
+    @Test public void historyPhoneNavigationInsetsAndRealDrag() throws Exception {
+        int original=navigationMode();boolean cutoutEnabled=false;
+        try {
+            setNavigationMode(2);seedHistoryForEdge();
+            String overlays=device.executeShellCommand("cmd overlay list");
+            if(overlays.contains("[ ] com.android.internal.display.cutout.emulation.tall")) {
+                device.executeShellCommand("cmd overlay enable com.android.internal.display.cutout.emulation.tall");cutoutEnabled=true;SystemClock.sleep(900);
+                scenario.onActivity(a -> assertNotNull("actual platform cutout emulation",a.getWindow().getDecorView().getRootWindowInsets().getDisplayCutout()));
+            } else Log.w("HistoryEdge","CUTOUT_NOT_AVAILABLE: no tall overlay; no cutout coverage claimed");
+            for(int mode:new int[]{2,0}) {
+                setNavigationMode(mode);
+                device.setOrientationNatural();awaitOrientation(Configuration.ORIENTATION_PORTRAIT);
+                historyGestureStage("history-edge-nav"+mode+"-portrait",true);
+                device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
+                historyGestureStage("history-edge-nav"+mode+"-landscape",true);
+            }
+        } finally {
+            if(cutoutEnabled)device.executeShellCommand("cmd overlay disable com.android.internal.display.cutout.emulation.tall");
+            setNavigationMode(original);device.setOrientationNatural();awaitOrientation(Configuration.ORIENTATION_PORTRAIT);
+        }
+    }
+    @Test public void historyRealSplitUpperAndLowerInsets() throws Exception {
+        seedHistoryForEdge();onView(withContentDescription(R.string.tool_programmer)).perform(click());
+        int input=prepareTool(R.string.tool_programmer);Map<String,String> model=modelSnapshot();int[] selected=selection(input);
+        try {
+            enterRealSplit();SplitSample upper=stableSample(true,null);assertTrue(upper.toString(),upper.verifiedCompanion());
+            historyGestureStage("history-edge-upper-split",true);assertEquals(model,modelSnapshot());assertArrayEquals(selected,selection(input));
+            swapSplitPosition(true);SplitSample lower=stableSample(true,null);assertTrue(lower.toString(),lower.verifiedCompanion());
+            assertTrue("actual lower task",lower.app.top>lower.other.top);
+            historyGestureStage("history-edge-lower-split",true);assertEquals(model,modelSnapshot());assertArrayEquals(selected,selection(input));
+            key(R.id.eq);assertNotEquals("pending operation executes after history gestures",model,modelSnapshot());
+        } finally {
+            device.executeShellCommand("am force-stop com.android.settings");device.executeShellCommand("am task focus "+splitTask);
+            SystemClock.sleep(800);
+        }
+    }
+    @Test public void historyDockedEdgeBackgroundAndNarrowDrag() throws Exception {
+        String originalSize=device.executeShellCommand("wm size"),originalDensity=device.executeShellCommand("wm density");
+        java.util.regex.Matcher m=java.util.regex.Pattern.compile("Override size: (\\d+x\\d+)").matcher(originalSize);
+        String size=m.find()?m.group(1):"reset";m=java.util.regex.Pattern.compile("Override density: (\\d+)").matcher(originalDensity);
+        String density=m.find()?m.group(1):"reset";
+        try {
+            device.executeShellCommand("wm density 160");resizeHistoryWindow("1200x1800",true);assertDockedHistoryBounds();historySafeBounds("docked");
+            scenario.onActivity(a -> {
+                Rect host=new Rect();View sidebar=a.getWindow().getDecorView().findViewWithTag("persistent_history_host");
+                assertTrue(visibleOnScreen(sidebar,host));Rect window=a.getWindowManager().getCurrentWindowMetrics().getBounds();
+                assertEquals("history background reaches top edge",window.top,host.top);
+                assertEquals("history background reaches bottom edge",window.bottom,host.bottom);
+            });
+            evidence("history-edge-docked");resizeHistoryWindow("800x1200",false);
+            historyGestureStage("history-edge-after-narrow",false);
+            resizeHistoryWindow("1200x1800",true);assertDockedHistoryBounds();historySafeBounds("docked-return");evidence("history-edge-docked-return");
+        } finally {device.executeShellCommand("wm size "+size);device.executeShellCommand("wm density "+density);SystemClock.sleep(800);}
+    }
+
     private void assertBasicKeyboardFillsStack() {
         scenario.onActivity(a -> {
             View advanced=a.findViewById(R.id.advanced_pad);
