@@ -994,6 +994,12 @@ public class WindowConfigurationTest {
         snapshot.click();
         remainingAwaitLayout("IME overview return");SystemClock.sleep(800);
     }
+    private int imeDigitOffset(CharSequence text,int count) {
+        int seen=0;
+        for(int n=0;n<text.length();n++)if(Character.isDigit(text.charAt(n))&&++seen==count)return n+1;
+        throw new AssertionError("prepared input has too few digits: "+text);
+    }
+    private String imeDigits(TextView view) {return view.getText().toString().replaceAll("[^0-9]", "");}
     @Test public void imeRealRecentsKeepsCaretWithoutKeyboard() throws Exception {
         assertEquals("this regression must run on Android 11",30,Build.VERSION.SDK_INT);
         try {
@@ -1011,7 +1017,7 @@ public class WindowConfigurationTest {
                     for(int digit:new int[]{R.id.digit_1,R.id.digit_2,R.id.digit_3,R.id.digit_4})remainingFingerKey(digit);
                 } else {remainingFingerKey(R.id.digit_7);remainingFingerKey(R.id.digit_7);}
                 Rect r=remainingFind(fieldId);assertTrue(device.click(r.centerX(),r.centerY()));
-                scenario.onActivity(a -> {TextView v=a.findViewById(fieldId);Selection.setSelection((Spannable)v.getText(),Math.min(2,v.length()));});
+                scenario.onActivity(a -> {TextView v=a.findViewById(fieldId);Selection.setSelection((Spannable)v.getText(),index==6?Math.min(2,v.length()):imeDigitOffset(v.getText(),2));});
                 for(boolean foreignIme:new boolean[]{false,true}) {
                     String[] before={""};int[] range=new int[2],identity=new int[1];
                     scenario.onActivity(a -> {TextView v=a.findViewById(fieldId);before[0]=v.getText().toString();range[0]=v.getSelectionStart();range[1]=v.getSelectionEnd();identity[0]=System.identityHashCode(v);});
@@ -1035,13 +1041,13 @@ public class WindowConfigurationTest {
                     });
                     if(!relationship&&!foreignIme) {
                         remainingFingerKey(R.id.digit_9);
-                        scenario.onActivity(a -> assertEquals("12|34 then recents then 9", "12934",((TextView)a.findViewById(fieldId)).getText().toString()));
+                        scenario.onActivity(a -> assertEquals("12|34 then recents then 9", "12934",imeDigits(a.findViewById(fieldId))));
                         remainingFingerKey(R.id.del);
-                        scenario.onActivity(a -> {TextView v=a.findViewById(fieldId);Selection.setSelection((Spannable)v.getText(),1,3);});
+                        scenario.onActivity(a -> {TextView v=a.findViewById(fieldId);Selection.setSelection((Spannable)v.getText(),imeDigitOffset(v.getText(),1),imeDigitOffset(v.getText(),3));});
                     }
                 }
                 remainingFingerKey(R.id.digit_9);
-                if(!relationship)scenario.onActivity(a -> assertEquals("range replacement survives foreign IME and recents", "194",((TextView)a.findViewById(fieldId)).getText().toString()));
+                if(!relationship)scenario.onActivity(a -> assertEquals("range replacement survives foreign IME and recents", "194",imeDigits(a.findViewById(fieldId))));
                 evidence("ime-return-mode-"+n);
             }
         } finally {
