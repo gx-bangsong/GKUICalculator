@@ -344,7 +344,8 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v6
         with:
-          name: calculator-ui-screenshots
+          pattern: calculator-ui-screenshots
+          merge-multiple: true
           path: evidence
       - name: Prepare history review previews
         run: |

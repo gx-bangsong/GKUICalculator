@@ -925,7 +925,18 @@ if [[ ! -s build/ui-screenshots/calculator-default.png ]]; then
     fi
 fi
 
-if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$split_scope" != "mortgage-only" && "$split_scope" != "mortgage-position-only" && "$split_scope" != "mortgage-lower-only" && "$split_scope" != "tax-quarter-only" && "$split_scope" != "conversion-windows-only" && "$split_scope" != "programmer-only" && "$default_screenshot_is_from_test" != true ]]; then
+# A history-only selection does not execute the default-screen screenshot test. Require
+# its actual wide/narrow and verified system-split images instead; no fallback can pass.
+if [[ "$split_scope" == "history-only" ]]; then
+    for stage in tablet-portrait narrow-single-column tablet-real-half tablet-real-narrow; do
+        if [[ ! -s "build/ui-screenshots/window-history-$stage.png" ]]; then
+            test_result=1
+            echo "::error title=Missing history test screenshot::window-history-$stage.png was not saved by the selected test."
+        fi
+    done
+fi
+
+if ((test_result == 0)) && [[ "$split_scope" != "bmi-only" && "$split_scope" != "mortgage-only" && "$split_scope" != "mortgage-position-only" && "$split_scope" != "mortgage-lower-only" && "$split_scope" != "tax-quarter-only" && "$split_scope" != "conversion-windows-only" && "$split_scope" != "programmer-only" && "$split_scope" != "history-only" && "$default_screenshot_is_from_test" != true ]]; then
     test_result=1
     echo "::error title=Missing test-generated screenshot::The selected screenshot test passed without saving calculator-default.png."
 fi
