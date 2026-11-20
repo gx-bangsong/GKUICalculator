@@ -948,6 +948,81 @@ public class WindowConfigurationTest {
         assertTrue("Measured deficiencies (first 12): "+failures.subList(0,Math.min(12,failures.size())),failures.isEmpty());
     }
 
+    private String keypadGeometry(Calculator a) {
+        StringBuilder out=new StringBuilder();
+        DisplayMotionLayout motion=a.findViewById(R.id.main_calculator);
+        out.append("motionState=").append(motion.getCurrentState());
+        for(int id:new int[]{R.id.pad_stack,R.id.input_pad,R.id.advanced_pad}) {
+            View v=a.findViewById(id);int[] raw=new int[2];v.getLocationOnScreen(raw);Rect clip=new Rect();v.getGlobalVisibleRect(clip);
+            ViewGroup.LayoutParams lp=v.getLayoutParams();
+            out.append(" id=").append(a.getResources().getResourceEntryName(id)).append(" parent=").append(System.identityHashCode(v.getParent()))
+                .append(" visibility=").append(v.getVisibility()).append(" shown=").append(v.isShown())
+                .append(" measured=").append(v.getMeasuredWidth()).append('x').append(v.getMeasuredHeight())
+                .append(" raw=").append(raw[0]).append(',').append(raw[1]).append(" clip=").append(clip)
+                .append(" lp=").append(lp.getClass().getSimpleName()).append(':').append(lp.width).append('x').append(lp.height);
+            for(android.view.ViewParent parent=v.getParent();parent instanceof View;parent=parent.getParent())
+                out.append(" ancestor=").append(((View)parent).getId()).append(':').append(((View)parent).getVisibility());
+        }
+        out.append(" labelPx=").append(((TextView)a.findViewById(R.id.digit_7)).getTextSize());
+        androidx.constraintlayout.widget.ConstraintSet state=motion.getConstraintSet(R.id.start_state);
+        androidx.constraintlayout.widget.ConstraintSet.Constraint pad=state.getConstraint(R.id.pad_stack);
+        if(pad!=null)out.append(" scenePadVisibility=").append(pad.propertySet.visibility).append(" scenePadHeight=").append(pad.layout.mHeight);
+        return out.toString();
+    }
+    private void keypadStableFrames(String stage,boolean scientific) {
+        java.util.concurrent.CountDownLatch done=new java.util.concurrent.CountDownLatch(1);
+        java.util.List<String> changes=new java.util.ArrayList<>();
+        scenario.onActivity(a -> {
+            View decor=a.getWindow().getDecorView();
+            decor.postOnAnimation(new Runnable() {
+                int frames;String previous="";
+                @Override public void run() {
+                    String geometry=keypadGeometry(a);
+                    if(!geometry.equals(previous)){changes.add(geometry);Log.i("RemainingWindow","KEYPAD_FRAME "+stage+" frame="+frames+" "+geometry);previous=geometry;}
+                    if(++frames<120)decor.postOnAnimation(this);else done.countDown();
+                }
+            });
+        });
+        try {assertTrue("frame observer completes",done.await(10,java.util.concurrent.TimeUnit.SECONDS));}
+        catch(InterruptedException e){throw new AssertionError(e);}
+        // Allow the first transition layout; repeated changes with no user/window change are a regression.
+        assertTrue("layout must converge without repeated remounts/font oscillation "+stage+" changes="+changes.size()+" "+changes,changes.size()<=3);
+        scenario.onActivity(a -> {
+            View stack=a.findViewById(R.id.pad_stack),input=a.findViewById(R.id.input_pad),advanced=a.findViewById(R.id.advanced_pad);
+            assertTrue("input keyboard shown "+stage+" "+keypadGeometry(a),stack.isShown()&&input.isShown());
+            assertTrue("nonzero keyboard "+stage,input.getWidth()>0&&input.getHeight()>0&&stack.getHeight()>0);
+            assertEquals("science visibility "+stage,scientific,advanced.isShown());
+            assertFalse("do not reenable system IME",((TextView)a.findViewById(R.id.formula)).getShowSoftInputOnFocus());
+        });
+    }
+    @Test public void keyboardDateReturnAndResizeIsStable() throws Exception {
+        assertEquals(30,Build.VERSION.SDK_INT);
+        String sizes=device.executeShellCommand("wm size");
+        java.util.regex.Matcher override=java.util.regex.Pattern.compile("Override size: (\\d+x\\d+)").matcher(sizes);
+        String restore=override.find()?override.group(1):"reset";
+        Thread recording=new Thread(() -> {try {device.executeShellCommand("screenrecord --time-limit 90 /sdcard/window-keyboard-transitions.mp4");}catch(Exception e){Log.w("RemainingWindow","screenrecord failed",e);}});
+        recording.start();
+        try {
+            remainingModeTap(R.id.mode_segment_basic,0);keypadStableFrames("cold-basic",false);
+            remainingFingerKey(R.id.digit_1);remainingFingerKey(R.id.op_add);remainingFingerKey(R.id.digit_2);remainingFingerKey(R.id.eq);
+            for(boolean shortWindow:new boolean[]{false,true,false}) {
+                device.executeShellCommand("wm size "+(shortWindow?"720x489":restore));
+                remainingAwaitLayout("keyboard resize");
+                remainingModeTap(0,R.string.tool_date);remainingDatePickers();
+                evidence("keyboard-date-"+shortWindow);
+                remainingModeTap(R.id.mode_segment_basic,0);keypadStableFrames("date-to-basic short="+shortWindow,false);
+                remainingFingerKey(R.id.digit_7);evidence("keyboard-basic-"+shortWindow);
+                remainingModeTap(R.id.mode_segment_scientific,0);keypadStableFrames("basic-to-science short="+shortWindow,true);
+                remainingFingerKey(R.id.toggle_inv);keypadStableFrames("inverse short="+shortWindow,true);
+                remainingAllKeysReachable("scientific");evidence("keyboard-science-"+shortWindow);
+                remainingModeTap(R.id.mode_segment_basic,0);keypadStableFrames("science-to-basic short="+shortWindow,false);
+            }
+        } finally {
+            device.executeShellCommand("pkill -2 screenrecord");recording.interrupt();
+            device.executeShellCommand("wm size "+restore);
+        }
+    }
+
     @Test public void dateApi30RealDisplayResizeLifecycle() throws Exception {
         assertEquals(30,Build.VERSION.SDK_INT);
         String sizes=device.executeShellCommand("wm size");

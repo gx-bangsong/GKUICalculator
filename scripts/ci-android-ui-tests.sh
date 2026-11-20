@@ -145,6 +145,9 @@ fi
 if [[ "$split_scope" == "programmer-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#programmerUpperQuarterSplitMenusSwap,com.android.calculator2.WindowConfigurationTest#programmerLowerQuarterSplitMenusSwap"
 fi
+if [[ "$split_scope" == "keyboard-transition-only" ]]; then
+    runner_classes="com.android.calculator2.WindowConfigurationTest#keyboardDateReturnAndResizeIsStable"
+fi
 if [[ "$split_scope" == "date-api30-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#dateApi30RealDisplayResizeLifecycle"
 fi
@@ -474,6 +477,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
+if os.environ.get("SPLIT_SCOPE") == "keyboard-transition-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["keyboardDateReturnAndResizeIsStable"]}
+
 if os.environ.get("SPLIT_SCOPE") == "date-api30-only":
     required={"com.android.calculator2.WindowConfigurationTest":["dateApi30RealDisplayResizeLifecycle"]}
 
@@ -743,6 +749,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
+if os.environ.get("SPLIT_SCOPE") == "keyboard-transition-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["keyboardDateReturnAndResizeIsStable"]}
+
 if os.environ.get("SPLIT_SCOPE") == "date-api30-only":
     required={"com.android.calculator2.WindowConfigurationTest":["dateApi30RealDisplayResizeLifecycle"]}
 
@@ -972,6 +981,7 @@ while IFS= read -r item; do
 done < <(adb shell 'ls /sdcard/window-*.json' 2>/dev/null || true)
 
 
+adb pull /sdcard/window-keyboard-transitions.mp4 build/ui-screenshots/ || true
 adb pull /sdcard/window-tax-dialog-failure.xml build/ui-screenshots/ || true
 
 default_screenshot_is_from_test=false
