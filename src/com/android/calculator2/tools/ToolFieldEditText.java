@@ -33,15 +33,19 @@ public class ToolFieldEditText extends EditText {
     private boolean mProgrammaticUpdate = false;
 
     public ToolFieldEditText(Context context) {
-        super(context);
+        this(context, null);
     }
 
     public ToolFieldEditText(Context context, AttributeSet attrs) {
-        super(context, attrs);
+        this(context, attrs, android.R.attr.editTextStyle);
     }
 
     public ToolFieldEditText(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+        // These fields use the calculator pad, but remain real editable, selectable inputs.
+        // Set this on the actual Editor at construction (including each mode remount), not
+        // by clearing focus or hiding the IME after the Activity has returned to the screen.
+        setShowSoftInputOnFocus(false);
     }
 
     public void setSelectionChangeListener(OnSelectionChangeListener listener) {
