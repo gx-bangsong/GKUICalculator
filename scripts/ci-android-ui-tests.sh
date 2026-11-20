@@ -982,6 +982,7 @@ done < <(adb shell 'ls /sdcard/window-*.json' 2>/dev/null || true)
 
 
 adb pull /sdcard/window-keyboard-transitions.mp4 build/ui-screenshots/ || true
+adb pull /sdcard/window-keyboard-failure.xml build/ui-screenshots/ || true
 adb pull /sdcard/window-tax-dialog-failure.xml build/ui-screenshots/ || true
 
 default_screenshot_is_from_test=false

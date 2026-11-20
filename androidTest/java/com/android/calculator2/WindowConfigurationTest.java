@@ -755,7 +755,7 @@ public class WindowConfigurationTest {
         Rect target=new Rect(),viewport=new Rect();boolean[] complete={false},scrollable={false};
         for(int attempt=0;attempt<35;attempt++) {
             scenario.onActivity(a -> {
-                View v=a.findViewById(id);assertNotNull("target "+id,v);assertTrue("target shown "+id,v.isShown());
+                View v=a.findViewById(id);assertNotNull("target "+a.getResources().getResourceEntryName(id)+" ("+id+")",v);assertTrue("target shown "+id,v.isShown());
                 View port=a.findViewById(R.id.main_calculator).findViewWithTag("remaining_keypad_viewport");
                 if(id==R.id.date_start||id==R.id.date_end||id==R.id.formula||id==R.id.result)
                     port=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport");
@@ -1000,6 +1000,7 @@ public class WindowConfigurationTest {
         String sizes=device.executeShellCommand("wm size");
         java.util.regex.Matcher override=java.util.regex.Pattern.compile("Override size: (\\d+x\\d+)").matcher(sizes);
         String restore=override.find()?override.group(1):"reset";
+        String[] transition={"cold launch"};
         Thread recording=new Thread(() -> {try {device.executeShellCommand("screenrecord --time-limit 90 /sdcard/window-keyboard-transitions.mp4");}catch(Exception e){Log.w("RemainingWindow","screenrecord failed",e);}});
         recording.start();
         try {
@@ -1008,15 +1009,24 @@ public class WindowConfigurationTest {
             for(boolean shortWindow:new boolean[]{false,true,false}) {
                 device.executeShellCommand("wm size "+(shortWindow?"720x489":restore));
                 remainingAwaitLayout("keyboard resize");
+                transition[0]="date picker short="+shortWindow;
                 remainingModeTap(0,R.string.tool_date);remainingDatePickers();
                 evidence("keyboard-date-"+shortWindow);
+                transition[0]="date-to-basic short="+shortWindow;
                 remainingModeTap(R.id.mode_segment_basic,0);keypadStableFrames("date-to-basic short="+shortWindow,false);
                 remainingFingerKey(R.id.digit_7);evidence("keyboard-basic-"+shortWindow);
+                transition[0]="basic-to-science short="+shortWindow;
                 remainingModeTap(R.id.mode_segment_scientific,0);keypadStableFrames("basic-to-science short="+shortWindow,true);
                 remainingFingerKey(R.id.toggle_inv);keypadStableFrames("inverse short="+shortWindow,true);
                 remainingAllKeysReachable("scientific");evidence("keyboard-science-"+shortWindow);
                 remainingModeTap(R.id.mode_segment_basic,0);keypadStableFrames("science-to-basic short="+shortWindow,false);
             }
+        } catch(Throwable error) {
+            Log.e("RemainingWindow","KEYPAD_FAILURE transition="+transition[0],error);
+            scenario.onActivity(a -> Log.e("RemainingWindow","KEYPAD_FAILURE_GEOMETRY "+keypadGeometry(a)));
+            evidence("keyboard-first-failure");
+            device.dumpWindowHierarchy(new java.io.File("/sdcard/window-keyboard-failure.xml"));
+            throw error;
         } finally {
             device.executeShellCommand("pkill -2 screenrecord");recording.interrupt();
             device.executeShellCommand("wm size "+restore);
