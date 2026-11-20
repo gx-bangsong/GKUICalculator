@@ -51,6 +51,12 @@ public class HistoryFragment extends Fragment {
         if(mRecyclerView!=null)mRecyclerView.setAdapter(mAdapter);
     }
 
+    void applySideInsets(int left, int right) {
+        View view=getView();
+        if(view!=null && (view.getPaddingLeft()!=left || view.getPaddingRight()!=right))
+            view.setPadding(left, 0, right, 0);
+    }
+
     void captureScroll() {
         // A collapsed zero-height host must not overwrite the last visible list anchor.
         if(mRecyclerView!=null&&mRecyclerView.getLayoutManager()!=null

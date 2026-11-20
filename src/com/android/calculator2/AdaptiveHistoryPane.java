@@ -15,6 +15,7 @@ final class AdaptiveHistoryPane {
     private final FrameLayout modalHost;
     private final FrameLayout sidebar;
     private final View divider;
+    private final View statusBackground;
     private boolean wide;
 
     AdaptiveHistoryPane(Calculator activity) {
@@ -31,11 +32,31 @@ final class AdaptiveHistoryPane {
         divider.setBackgroundColor(activity.getColor(R.color.history_background_color));
         divider.setVisibility(View.GONE);
         root.addView(divider, new FrameLayout.LayoutParams(1, 1));
+        statusBackground = new View(activity) {
+            private final android.graphics.Paint paint = new android.graphics.Paint();
+            @Override protected void onDraw(android.graphics.Canvas canvas) {
+                if (wide) return; // The edge-reaching sidebar paints its own status background.
+                android.view.WindowInsets insets = root.getRootWindowInsets();
+                if (insets == null) return;
+                int top = insets.getInsets(WindowInsets.Type.systemBars()
+                        | WindowInsets.Type.displayCutout()).top;
+                paint.setColor(androidx.core.graphics.ColorUtils.blendARGB(
+                        activity.getColor(R.color.display_background_color),
+                        activity.getColor(R.color.history_background_color),
+                        Math.max(0f, Math.min(1f, motion.getProgress()))));
+                canvas.drawRect(0, 0, getWidth(), top, paint);
+            }
+        };
+        statusBackground.setTag("history_status_background");
+        statusBackground.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        root.addView(statusBackground, new FrameLayout.LayoutParams(-1, -1));
         root.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> scheduleFit());
         scheduleFit();
     }
 
     boolean isWide() { return wide; }
+
+    void invalidateSystemBarBackground() { statusBackground.invalidate(); }
 
     void scheduleFit() {
         root.removeCallbacks(fitTask);
@@ -85,8 +106,12 @@ final class AdaptiveHistoryPane {
             motion.setLayoutParams(params);
         }
         if (wide) {
-            frame(sidebar, side, height, bars.left, bars.top);
-            frame(divider, gap, height, bars.left + side, bars.top);
+            // Same safe content rectangle as before; only its background reaches the edges.
+            if (sidebar.getPaddingLeft()!=bars.left || sidebar.getPaddingTop()!=bars.top
+                    || sidebar.getPaddingBottom()!=bars.bottom)
+                sidebar.setPadding(bars.left, bars.top, 0, bars.bottom);
+            frame(sidebar, bars.left + side, root.getHeight(), 0, 0);
+            frame(divider, gap, root.getHeight(), bars.left + side, 0);
             sidebar.setVisibility(View.VISIBLE);
             divider.setVisibility(View.VISIBLE);
             activity.ensureDockedHistory();
@@ -95,6 +120,9 @@ final class AdaptiveHistoryPane {
             sidebar.setVisibility(View.GONE);
             divider.setVisibility(View.GONE);
         }
+        HistoryFragment fragment = activity.getHistoryFragment();
+        if (fragment != null) fragment.applySideInsets(wide ? 0 : bars.left, wide ? 0 : bars.right);
+        invalidateSystemBarBackground();
     }
 
     private void frame(View view, int width, int height, int left, int top) {

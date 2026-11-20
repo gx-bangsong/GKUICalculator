@@ -455,6 +455,7 @@ public class Calculator extends AppCompatActivity
             @Override
             public void onTransitionChange(MotionLayout motionLayout, int startId, int endId,
                                            float progress) {
+                if(mHistoryPane!=null)mHistoryPane.invalidateSystemBarBackground();
             }
 
             @Override
@@ -462,6 +463,7 @@ public class Calculator extends AppCompatActivity
                 if (currentId == R.id.start_state) {
                     removeHistoryFragment();
                 }
+                if(mHistoryPane!=null)mHistoryPane.invalidateSystemBarBackground();
             }
 
             @Override
@@ -671,7 +673,8 @@ public class Calculator extends AppCompatActivity
     @Override
     public void onBackPressed() {
         HistoryFragment docked=getHistoryFragment();
-        if(isHistoryDocked()&&docked!=null&&docked.stopActionModeOrContextMenu())return;
+        if(docked!=null && (isHistoryDocked() || mMainCalculator.getCurrentState()==R.id.end_state)
+                && docked.stopActionModeOrContextMenu())return;
         if (!stopActionModeOrContextMenu()) {
             final HistoryFragment historyFragment = getHistoryFragment();
             if (mMainCalculator.getCurrentState() == R.id.end_state
@@ -848,7 +851,7 @@ public class Calculator extends AppCompatActivity
         // Keep the one fragment and its list state in the zero-height modal host.
         // Moving to/from the sidebar must not create another history page/backstack entry.
         HistoryFragment history=getHistoryFragment();
-        if(history!=null)history.captureScroll();
+        if(history!=null){history.stopActionModeOrContextMenu();history.captureScroll();}
 
         // When HistoryFragment is hidden, the main Calculator is important for accessibility again.
         mMainCalculator.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
@@ -1507,6 +1510,7 @@ public class Calculator extends AppCompatActivity
         createHistoryFragment();
         HistoryFragment history=getHistoryFragment();
         if(history!=null){history.refreshHistory();history.restoreScroll();}
+        if(mHistoryPane!=null)mHistoryPane.scheduleFit();
         mMainCalculator.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
     }
 
@@ -2392,9 +2396,16 @@ public class Calculator extends AppCompatActivity
 
     private void setupEdgeToEdge() {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        // Paint the actual regions behind system icons, including a two-colour tablet status
+        // bar. Content remains inset; no fixed bar heights and no progress-dependent padding.
+        getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(android.graphics.Color.TRANSPARENT);
+        getWindow().setStatusBarContrastEnforced(false);
+        getWindow().setNavigationBarContrastEnforced(false);
         ViewCompat.setOnApplyWindowInsetsListener(requireViewById(R.id.main_calculator),
             (v, windowInsets) -> {
-                Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+                Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+                        | WindowInsetsCompat.Type.displayCutout());
                 v.setPadding(0, insets.top, 0, insets.bottom);
                 if(mHistoryPane!=null)mHistoryPane.scheduleFit();
                 return WindowInsetsCompat.CONSUMED;
