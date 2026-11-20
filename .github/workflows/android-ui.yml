@@ -12,7 +12,7 @@ on:
       split_scope:
         description: Split execution scope (expansion only after BMI is stable)
         type: choice
-        options: [bmi-only, mortgage-only, mortgage-position-only, mortgage-lower-only, tax-quarter-only, conversion-windows-only, programmer-only, history-only, history-edge-only, tooltip-only, remaining-modes-only, ime-return-only, external-text-probe-only, non-split, representative, full]
+        options: [bmi-only, mortgage-only, mortgage-position-only, mortgage-lower-only, tax-quarter-only, conversion-windows-only, programmer-only, history-only, history-edge-only, tooltip-only, remaining-modes-only, date-api30-only, ime-return-only, external-text-probe-only, non-split, representative, full]
         default: bmi-only
       emulator_api:
         description: Android API for the selected regression (does not alter targetSdk)

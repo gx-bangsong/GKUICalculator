@@ -145,6 +145,9 @@ fi
 if [[ "$split_scope" == "programmer-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#programmerUpperQuarterSplitMenusSwap,com.android.calculator2.WindowConfigurationTest#programmerLowerQuarterSplitMenusSwap"
 fi
+if [[ "$split_scope" == "date-api30-only" ]]; then
+    runner_classes="com.android.calculator2.WindowConfigurationTest#dateApi30RealDisplayResizeLifecycle"
+fi
 if [[ "$split_scope" == "ime-return-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#imeRealRecentsKeepsCaretWithoutKeyboard"
 fi
@@ -471,6 +474,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
+if os.environ.get("SPLIT_SCOPE") == "date-api30-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["dateApi30RealDisplayResizeLifecycle"]}
+
 if os.environ.get("SPLIT_SCOPE") == "ime-return-only":
     required={"com.android.calculator2.WindowConfigurationTest":["imeRealRecentsKeepsCaretWithoutKeyboard"]}
 
@@ -736,6 +742,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     method = "mortgageScrollAtBothWindowPositions" if os.environ["SPLIT_SCOPE"] == "mortgage-position-only" else tool + "SurvivesRealSplitAndResize"
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
+
+if os.environ.get("SPLIT_SCOPE") == "date-api30-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["dateApi30RealDisplayResizeLifecycle"]}
 
 if os.environ.get("SPLIT_SCOPE") == "ime-return-only":
     required={"com.android.calculator2.WindowConfigurationTest":["imeRealRecentsKeepsCaretWithoutKeyboard"]}

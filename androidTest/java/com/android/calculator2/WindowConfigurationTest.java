@@ -948,6 +948,29 @@ public class WindowConfigurationTest {
         assertTrue("Measured deficiencies (first 12): "+failures.subList(0,Math.min(12,failures.size())),failures.isEmpty());
     }
 
+    @Test public void dateApi30RealDisplayResizeLifecycle() throws Exception {
+        assertEquals(30,Build.VERSION.SDK_INT);
+        String sizes=device.executeShellCommand("wm size");
+        java.util.regex.Matcher override=java.util.regex.Pattern.compile("Override size: (\\d+x\\d+)").matcher(sizes);
+        String restore=override.find()?override.group(1):"reset";
+        try {
+            remainingModeTap(0,R.string.tool_date);remainingDatePickers();
+            evidence("date-api30-display-full");
+            // Real display resize, not a fabricated split pair. This separately exercises the
+            // parent-parameter crash path when API30's launcher cannot establish a split pair.
+            device.executeShellCommand("wm size 720x489");SystemClock.sleep(1300);
+            remainingAwaitLayout("date-api30-display-short");remainingDatePickers();
+            scenario.onActivity(a -> assertNotNull("exercise date compact mount",a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport")));
+            evidence("date-api30-display-short-not-split");
+            device.executeShellCommand("wm size "+restore);SystemClock.sleep(1300);
+            remainingAwaitLayout("date-api30-display-restored");remainingDatePickers();
+            remainingModeTap(R.id.mode_segment_basic,0);remainingFingerKey(R.id.digit_7);
+            remainingModeTap(0,R.string.tool_date);remainingDatePickers();
+            evidence("date-api30-display-restored");
+            Log.i("RemainingWindow","API30_DATE_RESIZE_LIFECYCLE_PASS actual display resize; NOT split-screen acceptance");
+        } finally {device.executeShellCommand("wm size "+restore);SystemClock.sleep(1000);}
+    }
+
     private final java.util.List<String> imeVisibleFrames=new java.util.ArrayList<>();
     private View imeObservedDecor;
     private boolean observeIme;
