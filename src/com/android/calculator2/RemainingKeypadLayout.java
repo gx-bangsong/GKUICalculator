@@ -174,6 +174,13 @@ final class RemainingKeypadLayout {
         int normalHeight=Math.round(h*ratio.getFloat());
         boolean vertical=stack.getOrientation()==LinearLayout.VERTICAL;
         int neededHeight=scientific?(vertical?padHeight(input)+padHeight(advanced):Math.max(padHeight(input),padHeight(advanced))):padHeight(input);
+        if(scientific&&vertical) {
+            int numericWeight=activity.getResources().getInteger(R.integer.input_pad_weight);
+            int scienceWeight=activity.getResources().getInteger(R.integer.advanced_pad_weight);
+            int total=numericWeight+scienceWeight;
+            neededHeight=Math.max((padHeight(input)*total+numericWeight-1)/numericWeight,
+                    (padHeight(advanced)*total+scienceWeight-1)/scienceWeight);
+        }
         int neededWidth=scientific&&!vertical?Math.max(3*padWidth(advanced),(padWidth(input)*3+1)/2):padWidth(input);
         if(normalHeight>=neededHeight&&w>=neededWidth){restore();return;}
         int barHeight=activity.getResources().getDimensionPixelSize(R.dimen.mode_segment_height)

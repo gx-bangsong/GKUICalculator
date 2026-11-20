@@ -1021,6 +1021,15 @@ public class WindowConfigurationTest {
                 remainingFingerKey(R.id.digit_7);evidence("keyboard-basic-"+shortWindow);
                 transition[0]="basic-to-science short="+shortWindow;
                 remainingModeTap(R.id.mode_segment_scientific,0);keypadStableFrames("basic-to-science short="+shortWindow,true);
+                if(!shortWindow)scenario.onActivity(a -> {
+                    View stack=a.findViewById(R.id.pad_stack);
+                    assertEquals("full portrait preserves numeric parent",stack,a.findViewById(R.id.input_pad).getParent());
+                    assertEquals("full portrait preserves science parent",stack,a.findViewById(R.id.advanced_pad).getParent());
+                    assertNull("full portrait must not mount side scroller",a.findViewById(R.id.main_calculator).findViewWithTag("remaining_keypad_viewport"));
+                    Rect keys=new Rect(),bar=new Rect();visibleOnScreen(stack,keys);visibleOnScreen(a.findViewById(R.id.tool_bar),bar);
+                    assertTrue("full portrait keyboard stays below full-width strip",keys.top>=bar.bottom);
+                    assertEquals("full portrait strip stays full width",stack.getWidth(),a.findViewById(R.id.tool_bar).getWidth());
+                });
                 remainingFingerKey(R.id.toggle_inv);keypadStableFrames("inverse short="+shortWindow,true);
                 remainingAllKeysReachable("scientific");evidence("keyboard-science-"+shortWindow);
                 remainingModeTap(R.id.mode_segment_basic,0);keypadStableFrames("science-to-basic short="+shortWindow,false);
