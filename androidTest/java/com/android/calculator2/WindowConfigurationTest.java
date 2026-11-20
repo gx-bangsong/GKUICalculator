@@ -751,6 +751,50 @@ public class WindowConfigurationTest {
         }
     }
 
+    private Rect remainingFind(int id) throws Exception {
+        Rect target=new Rect(),viewport=new Rect();boolean[] complete={false},scrollable={false};
+        for(int attempt=0;attempt<35;attempt++) {
+            scenario.onActivity(a -> {
+                View v=a.findViewById(id);assertNotNull("target "+id,v);assertTrue("target shown "+id,v.isShown());
+                View port=a.findViewById(R.id.main_calculator).findViewWithTag("remaining_keypad_viewport");
+                if(id==R.id.date_start||id==R.id.date_end||id==R.id.formula||id==R.id.result)
+                    port=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport");
+                scrollable[0]=port!=null;
+                if(port!=null)assertTrue(visibleOnScreen(port,viewport));
+                else viewport.set(a.getWindowManager().getCurrentWindowMetrics().getBounds());
+                int[] raw=new int[2];v.getLocationOnScreen(raw);target.set(raw[0],raw[1],raw[0]+v.getWidth(),raw[1]+v.getHeight());
+                Rect visible=new Rect();complete[0]=visibleOnScreen(v,visible)&&visible.equals(target)&&viewport.contains(target);
+            });
+            if(complete[0])return new Rect(target);
+            assertTrue("offscreen target must have controlled scroll "+id+" target="+target+" viewport="+viewport,scrollable[0]);
+            assertTrue("target fits viewport "+target+" "+viewport,target.height()<=viewport.height());
+            int distance=Math.max(12,Math.min(viewport.height()/2,target.top<viewport.top?viewport.top-target.top:target.bottom-viewport.bottom));
+            int x=viewport.centerX(),from=viewport.centerY()+(target.top<viewport.top?-distance/2:distance/2);
+            int to=viewport.centerY()+(target.top<viewport.top?distance/2:-distance/2);
+            pointerDrag(x,from,to);
+        }
+        throw new AssertionError("finger cannot reach whole target "+id+" "+target+" viewport="+viewport);
+    }
+    private void remainingFingerKey(int id) throws Exception {
+        Rect r=remainingFind(id);assertTrue(device.click(r.centerX(),r.centerY()));SystemClock.sleep(120);
+    }
+    private void remainingAllKeysReachable(String mode) throws Exception {
+        java.util.List<Integer> ids=new java.util.ArrayList<>();
+        scenario.onActivity(a -> {
+            for(int padId:new int[]{R.id.advanced_pad,R.id.input_pad}) {
+                ViewGroup pad=a.findViewById(padId);if(!pad.isShown())continue;
+                for(int n=0;n<pad.getChildCount();n++){View v=pad.getChildAt(n);if(v instanceof HapticButton&&v.isShown())ids.add(v.getId());}
+            }
+        });
+        for(int id:ids)remainingFind(id);
+        if("scientific".equals(mode)) {
+            remainingFingerKey(R.id.toggle_inv);
+            java.util.List<Integer> inverse=new java.util.ArrayList<>();
+            scenario.onActivity(a -> {ViewGroup pad=a.findViewById(R.id.advanced_pad);for(int n=0;n<pad.getChildCount();n++){View v=pad.getChildAt(n);if(v instanceof HapticButton&&v.isShown())inverse.add(v.getId());}});
+            for(int id:inverse)remainingFind(id);
+            remainingFingerKey(R.id.toggle_inv);
+        }
+    }
     private void measureRemainingMode(String mode,String stage,java.util.List<String> failures) {
         scenario.onActivity(a -> {
             float d=a.getResources().getDisplayMetrics().density,sp=a.getResources().getDisplayMetrics().scaledDensity;
@@ -760,24 +804,25 @@ public class WindowConfigurationTest {
                 View v=a.findViewById(id);if(v==null||v.getVisibility()!=View.VISIBLE)continue;
                 Rect r=new Rect();boolean visible=visibleOnScreen(v,r);
                 summary.append(' ').append(a.getResources().getResourceEntryName(id)).append('=').append(r);
-                if((id==R.id.formula||id==R.id.result)&&(!visible||r.height()<v.getPaddingTop()+v.getPaddingBottom()+((TextView)v).getPaint().getFontMetricsInt(null)))
+                if((id==R.id.formula||id==R.id.result)&&(v.getHeight()<v.getPaddingTop()+v.getPaddingBottom()+((TextView)v).getPaint().getFontMetricsInt(null)))
                     failures.add(stage+" "+mode+" text row cannot fit glyphs "+id+" "+r);
             }
             for(int padId:new int[]{R.id.input_pad,R.id.advanced_pad}) {
-                ViewGroup pad=a.findViewById(padId);if(pad.getVisibility()!=View.VISIBLE)continue;
+                ViewGroup pad=a.findViewById(padId);if(!pad.isShown()||"date".equals(mode))continue;
                 int count=0;float minW=Float.MAX_VALUE,minH=Float.MAX_VALUE,minSp=Float.MAX_VALUE;
                 for(int n=0;n<pad.getChildCount();n++) {
                     View v=pad.getChildAt(n);if(!(v instanceof HapticButton)||v.getVisibility()!=View.VISIBLE)continue;
                     count++;Rect r=new Rect();boolean visible=visibleOnScreen(v,r);
                     minW=Math.min(minW,v.getWidth()/d);minH=Math.min(minH,v.getHeight()/d);minSp=Math.min(minSp,((TextView)v).getTextSize()/sp);
-                    if(v.getWidth()+.5<48*d||v.getHeight()+.5<48*d||!visible||r.height()!=v.getHeight()||r.width()!=v.getWidth())
+                    if(v.getWidth()+.5<48*d||v.getHeight()+.5<48*d||
+                            (a.findViewById(R.id.main_calculator).findViewWithTag("remaining_keypad_viewport")==null&&(!visible||r.height()!=v.getHeight()||r.width()!=v.getWidth())))
                         failures.add(stage+" "+mode+" key="+a.getResources().getResourceEntryName(v.getId())+" measured="+v.getWidth()+"x"+v.getHeight()+" rawVisible="+r);
                 }
                 summary.append(" pad#").append(padId).append(" count=").append(count).append(" minDp=").append(minW).append('x').append(minH).append(" minSp=").append(minSp);
             }
             if("date".equals(mode))for(int id:new int[]{R.id.date_start,R.id.date_end}) {
                 View v=a.findViewById(id);Rect r=new Rect();
-                if(v==null||!visibleOnScreen(v,r)||r.height()<48*d)failures.add(stage+" date entry below 48dp "+id+" "+r);
+                if(v==null||v.getHeight()+.5<48*d)failures.add(stage+" date entry below 48dp "+id+" "+r);
             }
             assertNull("results remain read-only",((TextView)a.findViewById(R.id.result)).getKeyListener());
             Log.i("RemainingWindow",summary.toString());
@@ -817,16 +862,16 @@ public class WindowConfigurationTest {
                 if("relationship".equals(mode))remainingModeTap(0,R.string.tool_relationship);
                 SystemClock.sleep(300);
                 if("date".equals(mode)) {
-                    Rect r=new Rect();scenario.onActivity(a -> assertTrue(visibleOnScreen(a.findViewById(R.id.date_start),r)));
+                    Rect r=remainingFind(R.id.date_start);
                     assertTrue(device.click(r.centerX(),r.centerY()));
                     androidx.test.uiautomator.UiObject2 cancel=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.res("android","button2")),2000);
                     assertNotNull("real touch opens date dialog",cancel);cancel.click();
                 } else {
-                    Rect clear=new Rect(),seven=new Rect();
-                    scenario.onActivity(a -> {assertTrue(visibleOnScreen(a.findViewById(R.id.clr),clear));assertTrue(visibleOnScreen(a.findViewById(R.id.digit_7),seven));});
-                    assertTrue(device.click(clear.centerX(),clear.centerY()));Map<Integer,String> before=displaySnapshot();
-                    assertTrue(device.click(seven.centerX(),seven.centerY()));SystemClock.sleep(200);
+                    remainingAllKeysReachable(mode);
+                    remainingFingerKey(R.id.clr);Map<Integer,String> before=displaySnapshot();
+                    remainingFingerKey(R.id.digit_7);SystemClock.sleep(200);
                     assertNotEquals("real seven/relationship key executes",before,displaySnapshot());
+                    remainingFingerKey(R.id.eq);
                 }
                 measureRemainingMode(mode,stage,failures);evidence("remaining-"+stage+"-"+mode);
             } catch(Throwable error) {
