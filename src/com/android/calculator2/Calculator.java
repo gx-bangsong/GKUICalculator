@@ -262,7 +262,7 @@ public class Calculator extends AppCompatActivity
     private int mPadFormulaEnd = -1;
 
     private HorizontalScrollView mFormulaContainer;
-    private MotionLayout mMainCalculator;
+    private DisplayMotionLayout mMainCalculator;
 
     private ToolManager mToolManager;
     private ViewGroup mToolControlSlot;
@@ -517,6 +517,7 @@ public class Calculator extends AppCompatActivity
     @Override
     protected void onResume() {
         super.onResume();
+        if(mHistoryPane!=null)mHistoryPane.scheduleFit();
         // If HistoryFragment is showing, hide the main Calculator elements from accessibility.
         // This is because Talkback does not use visibility as a cue for RelativeLayout elements,
         // and RelativeLayout is the base class of DragLayout.
