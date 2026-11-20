@@ -1642,7 +1642,9 @@ public class WindowConfigurationTest {
         });
     }
     /** Measurement-only baseline: production layout is deliberately unchanged in this commit. */
+    private boolean fractionWindowProbe;
     @Test public void fractionUpperQuarterMeasurements() throws Exception {
+        fractionWindowProbe=true;
         key(R.id.mode_segment_basic);key(R.id.clr);
         try {
             enterRealSplit();
@@ -2088,7 +2090,15 @@ public class WindowConfigurationTest {
         automation.setServiceInfo(flags);
         for(android.view.accessibility.AccessibilityWindowInfo window:automation.getWindows()) {
             android.view.accessibility.AccessibilityNodeInfo root=window.getRoot();
-            if(root!=null&&"com.android.settings".contentEquals(root.getPackageName()))s.otherAccessibilityRoot=true;
+            if(root!=null&&"com.android.settings".contentEquals(root.getPackageName())) {
+                s.otherAccessibilityRoot=true;
+                // Fraction-only API30 diagnostic: a real interactive application window is
+                // direct visibility/bounds evidence; API30's WM text differs from API34.
+                if(fractionWindowProbe&&window.getType()==android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION) {
+                    Rect bounds=new Rect();window.getBoundsInScreen(bounds);
+                    if(!bounds.isEmpty()) {s.other.set(bounds);s.otherWindowVisible=true;}
+                }
+            }
         }
         String windows=device.executeShellCommand("dumpsys window -a");
         // WindowManager visibility/frame evidence is independent of accessibility roots.
