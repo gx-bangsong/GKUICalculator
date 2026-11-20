@@ -1641,6 +1641,71 @@ public class WindowConfigurationTest {
             assertTrue("tool vector rendered",opaque);bitmap.recycle();
         });
     }
+    /** Measurement-only baseline: production layout is deliberately unchanged in this commit. */
+    @Test public void fractionUpperQuarterMeasurements() throws Exception {
+        key(R.id.mode_segment_basic);key(R.id.clr);
+        try {
+            enterRealSplit();
+            SplitSample pair=stableSample(true,null);
+            assertTrue("verified real companion "+pair,pair.verifiedCompanion());
+            assertTrue("calculator must be upper "+pair,pair.app.top<pair.other.top);
+            Rect divider=verifiedDivider();
+            assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),Math.round(device.getDisplayHeight()*.25f),65));
+            device.executeShellCommand("am task focus "+splitTask);
+            pair=stableSample(true,null);
+            float share=pair.app.height()/(float)(pair.app.height()+pair.other.height());
+            Log.i("FractionWindow","REAL_UPPER share="+share+" "+pair);
+            assertTrue("real quarter, not wm size "+pair,Math.abs(share-.25f)<.04f);
+            key(R.id.digit_1);key(R.id.op_div);key(R.id.digit_3);key(R.id.eq);
+            androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(
+                    InstrumentationRegistry.getInstrumentation().getTargetContext());
+            onView(withText(R.string.menu_show_fraction)).perform(click());
+            awaitFractionWindow();
+            fractionMeasurement("before-upper25-basic");
+            evidence("fraction-before-upper25-basic");
+        } finally {
+            device.executeShellCommand("am force-stop com.android.settings");
+            device.executeShellCommand("am task focus "+splitTask);
+        }
+    }
+    private void awaitFractionWindow() {
+        long end=SystemClock.uptimeMillis()+10000;boolean[] ready={false};
+        do {
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scenario.onActivity(a -> {
+                TextView t=a.findViewById(R.id.fraction_result);
+                ready[0]="1/3".contentEquals(t.getText())&&t.getLayout()!=null
+                        &&a.findViewById(R.id.fraction_viewport).getHeight()>0;
+            });
+            if(ready[0])return;SystemClock.sleep(100);
+        }while(SystemClock.uptimeMillis()<end);
+        fail("fraction worker/layout did not settle");
+    }
+    private void fractionMeasurement(String stage) {
+        scenario.onActivity(a -> {
+            TextView text=a.findViewById(R.id.fraction_result);
+            View viewport=a.findViewById(R.id.fraction_viewport);
+            android.text.Layout layout=text.getLayout();assertNotNull(layout);
+            int[] xy=new int[2];text.getLocationOnScreen(xy);
+            int top=xy[1]+text.getBaseline()-layout.getLineBaseline(0)-text.getScrollY();
+            Rect line=new Rect(xy[0]+text.getCompoundPaddingLeft()+(int)Math.floor(layout.getLineLeft(0)),
+                    top+layout.getLineTop(0),xy[0]+text.getCompoundPaddingLeft()+(int)Math.ceil(layout.getLineRight(0)),top+layout.getLineBottom(0));
+            Rect visible=new Rect();visibleOnScreen(text,visible);
+            Log.i("FractionWindow",stage+" lineRaw="+line+" visibleRaw="+visible+" fullLine="+visible.contains(line)
+                    +" layoutHeight="+layout.getHeight()+" fontSpacing="+text.getPaint().getFontSpacing()
+                    +" textPx="+text.getTextSize()+" viewportHeight="+viewport.getHeight());
+            View node=text;
+            while(node!=null) {
+                Rect raw=new Rect();int[] origin=new int[2];node.getLocationOnScreen(origin);
+                raw.set(origin[0],origin[1],origin[0]+node.getWidth(),origin[1]+node.getHeight());
+                Rect clip=new Rect();visibleOnScreen(node,clip);
+                Log.i("FractionWindow",stage+" ancestor="+node.getClass().getSimpleName()+" id="+node.getId()
+                        +" raw="+raw+" visible="+clip+" measured="+node.getMeasuredHeight()+" scroll="+node.getScrollY());
+                node=node.getParent() instanceof View?(View)node.getParent():null;
+            }
+        });
+    }
+
     private int splitTask;
     private void enterRealSplit() throws Exception {
         scenario.onActivity(a -> {

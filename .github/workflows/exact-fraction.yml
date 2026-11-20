@@ -11,6 +11,7 @@ on:
       - 'src/com/android/calculator2/Calculator.java'
       - 'androidTest/java/com/android/calculator2/ExactFractionUiTest.java'
       - 'res/menu/activity_calculator.xml'
+      - 'androidTest/java/com/android/calculator2/WindowConfigurationTest.java'
   workflow_dispatch:
 permissions:
   contents: read
@@ -69,12 +70,18 @@ jobs:
           ram-size: 4096M
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.ExactFractionUiTest --stacktrace --console=plain
+          script: ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.WindowConfigurationTest#fractionUpperQuarterMeasurements --stacktrace --console=plain
       - name: Collect fraction screenshots
         if: always()
         run: |
           mkdir -p build/fraction-evidence
           adb pull /sdcard/Android/data/com.android.calculator2.dev/files/fraction-evidence/ build/fraction-evidence/ || true
+          for image in $(adb shell 'ls /sdcard/window-fraction-*.png' 2>/dev/null | tr -d '\r'); do adb pull "$image" build/fraction-evidence/ || true; done
+          adb logcat -d -v brief FractionWindow:I SplitPhase:I WindowEvidence:I '*:S' > build/fraction-evidence/measurements.log
+          while IFS= read -r line; do
+            line=${line//%/%25}
+            echo "::notice title=Fraction window measurement::$line"
+          done < build/fraction-evidence/measurements.log
       - uses: actions/upload-artifact@v6
         if: always()
         with:
