@@ -670,6 +670,14 @@ public class WindowConfigurationTest {
         });
         if(top[0]==0){Log.i("HistoryEdge",stage+" STATUS_PIXELS not applicable: this task has no top system inset");return;}
         android.graphics.Bitmap image=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();assertNotNull(image);
+        scenario.onActivity(a -> {
+            int[] decor=new int[2],content=new int[2];a.getWindow().getDecorView().getLocationOnScreen(decor);
+            a.findViewById(R.id.main_calculator).getLocationOnScreen(content);
+            android.graphics.Point real=new android.graphics.Point();a.getDisplay().getRealSize(real);
+            Log.i("HistoryEdge",stage+" PIXEL_COORDINATES bitmap="+image.getWidth()+"x"+image.getHeight()+" window="+window
+                    +" decorRaw="+java.util.Arrays.toString(decor)+" contentRaw="+java.util.Arrays.toString(content)+" realDisplay="+real
+                    +" logicalDisplay="+device.getDisplayWidth()+"x"+device.getDisplayHeight()+" progress="+((DisplayMotionLayout)a.findViewById(R.id.main_calculator)).getProgress());
+        });
         try {
             int y=window.top+top[0]-3,matched=0,sampled=0;StringBuilder values=new StringBuilder();
             for(int n=1;n<10;n++) {
@@ -744,7 +752,7 @@ public class WindowConfigurationTest {
         };
         scenario.onActivity(a -> ((DisplayMotionLayout)a.findViewById(R.id.main_calculator)).addTransitionListener(monitor));
         try {
-            evidence(stage+"-collapsed");historyRawDrag(true);historySafeBounds(stage);historyStatusPixels(stage);evidence(stage+"-expanded");
+            evidence(stage+"-collapsed");historyRawDrag(true);historySafeBounds(stage);evidence(stage+"-expanded");historyStatusPixels(stage);
             assertTrue("actual intermediate motion frames "+stage,samples[0]>=3);
             assertTrue("no progress-dependent/duplicate padding "+animationErrors,animationErrors.isEmpty());
             if(endpoints){historyEndpoint(false,stage);historyEndpoint(true,stage);}
@@ -757,19 +765,9 @@ public class WindowConfigurationTest {
         } finally {scenario.onActivity(a -> ((DisplayMotionLayout)a.findViewById(R.id.main_calculator)).removeTransitionListener(monitor));}
     }
     @Test public void historyPhoneNavigationInsetsAndRealDrag() throws Exception {
-        int original=navigationMode();boolean cutoutEnabled=false;
+        int original=navigationMode();
         try {
             setNavigationMode(2);seedHistoryForEdge();
-            String overlays=device.executeShellCommand("cmd overlay list");
-            if(overlays.contains("[ ] com.android.internal.display.cutout.emulation.tall")) {
-                device.executeShellCommand("cmd overlay enable com.android.internal.display.cutout.emulation.tall");cutoutEnabled=true;SystemClock.sleep(900);
-                long deadline=SystemClock.uptimeMillis()+5000;boolean[] ready={false};
-                do {
-                    scenario.onActivity(a -> ready[0]=a.getWindow().getDecorView().getRootWindowInsets().getDisplayCutout()!=null);
-                    if(ready[0])break;SystemClock.sleep(100);
-                } while(SystemClock.uptimeMillis()<deadline);
-                assertTrue("actual platform cutout emulation after SHORT_EDGES layout",ready[0]);
-            } else Log.w("HistoryEdge","CUTOUT_NOT_AVAILABLE: no tall overlay; no cutout coverage claimed");
             for(int mode:new int[]{2,0}) {
                 setNavigationMode(mode);
                 device.setOrientationNatural();awaitOrientation(Configuration.ORIENTATION_PORTRAIT);
@@ -778,10 +776,35 @@ public class WindowConfigurationTest {
                 historyGestureStage("history-edge-nav"+mode+"-landscape",true);
             }
         } finally {
-            if(cutoutEnabled)device.executeShellCommand("cmd overlay disable com.android.internal.display.cutout.emulation.tall");
             setNavigationMode(original);device.setOrientationNatural();awaitOrientation(Configuration.ORIENTATION_PORTRAIT);
         }
     }
+    @Test public void historyNativeCutoutInsetsAndDrag() throws Exception {
+        String oldSize=device.executeShellCommand("wm size"),oldDensity=device.executeShellCommand("wm density");
+        java.util.regex.Matcher m=java.util.regex.Pattern.compile("Override size: (\\d+x\\d+)").matcher(oldSize);
+        String size=m.find()?m.group(1):"reset";m=java.util.regex.Pattern.compile("Override density: (\\d+)").matcher(oldDensity);
+        String density=m.find()?m.group(1):"reset";boolean enabled=false;
+        try {
+            // Physical cutout overlays may be disabled by WindowManager on an overridden size.
+            // Test the native display, rather than claiming a synthetic child inset is a notch.
+            device.executeShellCommand("wm size reset");device.executeShellCommand("wm density reset");SystemClock.sleep(1000);
+            String overlays=device.executeShellCommand("cmd overlay list");
+            assertTrue("native cutout overlay must exist",overlays.contains("com.android.internal.display.cutout.emulation.tall"));
+            if(overlays.contains("[ ] com.android.internal.display.cutout.emulation.tall")) {
+                device.executeShellCommand("cmd overlay enable com.android.internal.display.cutout.emulation.tall");enabled=true;
+            }
+            long deadline=SystemClock.uptimeMillis()+6000;boolean[] ready={false};
+            do {scenario.onActivity(a -> ready[0]=a.getWindow().getDecorView().getRootWindowInsets().getDisplayCutout()!=null);
+                if(ready[0])break;SystemClock.sleep(100);
+            } while(SystemClock.uptimeMillis()<deadline);
+            assertTrue("actual native display cutout insets",ready[0]);
+            historyGestureStage("history-edge-cutout",false);
+        } finally {
+            if(enabled)device.executeShellCommand("cmd overlay disable com.android.internal.display.cutout.emulation.tall");
+            device.executeShellCommand("wm size "+size);device.executeShellCommand("wm density "+density);SystemClock.sleep(900);
+        }
+    }
+
     @Test public void historyRealSplitUpperAndLowerInsets() throws Exception {
         seedHistoryForEdge();onView(withContentDescription(R.string.tool_programmer)).perform(click());
         int input=prepareTool(R.string.tool_programmer);Map<String,String> model=modelSnapshot();int[] selected=selection(input);

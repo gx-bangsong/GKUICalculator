@@ -354,7 +354,7 @@ jobs:
           from pathlib import Path
           from PIL import Image
           import io
-          for name in ('tablet-portrait','narrow-single-column','tablet-real-half','tablet-real-narrow','edge-nav2-portrait-expanded','edge-nav2-portrait-collapsed-return','edge-nav0-landscape-expanded','edge-lower-split-expanded','edge-docked'):
+          for name in ('tablet-portrait','narrow-single-column','tablet-real-half','tablet-real-narrow','edge-nav2-portrait-expanded','edge-nav2-portrait-collapsed-return','edge-nav0-landscape-expanded','edge-lower-split-expanded','edge-docked','edge-upper-split-expanded','edge-cutout-expanded'):
               source=Path('evidence/ui-screenshots/window-history-'+name+'.png')
               if not source.exists():
                   print('Not captured: '+name)
@@ -384,3 +384,7 @@ jobs:
         run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-lower-split-expanded-review.jpg "history edge lower-split-expanded" 0 warning
       - name: Publish history edge docked
         run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-docked-review.jpg "history edge docked" 0 warning
+      - name: Publish history edge upper-split-expanded
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-upper-split-expanded-review.jpg "history edge upper-split-expanded" 0 warning
+      - name: Publish history edge cutout-expanded
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-cutout-expanded-review.jpg "history edge cutout-expanded" 0 warning

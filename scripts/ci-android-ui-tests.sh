@@ -141,7 +141,7 @@ if [[ "$split_scope" == "programmer-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#programmerUpperQuarterSplitMenusSwap,com.android.calculator2.WindowConfigurationTest#programmerLowerQuarterSplitMenusSwap"
 fi
 if [[ "$split_scope" == "history-edge-only" ]]; then
-    runner_classes="com.android.calculator2.WindowConfigurationTest#historyPhoneNavigationInsetsAndRealDrag,com.android.calculator2.WindowConfigurationTest#historyRealSplitUpperAndLowerInsets,com.android.calculator2.WindowConfigurationTest#historyDockedEdgeBackgroundAndNarrowDrag"
+    runner_classes="com.android.calculator2.WindowConfigurationTest#historyPhoneNavigationInsetsAndRealDrag,com.android.calculator2.WindowConfigurationTest#historyNativeCutoutInsetsAndDrag,com.android.calculator2.WindowConfigurationTest#historyRealSplitUpperAndLowerInsets,com.android.calculator2.WindowConfigurationTest#historyDockedEdgeBackgroundAndNarrowDrag"
 fi
 if [[ "$split_scope" == "history-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#adaptiveHistoryUsesActualWindowAndKeepsToolState,com.android.calculator2.WindowConfigurationTest#adaptiveHistorySurvivesTabletRealSplit"
@@ -448,7 +448,7 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
 if os.environ.get("SPLIT_SCOPE") == "history-edge-only":
-    required={"com.android.calculator2.WindowConfigurationTest":["historyPhoneNavigationInsetsAndRealDrag","historyRealSplitUpperAndLowerInsets","historyDockedEdgeBackgroundAndNarrowDrag"]}
+    required={"com.android.calculator2.WindowConfigurationTest":["historyPhoneNavigationInsetsAndRealDrag","historyNativeCutoutInsetsAndDrag","historyRealSplitUpperAndLowerInsets","historyDockedEdgeBackgroundAndNarrowDrag"]}
 
 if os.environ.get("SPLIT_SCOPE") == "history-only":
     required={"com.android.calculator2.WindowConfigurationTest":["adaptiveHistoryUsesActualWindowAndKeepsToolState","adaptiveHistorySurvivesTabletRealSplit"]}
@@ -705,7 +705,7 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
 if os.environ.get("SPLIT_SCOPE") == "history-edge-only":
-    required={"com.android.calculator2.WindowConfigurationTest":["historyPhoneNavigationInsetsAndRealDrag","historyRealSplitUpperAndLowerInsets","historyDockedEdgeBackgroundAndNarrowDrag"]}
+    required={"com.android.calculator2.WindowConfigurationTest":["historyPhoneNavigationInsetsAndRealDrag","historyNativeCutoutInsetsAndDrag","historyRealSplitUpperAndLowerInsets","historyDockedEdgeBackgroundAndNarrowDrag"]}
 
 if os.environ.get("SPLIT_SCOPE") == "history-only":
     required={"com.android.calculator2.WindowConfigurationTest":["adaptiveHistoryUsesActualWindowAndKeepsToolState","adaptiveHistorySurvivesTabletRealSplit"]}
@@ -940,7 +940,7 @@ if [[ ! -s build/ui-screenshots/calculator-default.png ]]; then
 fi
 
 if [[ "$split_scope" == "history-edge-only" ]]; then
-    for stage in nav2-portrait nav2-landscape nav0-portrait nav0-landscape upper-split lower-split after-narrow; do
+    for stage in nav2-portrait nav2-landscape nav0-portrait nav0-landscape upper-split lower-split after-narrow cutout; do
         for state in expanded collapsed-return; do
             if [[ ! -s "build/ui-screenshots/window-history-edge-$stage-$state.png" ]]; then
                 test_result=1
