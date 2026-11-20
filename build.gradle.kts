@@ -111,6 +111,7 @@ android {
         }
         // Instrumented (on-device) UI tests, also outside src/.
         getByName("androidTest") {
+            manifest.srcFile("androidTest/AndroidManifest.xml")
             java.setSrcDirs(listOf("androidTest/java"))
         }
     }
