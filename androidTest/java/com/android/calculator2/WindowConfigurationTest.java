@@ -1243,13 +1243,13 @@ public class WindowConfigurationTest {
             if(ready[0])return target;
             int from=viewport.centerY(),delta=viewport.height()/3;
             int[] keyboardY={0};
-            scenario.onActivity(a -> keyboardY[0]=a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport").getScrollY());
+            scenario.onActivity(a -> {View v=a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport");keyboardY[0]=v==null?0:v.getScrollY();});
             // The programmer viewport now excludes side system bars. Its own right edge
             // is safe, and avoids a horizontal value scroller taking this vertical drag.
             pointerDrag(viewport.right-4,from,from+(full[1]<viewport.top?delta:-delta));
             device.waitForIdle(1000);
-            scenario.onActivity(a -> assertEquals("left content scroll does not move keyboard",keyboardY[0],
-                    a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport").getScrollY()));
+            scenario.onActivity(a -> {View v=a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport");
+                assertEquals("left content scroll does not move keyboard",keyboardY[0],v==null?0:v.getScrollY());});
         }
         fail("programmer control unreachable by finger: "+id);return null;
     }
@@ -1261,6 +1261,7 @@ public class WindowConfigurationTest {
             Rect viewport=new Rect(),visible=new Rect();int[] position=new int[2];boolean[] ready={false};
             scenario.onActivity(a -> {
                 View root=a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport");
+                if(root==null)root=a.findViewById(R.id.pad_stack);
                 View key=a.findViewById(id);assertNotNull(root);assertTrue(visibleOnScreen(root,viewport));
                 key.getLocationOnScreen(position);
                 ready[0]=visibleOnScreen(key,visible)&&visible.height()==key.getHeight()&&viewport.contains(visible);
@@ -1302,6 +1303,50 @@ public class WindowConfigurationTest {
         }
         fail("radix menu entry unreachable: "+text);
     }
+    /** e6d42a8 XML reference: these four pad resources are unchanged from that SHA. */
+    private void assertProgrammerOriginal(Calculator a,String stage) {
+        View stack=a.findViewById(R.id.pad_stack);
+        assertNull(stage+" must not contain the compact grid",stack.findViewWithTag("programmer_keypad_viewport"));
+        boolean land=a.getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE;
+        int[][] advanced=land?new int[][]{{R.id.toggle_mode,R.id.op_sqrt,R.id.const_pi},{R.id.toggle_inv,R.id.op_pow,R.id.op_fact},
+                {R.id.fun_sin,R.id.fun_cos,R.id.fun_tan},{R.id.const_e,R.id.fun_ln,R.id.fun_log}}:
+                new int[][]{{R.id.op_sqrt,R.id.const_pi,R.id.op_pow,R.id.op_fact},{R.id.toggle_mode,R.id.fun_sin,R.id.fun_cos,R.id.fun_tan},
+                {R.id.toggle_inv,R.id.const_e,R.id.fun_ln,R.id.fun_log}};
+        int[][] input=land?new int[][]{{R.id.digit_7,R.id.digit_8,R.id.digit_9,R.id.op_mul,R.id.op_div},
+                {R.id.digit_4,R.id.digit_5,R.id.digit_6,R.id.op_sub},{R.id.digit_1,R.id.digit_2,R.id.digit_3,R.id.op_add},
+                {R.id.digit_0,R.id.del,R.id.eq,R.id.clr}}:
+                new int[][]{{R.id.clr,R.id.op_div},{R.id.digit_7,R.id.digit_8,R.id.digit_9,R.id.op_mul},
+                {R.id.digit_4,R.id.digit_5,R.id.digit_6,R.id.op_sub},{R.id.digit_1,R.id.digit_2,R.id.digit_3,R.id.op_add},
+                {R.id.digit_0,R.id.del,R.id.eq}};
+        int[][][] groups={advanced,input};int[] parents={R.id.advanced_pad,R.id.input_pad};
+        for(int g=0;g<groups.length;g++) {
+            View reference=a.getLayoutInflater().inflate(g==0?R.layout.advanced_pad:R.layout.input_pad,null);
+            int previousY=Integer.MIN_VALUE;
+            for(int[] row:groups[g]) {
+                int previousX=Integer.MIN_VALUE,rowY=Integer.MIN_VALUE;
+                for(int id:row) {
+                    View key=a.findViewById(id);assertEquals(stage+" original key group "+id,parents[g],((View)key.getParent()).getId());
+                    androidx.constraintlayout.widget.ConstraintLayout.LayoutParams actual=(androidx.constraintlayout.widget.ConstraintLayout.LayoutParams)key.getLayoutParams();
+                    androidx.constraintlayout.widget.ConstraintLayout.LayoutParams expected=(androidx.constraintlayout.widget.ConstraintLayout.LayoutParams)reference.findViewById(id).getLayoutParams();
+                    assertArrayEquals(stage+" original XML anchors "+id,
+                        new int[]{expected.width,expected.height,expected.startToStart,expected.startToEnd,expected.endToStart,expected.endToEnd,expected.topToTop,expected.topToBottom,expected.bottomToTop,expected.bottomToBottom},
+                        new int[]{actual.width,actual.height,actual.startToStart,actual.startToEnd,actual.endToStart,actual.endToEnd,actual.topToTop,actual.topToBottom,actual.bottomToTop,actual.bottomToBottom});
+                    int x=(key.getLeft()+key.getRight())/2,y=(key.getTop()+key.getBottom())/2;
+                    assertTrue(stage+" original left/right order "+id,x>previousX);previousX=x;
+                    if(rowY==Integer.MIN_VALUE)rowY=y;
+                    assertTrue(stage+" original row grouping "+id,Math.abs(y-rowY)<=Math.ceil(3*a.getResources().getDisplayMetrics().density));
+                    assertTrue(stage+" original top/bottom order "+id,y>previousY);
+                }
+                previousY=rowY;
+            }
+        }
+        Rect adv=new Rect(),digits=new Rect();assertTrue(visibleOnScreen(a.findViewById(R.id.advanced_pad),adv));
+        assertTrue(visibleOnScreen(a.findViewById(R.id.input_pad),digits));
+        assertTrue(stage+" original group placement",land?adv.right<=digits.left:adv.bottom<=digits.top);
+        Log.i("TaxPosition",stage+" ORIGINAL_E6D_GROUPS_ANCHORS_POSITIONS_PASS");
+    }
+    private void programmerOriginal(String stage) {scenario.onActivity(a -> assertProgrammerOriginal(a,stage));}
+
     private void programmerKeypadMeasure(String stage,boolean verify) {
         scenario.onActivity(a -> {
             float d=a.getResources().getDisplayMetrics().density,sp=a.getResources().getDisplayMetrics().scaledDensity;
@@ -1313,7 +1358,9 @@ public class WindowConfigurationTest {
             String[] names={"digits","A-F","bitwise","DEL-AC","arithmetic"};
             View stack=a.findViewById(R.id.pad_stack);
             Log.i("TaxPosition",stage+" KEYPAD stackDp="+stack.getWidth()/d+"x"+stack.getHeight()/d);
-            if(verify) {
+            boolean compact=stack.findViewWithTag("programmer_keypad_viewport")!=null;
+            if(verify&&!compact)assertProgrammerOriginal(a,stage);
+            if(verify&&compact) {
                 View viewport=stack.findViewWithTag("programmer_keypad_viewport");
                 assertEquals("keyboard child matches real allocated width",stack.getWidth(),viewport.getWidth());
                 assertEquals("keyboard child matches real allocated height",stack.getHeight(),viewport.getHeight());
@@ -1340,12 +1387,12 @@ public class WindowConfigurationTest {
                         int[] screen=new int[2];key.getLocationOnScreen(screen);
                         assertTrue("key cannot be behind side navigation "+id+" x="+screen[0]+" width="+key.getWidth()+" window="+metrics.getBounds()+" bars="+bars,
                                 screen[0]>=metrics.getBounds().left+bars.left&&screen[0]+key.getWidth()<=metrics.getBounds().right-bars.right);
-                        assertTrue("48dp target "+stage+" id="+id+" actual="+key.getWidth()/d+"x"+key.getHeight()/d+"dp",key.getWidth()>=Math.ceil(48*d)&&key.getHeight()>=Math.ceil(48*d));
+                        if(compact)assertTrue("48dp target "+stage+" id="+id+" actual="+key.getWidth()/d+"x"+key.getHeight()/d+"dp",key.getWidth()>=Math.ceil(48*d)&&key.getHeight()>=Math.ceil(48*d));
                         assertTrue("no horizontally clipped programmer column id="+id+" bounds="+key.getLeft()+".."+key.getRight()+" stack="+stack.getWidth(),key.getLeft()>=0&&key.getRight()<=stack.getWidth());
                         if(key.getText().length()>0) {
                             assertNotNull(key.getLayout());assertEquals("single-line key label "+id,1,key.getLayout().getLineCount());
                             assertTrue("complete key label "+id,key.getLayout().getLineWidth(0)<=key.getWidth()-key.getCompoundPaddingLeft()-key.getCompoundPaddingRight()+1);
-                            assertTrue("readable key label "+id,key.getTextSize()/sp>=17.9f);
+                            if(compact)assertTrue("readable key label "+id,key.getTextSize()/sp>=17.9f);
                         }
                     }
                 }
@@ -1391,6 +1438,7 @@ public class WindowConfigurationTest {
     }
     @Test public void programmerKeypadFullAndLandscape() throws Exception {
         onView(withContentDescription(R.string.tool_programmer)).perform(click());
+        programmerOriginal("cold-full-before-any-toggle");
         programmerKeypadAudit("programmer-full");programmerHexAndBitKeys();
         device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
         programmerKeypadAudit("programmer-landscape");programmerHexAndBitKeys();
@@ -1417,13 +1465,23 @@ public class WindowConfigurationTest {
             assertEquals("converter input after programmer exit","15",modelSnapshot().get("expression"));
             assertConverterComputation(currency);
         }
+        onView(withContentDescription(R.string.tool_programmer)).perform(click());
+        programmerOriginal("return-from-converters");
         Log.i("TaxPosition","PROGRAMMER_PORTRAIT_BASIC_UNIT_CURRENCY_RESTORE_PASS");
     }
     private void programmerQuarter(boolean bottom) throws Exception {
         String stage="programmer-"+(bottom?"lower":"upper")+"-25";
         try {
+            onView(withContentDescription(R.string.tool_programmer)).perform(click());
+            programmerOriginal(stage+"-cold-full");prepareTool(R.string.tool_programmer);
+            Map<String,String> pending=modelSnapshot();Map<Integer,String> pendingDisplay=displaySnapshot();
             establishQuarterWindow(R.string.tool_programmer,bottom,stage);
-            programmerKeypadAudit(stage);programmerHexAndBitKeys();
+            assertEquals("full to compact preserves register/options/pending",pending,modelSnapshot());
+            assertEquals("full to compact preserves values",pendingDisplay,displaySnapshot());
+            programmerKeypadAudit(stage);
+            assertEquals("adapter disable/enable preserves whole programmer model",pending,modelSnapshot());
+            programmerPadTap(R.id.eq);assertEquals("pending after compact entry","1E",displaySnapshot().get(R.id.programmer_value_in));
+            programmerHexAndBitKeys();
             programmerPadTap(R.id.clr);programmerPadTap(R.id.digit_1);programmerPadTap(R.id.digit_0);
             assertEquals("actual pre-menu input","10",displaySnapshot().get(R.id.programmer_value_in));
             programmerTap(R.id.programmer_chip_out);evidence(stage+"-menu");
@@ -1447,6 +1505,8 @@ public class WindowConfigurationTest {
                 assertEquals(View.GONE,a.findViewById(R.id.shared_display_rows).getVisibility());
             });
             Log.i("TaxPosition",stage+" PROGRAMMER_MENU_SWAP_COMPUTE_COPY_PASS");
+            programmerPadTap(R.id.op_add);programmerPadTap(R.id.digit_1);
+            Map<String,String> modelBeforeExpand=modelSnapshot();
             Map<Integer,String> beforeExpand=displaySnapshot();
             for(int attempt=0;attempt<2&&splitSample().multi;attempt++) {
                 Rect divider=verifiedDivider();
@@ -1458,9 +1518,9 @@ public class WindowConfigurationTest {
             Log.i("TaxPosition",stage+" EXPANDED "+expanded);
             programmerKeypadMeasure("programmer-full-after",true);
             assertEquals("result preserved on real quarter to full expansion",beforeExpand,displaySnapshot());
-            scenario.onActivity(a -> assertEquals("full window clamps away short-window keyboard scroll",0,
-                    a.findViewById(R.id.pad_stack).findViewWithTag("programmer_keypad_viewport").getScrollY()));
-            programmerPadTap(R.id.op_add);programmerPadTap(R.id.digit_1);programmerPadTap(R.id.eq);
+            programmerOriginal(stage+"-expanded-original");
+            assertEquals("compact to original preserves register/options/pending",modelBeforeExpand,modelSnapshot());
+            programmerPadTap(R.id.eq);
             assertEquals("continued calculation after expansion","16",displaySnapshot().get(R.id.programmer_value_in));
             evidence(stage+"-expanded-full");
             Log.i("TaxPosition",stage+" QUARTER_TO_FULL_RESTORE_PASS");

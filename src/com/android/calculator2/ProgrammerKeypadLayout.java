@@ -54,37 +54,59 @@ final class ProgrammerKeypadLayout {
     }
 
     void setEnabled(boolean value) {
-        if(!value){enabled=false;restore();return;}
+        if(!value) {
+            enabled=false;restore();
+            if(normal!=null)motion.updateState(R.id.start_state,normal);
+            normal=null;lastWidth=lastHeight=0;return;
+        }
         if(!enabled) {
             enabled=true;oldOrientation=stack.getOrientation();
             oldInputVisibility=input.getVisibility();oldAdvancedVisibility=advanced.getVisibility();
-            // During Activity restoration MotionLayout has not resolved its empty start
-            // ConstraintSet from the XML children yet. Capture only after the first layout.
-            normal=null;
-            viewport=new ScrollView(activity);viewport.setTag("programmer_keypad_viewport");
-            viewport.setContentDescription(activity.getString(R.string.programmer_keypad_scroll));viewport.setFillViewport(false);
-            viewport.setVerticalScrollBarEnabled(true);viewport.setScrollbarFadingEnabled(false);
-            grid=new KeyGrid();grid.setTag("programmer_keypad_grid");
-            homes.clear();
-            for(int id:ORDER)homes.add(new KeyHome(activity.findViewById(id)));
-            for(KeyHome home:homes) {
-                home.parent.removeView(home.key);grid.addView(home.key);
-                home.key.setSingleLine(true);home.key.setEllipsize(null);home.key.setPadding(0,0,0,0);
-                home.key.addOnLayoutChangeListener(labelListener);
-            }
-            viewport.addView(grid,new ScrollView.LayoutParams(-1,-2));
-            stack.addView(viewport,new LinearLayout.LayoutParams(-1,-1));
-            viewport.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{if(enabled)sizeKeys();});
+            // An Activity restored during rotation has not resolved its start constraints yet.
+            normal=null;lastWidth=lastHeight=0;
         }
-        // setProgrammerPadMode updates the original pad visibility on every radix change.
-        // Only the programmer grid is presented; the same key objects retain valid/invalid state.
-        input.setVisibility(View.GONE);advanced.setVisibility(View.GONE);
-        stack.setOrientation(LinearLayout.VERTICAL);
+        // Radix changes update these original pads too. Hide them only while reparented.
+        if(viewport!=null) {input.setVisibility(View.GONE);advanced.setVisibility(View.GONE);}
         motion.post(this::fit);
     }
 
+    private void mountCompactKeys() {
+        viewport=new ScrollView(activity);viewport.setTag("programmer_keypad_viewport");
+        viewport.setContentDescription(activity.getString(R.string.programmer_keypad_scroll));
+        viewport.setFillViewport(false);viewport.setVerticalScrollBarEnabled(true);viewport.setScrollbarFadingEnabled(false);
+        grid=new KeyGrid();grid.setTag("programmer_keypad_grid");
+        homes.clear();
+        for(int id:ORDER)homes.add(new KeyHome(activity.findViewById(id)));
+        for(KeyHome home:homes) {
+            home.parent.removeView(home.key);grid.addView(home.key);
+            home.key.setSingleLine(true);home.key.setEllipsize(null);home.key.setPadding(0,0,0,0);
+            home.key.addOnLayoutChangeListener(labelListener);
+        }
+        viewport.addView(grid,new ScrollView.LayoutParams(-1,-2));
+        stack.addView(viewport,new LinearLayout.LayoutParams(-1,-1));
+        viewport.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{if(enabled)sizeKeys();});
+        input.setVisibility(View.GONE);advanced.setVisibility(View.GONE);
+        // A single visible child needs no orientation change. In particular keep the
+        // landscape pad weights intact when Calculator refreshes the radix/enabled keys.
+    }
+
+    /** Minimum legibility budget of the accepted original XML, not the compact grid's
+     * 48dp budget. Requiring 48dp for all eight original rows would replace normal full
+     * screens too, recreating the regression this adapter is meant to avoid. */
+    private boolean needsCompact(int width,int padHeight,float density) {
+        int cell=(int)Math.ceil(40*density)+2*activity.getResources().getDimensionPixelSize(R.dimen.button_vertical_margin);
+        if(oldOrientation==LinearLayout.VERTICAL) {
+            return padHeight<8*cell+input.getPaddingTop()+input.getPaddingBottom()+advanced.getPaddingTop()+advanced.getPaddingBottom()
+                    ||width<4*cell+Math.max(input.getPaddingLeft()+input.getPaddingRight(),advanced.getPaddingLeft()+advanced.getPaddingRight());
+        }
+        int minHeight=4*cell+Math.max(input.getPaddingTop()+input.getPaddingBottom(),advanced.getPaddingTop()+advanced.getPaddingBottom());
+        int advancedMin=3*cell+advanced.getPaddingLeft()+advanced.getPaddingRight();
+        int inputMin=5*cell+input.getPaddingLeft()+input.getPaddingRight();
+        return padHeight<minHeight||width<Math.max(3*advancedMin,(inputMin*3+1)/2);
+    }
+
     private final View.OnLayoutChangeListener labelListener=(v,l,t,r,b,ol,ot,or,ob)->{
-        if(enabled)styleLabel((TextView)v);
+        if(enabled&&viewport!=null)styleLabel((TextView)v);
     };
 
     private void styleLabel(TextView key) {
@@ -106,7 +128,7 @@ final class ProgrammerKeypadLayout {
     }
 
     private void sizeKeys() {
-        if(!enabled)return;
+        if(!enabled||viewport==null)return;
         for(KeyHome home:homes)styleLabel(home.key);
     }
 
@@ -156,9 +178,14 @@ final class ProgrammerKeypadLayout {
         int keyboardWidth=(int)Math.ceil(240*d),contentMin=(int)Math.ceil(140*d);
         android.util.TypedValue ratio=new android.util.TypedValue();
         activity.getResources().getValue(R.dimen.layout_pads_ratio,ratio,true);
-        boolean target=width>=keyboardWidth+contentMin&&width<2*keyboardWidth+contentMin
+        boolean rearrange=needsCompact(width,Math.round(height*ratio.getFloat()),d);
+        boolean changed=rearrange!=(viewport!=null);
+        if(changed) {
+            if(rearrange)mountCompactKeys();else restore();
+        }
+        boolean target=rearrange&&width>=keyboardWidth+contentMin&&width<2*keyboardWidth+contentMin
                 &&height*ratio.getFloat()<Math.ceil(6*48*d);
-        if(target!=compact||width!=lastWidth||height!=lastHeight||left!=lastLeft||right!=lastRight) {
+        if(changed||target!=compact||width!=lastWidth||height!=lastHeight||left!=lastLeft||right!=lastRight) {
             ConstraintSet state=new ConstraintSet();state.clone(normal);
             if(target) {
                 View bar=activity.findViewById(R.id.tool_bar);
@@ -207,7 +234,6 @@ final class ProgrammerKeypadLayout {
         }
         input.setVisibility(oldInputVisibility);advanced.setVisibility(oldAdvancedVisibility);
         stack.setOrientation(oldOrientation);
-        if(normal!=null)motion.updateState(R.id.start_state,normal);
-        viewport=null;grid=null;compact=false;lastWidth=lastHeight=0;homes.clear();
+        viewport=null;grid=null;compact=false;homes.clear();
     }
 }
