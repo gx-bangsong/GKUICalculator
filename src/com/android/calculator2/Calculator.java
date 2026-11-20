@@ -1724,12 +1724,14 @@ public class Calculator extends AppCompatActivity
         mMainCalculator.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
         HistoryFragment history=getHistoryFragment();
         if(history!=null)history.setDocked(docked);
+        if(mHistoryPane!=null)mHistoryPane.placeHistoryView();
         invalidateOptionsMenu();
     }
 
     void ensureDockedHistory() {
         if(!isHistoryDocked())return;
         if(getHistoryFragment()==null)createHistoryFragment();
+        mHistoryPane.placeHistoryView();
     }
 
     private void requestHistory() {

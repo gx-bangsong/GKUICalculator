@@ -396,7 +396,8 @@ public class WindowConfigurationTest {
         scenario.onActivity(a -> {
             assertTrue(a.isHistoryDocked());
             Rect h=new Rect(),right=new Rect(),list=new Rect(),toolbar=new Rect();
-            assertTrue(visibleOnScreen(a.findViewById(R.id.history_frame),h));
+            assertTrue(visibleOnScreen(a.findViewById(R.id.main_calculator).getRootView()
+                    .findViewWithTag("persistent_history_host"),h));
             assertTrue(visibleOnScreen(a.findViewById(R.id.main_calculator),right));
             assertTrue(visibleOnScreen(a.findViewById(R.id.history_recycler_view),list));
             assertTrue(visibleOnScreen(a.findViewById(R.id.history_toolbar),toolbar));
