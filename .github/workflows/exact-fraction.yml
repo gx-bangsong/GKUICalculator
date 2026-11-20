@@ -1,5 +1,12 @@
 name: Exact fraction numerical tests
 on:
+  push:
+    branches: ['arena/**']
+    paths:
+      - '.github/workflows/exact-fraction.yml'
+      - 'src/com/android/calculator2/ExactFraction.java'
+      - 'src/com/android/calculator2/BoundedRational.java'
+      - 'test/java/com/android/calculator2/ExactFractionTest.java'
   workflow_dispatch:
 permissions:
   contents: read
