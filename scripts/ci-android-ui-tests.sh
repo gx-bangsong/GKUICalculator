@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Read-only investigation, deliberately separate from product acceptance and screenshot checks.
+if [[ "${SPLIT_SCOPE:-}" == "external-text-probe-only" ]]; then
+    exec bash scripts/ci-text-conversion-probe.sh
+fi
+
 mkdir -p build/ui-screenshots
 rm -f build/ui-screenshots/*.png
 log_file=build/connected-debug-android-test.log
