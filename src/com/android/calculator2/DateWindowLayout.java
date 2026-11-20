@@ -61,16 +61,10 @@ final class DateWindowLayout {
         String geometry=w+":"+h+":"+left+":"+right;
         if(geometry.equals(fittedGeometry))return;
         fittedGeometry=geometry;
-        android.util.TypedValue ratio=new android.util.TypedValue();activity.getResources().getValue(R.dimen.layout_pads_ratio,ratio,true);
-        float d=activity.getResources().getDisplayMetrics().density;
         int barHeight=activity.getResources().getDimensionPixelSize(R.dimen.mode_segment_height)+bar.getPaddingTop()+bar.getPaddingBottom();
-        int handle=activity.findViewById(R.id.drag_handle_view).getHeight()+2*activity.getResources().getDimensionPixelSize(R.dimen.drag_handle_margin);
-        int required=toolbar.getHeight()+Math.round(48*d)+formula.getLineHeight()+result.getLineHeight()+handle;
-        android.util.TypedValue barRatio=new android.util.TypedValue();activity.getResources().getValue(R.dimen.layout_tool_bar_ratio,barRatio,true);
-        int normalBar=activity.getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_PORTRAIT
-                ?Math.round(h*barRatio.getFloat()):barHeight;
-        int normalDisplay=h-Math.round(h*ratio.getFloat())-normalBar;
-        if(normalDisplay>=required){restore();return;}
+        // Date entry and results are the entire interaction surface. Numeric keys have
+        // no date actions, regardless of whether a calculator pad would fit this window.
+        // Keep the same dedicated surface at full, half and quarter task heights.
         if(w<=0||h<=barHeight)return;
         if(!compact) {
             android.util.Log.i("RemainingWindow","DATE_MOUNT geometry="+geometry);

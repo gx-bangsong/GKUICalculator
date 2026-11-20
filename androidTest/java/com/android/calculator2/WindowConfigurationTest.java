@@ -876,6 +876,8 @@ public class WindowConfigurationTest {
             assertTrue("formula keeps FrameLayout parent contract",formula.getLayoutParams() instanceof android.widget.FrameLayout.LayoutParams);
             assertEquals("formula remains in horizontal scroller",a.findViewById(R.id.formula_scroll_view),formula.getParent());
             assertFalse("date calculated result is nonempty",((TextView)a.findViewById(R.id.result)).getText().toString().isEmpty());
+            assertFalse("date never exposes an inert numeric keyboard",a.findViewById(R.id.pad_stack).isShown());
+            assertNotNull("same dedicated date viewport at every window height",a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport"));
         });
     }
     private void remainingSideStructure(String stage,String mode) {
