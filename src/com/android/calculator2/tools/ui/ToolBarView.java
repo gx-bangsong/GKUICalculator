@@ -80,6 +80,14 @@ public class ToolBarView extends LinearLayout {
         mSegmentBasic = findViewById(R.id.mode_segment_basic);
         mSegmentScientific = findViewById(R.id.mode_segment_scientific);
         mSegmentConvert = findViewById(R.id.mode_segment_convert);
+        // Framework tooltips consume a long press without invoking the click listener and
+        // position the popup within the current window's visible display frame. Keep the
+        // existing accessibility descriptions and click/scroll handling untouched.
+        mSegmentBasic.setTooltipText(getContext().getText(R.string.desc_mode_basic));
+        mSegmentScientific.setTooltipText(getContext().getText(R.string.desc_mode_scientific));
+        // This single icon intentionally represents BOTH converters, not a separate mode.
+        mSegmentConvert.setTooltipText(getContext().getText(R.string.tool_unit) + " / "
+                + getContext().getText(R.string.tool_currency));
     }
 
     public void setListener(@Nullable Listener listener) {
@@ -118,6 +126,7 @@ public class ToolBarView extends LinearLayout {
             final ImageView segment = (ImageView) LayoutInflater.from(context)
                     .inflate(R.layout.tool_segment, mModeSegments, false);
             segment.setContentDescription(context.getString(mode.getNameRes()));
+            segment.setTooltipText(context.getText(mode.getNameRes()));
             if (iconRes != 0) {
                 segment.setImageResource(iconRes);
             }
