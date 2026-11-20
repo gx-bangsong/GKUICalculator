@@ -2,7 +2,7 @@
 # Only the fraction window diagnostic. Collect while the emulator is still alive.
 set -uo pipefail
 mkdir -p build/fraction-evidence
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class="${FRACTION_TESTS:-com.android.calculator2.WindowConfigurationTest#fractionConstrainedHeightMeasurements}" --stacktrace --console=plain
+./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class="${FRACTION_TESTS:-com.android.calculator2.WindowConfigurationTest#fractionConstrainedHeightMeasurements,com.android.calculator2.ExactFractionUiTest}" --stacktrace --console=plain
 result=$?
 python3 - <<'PY'
 from pathlib import Path

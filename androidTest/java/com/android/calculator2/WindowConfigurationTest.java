@@ -1686,9 +1686,75 @@ public class WindowConfigurationTest {
             awaitFractionWindow();
             device.executeShellCommand("wm size 1080x650");
             remainingAwaitLayout("fraction display650 NOT SPLIT");
-            awaitFractionWindow();fractionMeasurement("before-display650-NOT-SPLIT");
-            evidence("fraction-before-display650-NOT-SPLIT");
+            awaitFractionWindow();
+            fractionFingerReveal(R.id.fraction_result);
+            assertFullFractionLine("after-display650-basic-NOT-SPLIT");
+            evidence("fraction-after-display650-basic-NOT-SPLIT");
+            final Rect padBefore=new Rect();scenario.onActivity(a -> visibleOnScreen(a.findViewById(R.id.pad_stack),padBefore));
+            fractionFingerReveal(R.id.toolbar);
+            androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(
+                    InstrumentationRegistry.getInstrumentation().getTargetContext());
+            onView(withText(R.string.menu_show_fraction)).perform(click());
+            scenario.onActivity(a -> {
+                assertEquals(View.GONE,a.findViewById(R.id.fraction_viewport).getVisibility());
+                assertSame(a.findViewById(R.id.display),a.findViewById(R.id.tool_display_content).getParent());
+                assertSame(a.findViewById(R.id.display),a.findViewById(R.id.toolbar).getParent());
+                assertNull(a.findViewById(R.id.display).findViewWithTag("fraction_display_scroll"));
+                Rect padAfter=new Rect();visibleOnScreen(a.findViewById(R.id.pad_stack),padAfter);
+                assertEquals("fraction toggle must not move keypad",padBefore,padAfter);
+            });
+            androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(
+                    InstrumentationRegistry.getInstrumentation().getTargetContext());
+            onView(withText(R.string.menu_show_fraction)).perform(click());
+            awaitFractionWindow();fractionFingerReveal(R.id.fraction_result);
+            assertFullFractionLine("after-reenable-display650-NOT-SPLIT");
+            device.executeShellCommand("wm size reset");remainingAwaitLayout("fraction restored full");
+            awaitFractionWindow();assertFullFractionLine("after-restored-full-basic");
+            scenario.onActivity(a -> assertNull("full space restores original hierarchy",
+                    a.findViewById(R.id.display).findViewWithTag("fraction_display_scroll")));
+            key(R.id.mode_segment_scientific);awaitFractionWindow();
+            device.executeShellCommand("wm size 1080x650");remainingAwaitLayout("fraction science650 NOT SPLIT");
+            awaitFractionWindow();fractionFingerReveal(R.id.fraction_result);
+            assertFullFractionLine("after-display650-scientific-NOT-SPLIT");
+            evidence("fraction-after-display650-scientific-NOT-SPLIT");
         } finally {device.executeShellCommand("wm size reset");}
+    }
+    private Rect fractionLineRaw(TextView text) {
+        android.text.Layout layout=text.getLayout();int[] xy=new int[2];text.getLocationOnScreen(xy);
+        int top=xy[1]+text.getBaseline()-layout.getLineBaseline(0)-text.getScrollY();
+        return new Rect(xy[0]+text.getCompoundPaddingLeft()+(int)Math.floor(layout.getLineLeft(0)),
+                top+layout.getLineTop(0),xy[0]+text.getCompoundPaddingLeft()+(int)Math.ceil(layout.getLineRight(0)),top+layout.getLineBottom(0));
+    }
+    private void assertFullFractionLine(String stage) {
+        fractionMeasurement(stage);
+        scenario.onActivity(a -> {
+            TextView t=a.findViewById(R.id.fraction_result);Rect visible=new Rect();visibleOnScreen(t,visible);
+            assertEquals("unchanged preview font size",a.getResources().getDimension(R.dimen.result_textsize),t.getTextSize(),.01f);
+            assertTrue("complete line, not just a nonzero viewport: "+visible+" line="+fractionLineRaw(t),visible.contains(fractionLineRaw(t)));
+        });
+    }
+    /** Reveal through real touch only, including a stationary tail to avoid flinging past a line. */
+    private void fractionFingerReveal(int id) {
+        for(int attempt=0;attempt<10;attempt++) {
+            boolean[] full={false},above={false};Rect viewport=new Rect();
+            scenario.onActivity(a -> {
+                View target=a.findViewById(id);Rect visible=new Rect();visibleOnScreen(target,visible);
+                Rect required;
+                if(target instanceof TextView&&id==R.id.fraction_result)required=fractionLineRaw((TextView)target);
+                else {int[] p=new int[2];target.getLocationOnScreen(p);required=new Rect(p[0],p[1],p[0]+target.getWidth(),p[1]+target.getHeight());}
+                full[0]=visible.contains(required);
+                View scroll=a.findViewById(R.id.display).findViewWithTag("fraction_display_scroll");
+                if(scroll!=null)visibleOnScreen(scroll,viewport);
+                above[0]=required.top<viewport.top;
+            });
+            if(full[0])return;
+            assertFalse("a clipped line needs a real scroll surface",viewport.isEmpty());
+            int inset=Math.max(2,viewport.height()/12);
+            pointerDrag(viewport.right-6,above[0]?viewport.top+inset:viewport.bottom-inset,
+                    above[0]?viewport.bottom-inset:viewport.top+inset);
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        }
+        fail("ordinary finger drags cannot reveal full target "+id);
     }
     /** API30 exposes the divider handle's local rect offset incorrectly in UIAutomator.
      * Intersect the real system divider WINDOW with the independently measured task gap.

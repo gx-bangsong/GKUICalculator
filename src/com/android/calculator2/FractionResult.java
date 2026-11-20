@@ -16,11 +16,13 @@ import java.util.function.BooleanSupplier;
 final class FractionResult {
     private final View viewport;
     private final TextView text;
+    private final FractionDisplayScroll compact;
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private Future<?> pending;
     private int generation;
     private String complete;
     FractionResult(Calculator activity,TextView preview) {
+        compact=new FractionDisplayScroll(activity);
         viewport=activity.findViewById(R.id.fraction_viewport);text=activity.findViewById(R.id.fraction_result);
         // Copy the unanimated preview typography once, not RESULT scale/translation/color.
         text.setTypeface(preview.getTypeface());text.setTextSize(TypedValue.COMPLEX_UNIT_PX,preview.getTextSize());
@@ -36,7 +38,7 @@ final class FractionResult {
     }
     void clear() {
         generation++;if(pending!=null)pending.cancel(true);pending=null;complete=null;
-        text.setText("");viewport.setVisibility(View.GONE);
+        text.setText("");viewport.setVisibility(View.GONE);compact.setEnabled(false);
     }
     void show(UnifiedReal value,BooleanSupplier stillCurrent) {
         clear();final int request=generation;
@@ -50,9 +52,9 @@ final class FractionResult {
                 complete=exact;
                 if(exact==null&&!limited)return;
                 text.setText(limited?text.getContext().getString(R.string.fraction_too_long):exact);
-                viewport.scrollTo(0,0);viewport.setVisibility(View.VISIBLE);
+                viewport.scrollTo(0,0);viewport.setVisibility(View.VISIBLE);compact.setEnabled(true);
             });
         });
     }
-    void close(){clear();worker.shutdownNow();}
+    void close(){clear();compact.close();worker.shutdownNow();}
 }
