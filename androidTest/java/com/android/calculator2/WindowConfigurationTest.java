@@ -640,8 +640,11 @@ public class WindowConfigurationTest {
         assertTrue("segment reachable by horizontal finger scroll "+stage+" "+index+" "+target+" "+viewport,fullyVisible[0]);
         Map<String,String> model=modelSnapshot();Map<Integer,String> outputs=displaySnapshot();
         int[] selected=selection(R.id.formula);
-        int hold=(android.view.ViewConfiguration.getLongPressTimeout()+300)/5;
-        assertTrue(device.swipe(target.centerX(),target.centerY(),target.centerX(),target.centerY(),hold));
+        android.app.Instrumentation instrumentation=InstrumentationRegistry.getInstrumentation();
+        long down=SystemClock.uptimeMillis();
+        injectPointer(instrumentation,down,android.view.MotionEvent.ACTION_DOWN,target.centerX(),target.centerY());
+        SystemClock.sleep(android.view.ViewConfiguration.getLongPressTimeout()+300);
+        injectPointer(instrumentation,down,android.view.MotionEvent.ACTION_UP,target.centerX(),target.centerY());
         // Framework tooltip windows are not consistently exported as accessibility roots.
         // Observe the real attached popup window directly, not just the anchor's tooltipText.
         TextView[] found={null};long deadline=SystemClock.uptimeMillis()+1000;
@@ -654,7 +657,15 @@ public class WindowConfigurationTest {
             });
             if(found[0]!=null)break;SystemClock.sleep(30);
         } while(SystemClock.uptimeMillis()<deadline);
-        if(found[0]==null)evidence("tooltip-missing-"+stage+"-"+index);
+        if(found[0]==null) {
+            Log.e("WindowEvidence","TOOLTIP_MISSING "+stage+" index="+index+" name="+name[0]+" anchorRaw="+target
+                    +" modelBefore="+model+" modelAfter="+modelSnapshot());
+            scenario.onActivity(a -> {
+                for(View root:android.view.inspector.WindowInspector.getGlobalWindowViews())
+                    Log.e("WindowEvidence","TOOLTIP_ROOT "+root+" attached="+root.isAttachedToWindow()+" shown="+root.isShown());
+            });
+            evidence("tooltip-missing-"+stage+"-"+index);
+        }
         assertNotNull("attached visible standard tooltip "+stage+" "+index+" "+name[0],found[0]);
         scenario.onActivity(a -> {
             TextView message=found[0];
@@ -728,7 +739,9 @@ public class WindowConfigurationTest {
             float share=pair.app.height()/(float)(pair.app.height()+pair.other.height());
             // Android may snap to its 1/3 minimum. The requested acceptance is a SMALL
             // upper/lower task, not a claim that the system honored an exact 25% split.
-            assertTrue("actual small task share="+share+" "+pair,share<=.35f);
+            int[] heightDp={0};scenario.onActivity(a -> heightDp[0]=a.getResources().getConfiguration().screenHeightDp);
+            assertTrue("actual small task share="+share+" contentDp="+heightDp[0]+" "+pair,
+                    pair.app.height()<pair.other.height()&&heightDp[0]<=300);
             assertEquals("actual requested position",bottom,pair.app.top>pair.other.top);
             toolbarTooltips(bottom?"lower-small":"upper-small");
         } finally {
