@@ -1665,7 +1665,7 @@ public class WindowConfigurationTest {
             key(R.id.digit_1);key(R.id.op_div);key(R.id.digit_3);key(R.id.eq);
             androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(
                     InstrumentationRegistry.getInstrumentation().getTargetContext());
-            onView(withText(R.string.menu_show_fraction)).perform(click());
+            fractionMenuRow();
             awaitFractionWindow();
             fractionMeasurement("before-upper25-basic");
             evidence("fraction-before-upper-measured-basic");
@@ -1682,7 +1682,7 @@ public class WindowConfigurationTest {
             key(R.id.digit_1);key(R.id.op_div);key(R.id.digit_3);key(R.id.eq);
             androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(
                     InstrumentationRegistry.getInstrumentation().getTargetContext());
-            onView(withText(R.string.menu_show_fraction)).perform(click());
+            fractionMenuRow();
             awaitFractionWindow();
             device.executeShellCommand("wm size 1080x650");
             remainingAwaitLayout("fraction display650 NOT SPLIT");
@@ -1694,7 +1694,7 @@ public class WindowConfigurationTest {
             fractionFingerReveal(R.id.toolbar);
             androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(
                     InstrumentationRegistry.getInstrumentation().getTargetContext());
-            onView(withText(R.string.menu_show_fraction)).perform(click());
+            fractionMenuRow();
             scenario.onActivity(a -> {
                 assertEquals(View.GONE,a.findViewById(R.id.fraction_viewport).getVisibility());
                 assertSame(a.findViewById(R.id.display),a.findViewById(R.id.tool_display_content).getParent());
@@ -1705,7 +1705,7 @@ public class WindowConfigurationTest {
             });
             androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(
                     InstrumentationRegistry.getInstrumentation().getTargetContext());
-            onView(withText(R.string.menu_show_fraction)).perform(click());
+            fractionMenuRow();
             awaitFractionWindow();fractionFingerReveal(R.id.fraction_result);
             assertFullFractionLine("after-reenable-display650-NOT-SPLIT");
             device.executeShellCommand("wm size reset");remainingAwaitLayout("fraction restored full");
@@ -1734,6 +1734,17 @@ public class WindowConfigurationTest {
             if(result==null)result=r;else if(!result.intersect(r))return new Rect();
         }
         return result==null?new Rect():result;
+    }
+    private void fractionMenuRow() {
+        // Tiny windows show only the first few overflow rows. Use the real adapter's
+        // ordinary scroll-to-item support, rather than assuming this row is already bound.
+        androidx.test.espresso.Espresso.onData(new org.hamcrest.TypeSafeMatcher<Object>() {
+            @Override protected boolean matchesSafely(Object item) {
+                return item instanceof android.view.MenuItem
+                        &&((android.view.MenuItem)item).getItemId()==R.id.menu_show_fraction;
+            }
+            @Override public void describeTo(org.hamcrest.Description d){d.appendText("show-fraction overflow row");}
+        }).perform(click());
     }
     private Rect fractionLineRaw(TextView text) {
         android.text.Layout layout=text.getLayout();int[] xy=new int[2];text.getLocationOnScreen(xy);
