@@ -22,6 +22,7 @@ final class DateWindowLayout {
     private final TextView formula,result;
     private final ViewGroup.LayoutParams contentParams,sharedParams,formulaParams,textParams,resultParams;
     private final int formulaMinimum,resultLines,formulaIndex,resultIndex,sharedVisibility;
+    private final int requiredNormalDisplay;
     private ScrollView viewport;
     private ConstraintSet original;
     private boolean enabled,compact;
@@ -38,6 +39,20 @@ final class DateWindowLayout {
         textParams=formula.getLayoutParams();resultParams=result.getLayoutParams();
         formulaMinimum=formulaContainer.getMinimumHeight();resultLines=result.getMaxLines();
         formulaIndex=shared.indexOfChild(formulaContainer);resultIndex=shared.indexOfChild(result);sharedVisibility=shared.getVisibility();
+        // Measure the original equal-weight rows, not their current auto-sized/wrapped
+        // presentation. These inputs never change when mounting the compact viewport.
+        android.graphics.Paint formulaPaint=new android.graphics.Paint(formula.getPaint());
+        formulaPaint.setTextSize(a.getResources().getDimension(R.dimen.tool_formula_max_textsize));
+        android.graphics.Paint resultPaint=new android.graphics.Paint(result.getPaint());
+        resultPaint.setTextSize(a.getResources().getDimension(R.dimen.tool_result_textsize));
+        int formulaRow=(int)Math.ceil(formulaPaint.getFontSpacing())+formula.getCompoundPaddingTop()+formula.getCompoundPaddingBottom();
+        int resultRow=(int)Math.ceil(resultPaint.getFontSpacing())+result.getCompoundPaddingTop()+result.getCompoundPaddingBottom();
+        int sharedRows=Math.max(formulaRow,resultRow)*(shared instanceof LinearLayout?2:1);
+        View handle=a.findViewById(R.id.drag_handle_view);
+        ViewGroup.MarginLayoutParams hp=(ViewGroup.MarginLayoutParams)handle.getLayoutParams();
+        requiredNormalDisplay=toolbar.getLayoutParams().height+sharedRows+hp.height+hp.topMargin+hp.bottomMargin
+                +(int)Math.ceil(48*a.getResources().getDisplayMetrics().density)
+                +2*a.getResources().getDimensionPixelSize(R.dimen.tool_bar_vertical_padding);
         motion.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->schedule());
         content.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->schedule());
     }
@@ -62,9 +77,16 @@ final class DateWindowLayout {
         if(geometry.equals(fittedGeometry))return;
         fittedGeometry=geometry;
         int barHeight=activity.getResources().getDimensionPixelSize(R.dimen.mode_segment_height)+bar.getPaddingTop()+bar.getPaddingBottom();
-        // Date entry and results are the entire interaction surface. Numeric keys have
-        // no date actions, regardless of whether a calculator pad would fit this window.
-        // Keep the same dedicated surface at full, half and quarter task heights.
+        android.util.TypedValue padsRatio=new android.util.TypedValue(),barRatio=new android.util.TypedValue();
+        activity.getResources().getValue(R.dimen.layout_pads_ratio,padsRatio,true);
+        activity.getResources().getValue(R.dimen.layout_tool_bar_ratio,barRatio,true);
+        int normalBar=activity.getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_PORTRAIT
+                ?Math.round(h*barRatio.getFloat()):barHeight;
+        int normalDisplay=h-Math.round(h*padsRatio.getFloat())-normalBar;
+        boolean shortage=normalDisplay<requiredNormalDisplay;
+        android.util.Log.i("RemainingWindow","DATE_POLICY availablePx="+w+"x"+h+" normalDisplayPx="+normalDisplay
+                +" requiredDisplayPx="+requiredNormalDisplay+" branch="+(shortage?"DATE_VIEWPORT":"ORIGINAL_WITH_KEYPAD"));
+        if(!shortage){restore();return;}
         if(w<=0||h<=barHeight)return;
         if(!compact) {
             android.util.Log.i("RemainingWindow","DATE_MOUNT geometry="+geometry);

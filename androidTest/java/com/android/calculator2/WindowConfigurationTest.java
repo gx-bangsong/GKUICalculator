@@ -876,8 +876,8 @@ public class WindowConfigurationTest {
             assertTrue("formula keeps FrameLayout parent contract",formula.getLayoutParams() instanceof android.widget.FrameLayout.LayoutParams);
             assertEquals("formula remains in horizontal scroller",a.findViewById(R.id.formula_scroll_view),formula.getParent());
             assertFalse("date calculated result is nonempty",((TextView)a.findViewById(R.id.result)).getText().toString().isEmpty());
-            assertFalse("date never exposes an inert numeric keyboard",a.findViewById(R.id.pad_stack).isShown());
-            assertNotNull("same dedicated date viewport at every window height",a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport"));
+            boolean dedicated=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport")!=null;
+            assertEquals("date keypad visibility follows its surface",!dedicated,a.findViewById(R.id.pad_stack).isShown());
         });
     }
     private void remainingSideStructure(String stage,String mode) {
@@ -1054,6 +1054,18 @@ public class WindowConfigurationTest {
         }
     }
 
+    private void assertDateSurface(boolean compact) {
+        scenario.onActivity(a -> {
+            View viewport=a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport");
+            assertEquals("requested date surface",compact,viewport!=null);
+            assertEquals("original keyboard restored only in roomy date layout",!compact,a.findViewById(R.id.pad_stack).isShown());
+            if(!compact) {
+                assertEquals(a.findViewById(R.id.shared_display_rows),a.findViewById(R.id.formula_scroll_view).getParent());
+                assertEquals(a.findViewById(R.id.pad_stack),a.findViewById(R.id.input_pad).getParent());
+                assertTrue(a.findViewById(R.id.input_pad).getHeight()>0);
+            }
+        });
+    }
     @Test public void dateApi30RealDisplayResizeLifecycle() throws Exception {
         assertEquals(30,Build.VERSION.SDK_INT);
         String sizes=device.executeShellCommand("wm size");
@@ -1061,20 +1073,38 @@ public class WindowConfigurationTest {
         String restore=override.find()?override.group(1):"reset";
         try {
             remainingModeTap(0,R.string.tool_date);remainingDatePickers();
-            evidence("date-api30-display-full");
+            assertDateSurface(false);evidence("date-api30-display-full");
+            device.executeShellCommand("wm size 720x800");SystemClock.sleep(1300);
+            remainingAwaitLayout("date-api30-display-half");remainingDatePickers();
+            assertDateSurface(true);evidence("date-api30-display-half-not-split");
             // Real display resize, not a fabricated split pair. This separately exercises the
             // parent-parameter crash path when API30's launcher cannot establish a split pair.
             device.executeShellCommand("wm size 720x489");SystemClock.sleep(1300);
             remainingAwaitLayout("date-api30-display-short");remainingDatePickers();
-            scenario.onActivity(a -> assertNotNull("exercise date compact mount",a.findViewById(R.id.main_calculator).findViewWithTag("field_tool_viewport")));
+            assertDateSurface(true);
             evidence("date-api30-display-short-not-split");
             device.executeShellCommand("wm size "+restore);SystemClock.sleep(1300);
-            remainingAwaitLayout("date-api30-display-restored");remainingDatePickers();
+            remainingAwaitLayout("date-api30-display-restored");remainingDatePickers();assertDateSurface(false);
+            evidence("date-api30-display-restored-before-mode-switch");
             remainingModeTap(R.id.mode_segment_basic,0);remainingFingerKey(R.id.digit_7);
-            remainingModeTap(0,R.string.tool_date);remainingDatePickers();
+            remainingModeTap(R.id.mode_segment_scientific,0);keypadStableFrames("date-policy-science",true);
+            remainingFingerKey(R.id.toggle_inv);remainingFingerKey(R.id.digit_8);
+            remainingModeTap(0,R.string.tool_date);remainingDatePickers();assertDateSurface(false);
+            imeVisibleFrames.clear();
+            scenario.onActivity(a -> {imeObservedDecor=a.getWindow().getDecorView();observeIme=true;imeObservedDecor.postOnAnimation(imeFrameObserver);});
+            imeReturnThroughOverview();
+            scenario.onActivity(a -> {
+                observeIme=false;imeObservedDecor.removeCallbacks(imeFrameObserver);
+                assertFalse("date return does not show system IME",a.getWindow().getDecorView().getRootWindowInsets().isVisible(android.view.WindowInsets.Type.ime()));
+                assertTrue("no IME flash on actual recents return",imeVisibleFrames.isEmpty());
+            });
+            assertDateSurface(false);
             evidence("date-api30-display-restored");
             Log.i("RemainingWindow","API30_DATE_RESIZE_LIFECYCLE_PASS actual display resize; NOT split-screen acceptance");
-        } finally {device.executeShellCommand("wm size "+restore);SystemClock.sleep(1000);}
+        } finally {
+            scenario.onActivity(a -> {observeIme=false;if(imeObservedDecor!=null)imeObservedDecor.removeCallbacks(imeFrameObserver);});
+            device.executeShellCommand("wm size "+restore);SystemClock.sleep(1000);
+        }
     }
 
     private final java.util.List<String> imeVisibleFrames=new java.util.ArrayList<>();
