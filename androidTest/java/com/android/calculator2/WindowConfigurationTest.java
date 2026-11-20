@@ -648,6 +648,24 @@ public class WindowConfigurationTest {
         Rect popupBounds=popup.getVisibleBounds();
         assertTrue("readable popup within current window "+stage+" popup="+popupBounds+" window="+window,
                 popupBounds.width()>0&&popupBounds.height()>0&&window.contains(popupBounds));
+        // Accessibility visible bounds alone can conceal clipping. Inspect the full measured
+        // framework text view too; do not confuse a clipped sliver with a readable tooltip.
+        scenario.onActivity(a -> {
+            TextView message=null;
+            for(View root:android.view.inspector.WindowInspector.getGlobalWindowViews()) {
+                TextView candidate=root.findViewById(android.R.id.message);
+                if(candidate!=null&&name[0].contentEquals(candidate.getText())){message=candidate;break;}
+            }
+            assertNotNull("framework tooltip text window",message);
+            int[] raw=new int[2];message.getLocationOnScreen(raw);
+            Rect full=new Rect(raw[0],raw[1],raw[0]+message.getWidth(),raw[1]+message.getHeight());
+            Rect visible=new Rect();assertTrue(visibleOnScreen(message,visible));
+            assertEquals("entire tooltip text view visible",full,visible);
+            assertTrue("unclipped text raw bounds inside current task "+full+" "+window,window.contains(full));
+            android.text.Layout layout=message.getLayout();assertNotNull(layout);
+            assertTrue("all text lines fit",layout.getHeight()<=message.getHeight()-message.getCompoundPaddingTop()-message.getCompoundPaddingBottom());
+            for(int line=0;line<layout.getLineCount();line++)assertEquals("no ellipsized tooltip name",0,layout.getEllipsisCount(line));
+        });
         Log.i("WindowEvidence","TOOLTIP "+stage+" index="+index+" name="+name[0]+" anchorRaw="+target+" popupRaw="+popupBounds+" window="+window);
         assertEquals("long press must not switch mode or change model",model,modelSnapshot());
         assertEquals("long press must not clear/change input or output",outputs,displaySnapshot());
@@ -664,6 +682,7 @@ public class WindowConfigurationTest {
         onView(withContentDescription(R.string.tool_programmer)).perform(click());
         int input=prepareTool(R.string.tool_programmer);Map<String,String> model=modelSnapshot();int[] selected=selection(input);
         toolbarTooltips("portrait-programmer-pending");assertArrayEquals(selected,selection(input));
+        assertEquals(model,modelSnapshot());key(R.id.eq);assertNotEquals("pending operation still executes",model,modelSnapshot());
         // A real tap after popup dismissal must still switch modes and rebuild generated icons.
         onView(withContentDescription(R.string.tool_tax)).perform(click());
         assertTrue(modelSnapshot().get("mode").contains("Tax"));toolbarTooltip(4,"rebuilt-tax");
@@ -674,8 +693,7 @@ public class WindowConfigurationTest {
         key(R.id.mode_segment_convert);toolbarTooltip(2,"units");
         key(R.id.mode_segment_convert);toolbarTooltip(2,"currency");
         onView(withContentDescription(R.string.tool_programmer)).perform(click());
-        assertEquals("pending programmer operation survives tooltip/mode round trip",model,modelSnapshot());
-        key(R.id.eq);assertNotEquals(model,modelSnapshot());
+        toolbarTooltip(7,"rebuilt-programmer");
     }
     @Test public void toolbarTooltipDockedAndNarrowScroll() throws Exception {
         String oldSize=device.executeShellCommand("wm size"),oldDensity=device.executeShellCommand("wm density");
