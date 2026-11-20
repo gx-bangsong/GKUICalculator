@@ -316,6 +316,7 @@ public class Calculator extends AppCompatActivity
 
     // Whether the display is one line.
     private boolean mIsOneLine;
+    private FractionResult mFractionResult;
 
     /**
      * Map the old saved state to a new state reflecting requested result reevaluation.
@@ -406,6 +407,10 @@ public class Calculator extends AppCompatActivity
         mDeleteButton = findViewById(R.id.del);
         mResultText = findViewById(R.id.result);
         mResultTextSizeOriginalPx = mResultText.getTextSize();
+        mFractionResult=new FractionResult(this,mResultText);
+        mResultText.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> {
+            if(mCurrentState==CalculatorState.RESULT&&!toolOwnsDisplay())positionCompletedResult();
+        });
         mFormulaPadTop = mFormulaText.getPaddingTop();
         mFormulaPadBottom = mFormulaText.getPaddingBottom();
         mResultPadTop = mResultText.getPaddingTop();
@@ -533,6 +538,7 @@ public class Calculator extends AppCompatActivity
 
     @Override
     protected void onDestroy() {
+        if(mFractionResult!=null)mFractionResult.close();
         // Release only this Activity's controls/callbacks; state was copied by onSaveInstanceState.
         if(mToolManager!=null&&mToolManager.isActive())
             mToolManager.getActive().onDeactivate(this);
@@ -579,6 +585,7 @@ public class Calculator extends AppCompatActivity
     // This restores display positions on moving to INPUT.
     // But movement/animation for moving to RESULT has already been done.
     private void setState(CalculatorState state) {
+        if(state!=CalculatorState.RESULT&&mFractionResult!=null)mFractionResult.clear();
         if (mCurrentState != state) {
             if (state == CalculatorState.INPUT) {
                 // We'll explicitly request evaluation from now on.
@@ -1135,7 +1142,7 @@ public class Calculator extends AppCompatActivity
             if (haveUnprocessed()) {
                 setState(CalculatorState.EVALUATE);
                 onError(Evaluator.MAIN_INDEX, R.string.error_syntax);
-            } else if (mEvaluator.getExpr(Evaluator.MAIN_INDEX).hasInterestingOps()) {
+            } else if (!mEvaluator.getExpr(Evaluator.MAIN_INDEX).isEmpty()) {
                 setState(CalculatorState.EVALUATE);
                 mEvaluator.requireResult(Evaluator.MAIN_INDEX, this, mResultText);
             }
@@ -1213,6 +1220,24 @@ public class Calculator extends AppCompatActivity
     // so that we can continue to properly support scrolling of the result.
     // We assume the result already contains the text to be expanded.
     private void onResult(boolean resultWasPreserved) {
+        if (resultWasPreserved) {
+            // Result was previously addded to history.
+            mEvaluator.represerve();
+        } else {
+            // Add current result to history.
+            mEvaluator.preserve(Evaluator.MAIN_INDEX, true);
+        }
+
+        positionCompletedResult();
+        setState(CalculatorState.RESULT);
+        final UnifiedReal exactResult=mEvaluator.getResult(Evaluator.MAIN_INDEX);
+        mFractionResult.show(exactResult,() -> mCurrentState==CalculatorState.RESULT&&!toolOwnsDisplay()
+                &&mEvaluator.getResult(Evaluator.MAIN_INDEX)==exactResult&&!isFinishing()&&!isDestroyed());
+        refreshHistory();
+    }
+
+    /** Reapply only geometry after the auxiliary row changes shared display height. */
+    private void positionCompletedResult() {
         // Calculate the textSize that would be used to display the result in the formula.
         // For scrollable results just use the minimum textSize to maximize the number of digits
         // that are visible on screen.
@@ -1244,21 +1269,11 @@ public class Calculator extends AppCompatActivity
         // Change the result's textColor to match the formula.
         final int formulaTextColor = mFormulaText.getCurrentTextColor();
 
-        if (resultWasPreserved) {
-            // Result was previously addded to history.
-            mEvaluator.represerve();
-        } else {
-            // Add current result to history.
-            mEvaluator.preserve(Evaluator.MAIN_INDEX, true);
-        }
-
         mResultText.setScaleX(resultScale);
         mResultText.setScaleY(resultScale);
         mResultText.setTranslationY(resultTranslationY);
         mResultText.setTextColor(formulaTextColor);
         mFormulaContainer.setTranslationY(formulaTranslationY);
-        setState(CalculatorState.RESULT);
-        refreshHistory();
     }
 
     // Restore positions of the formula and result displays back to their original,
@@ -1779,6 +1794,7 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void prepareForToolDisplay() {
+        if(mFractionResult!=null)mFractionResult.clear();
         if(mConverterKeypadLayout!=null)mConverterKeypadLayout.setEnabled(false);
         if(mFieldToolViewport!=null)mFieldToolViewport.setEnabled(false);
         // CalculatorResult normally asks the evaluator to run again after every layout. Tool
@@ -1899,6 +1915,7 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void setExpandedDisplay(boolean expanded) {
+        if(mFractionResult!=null)mFractionResult.clear();
         if(mRemainingKeypadLayout!=null)mRemainingKeypadLayout.setEnabled(false,false);
         if(mDateWindowLayout!=null)mDateWindowLayout.setEnabled(false);
         // Input-heavy tools want more display room: hide the scientific pad. The layout grows
@@ -2290,6 +2307,7 @@ public class Calculator extends AppCompatActivity
      * {@link #setExpandedDisplay(boolean)}.
      */
     private void setScientificPadVisible(boolean visible, boolean persist) {
+        if(mFractionResult!=null)mFractionResult.clear();
         if(mRemainingKeypadLayout!=null)mRemainingKeypadLayout.setEnabled(false,false);
         mScientificVisible = visible;
         if (persist) {

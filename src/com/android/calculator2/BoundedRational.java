@@ -127,6 +127,16 @@ public class BoundedRational {
         return result;
     }
 
+    /** Exact auxiliary output, with a budget checked before gcd/decimal conversion. Worker only. */
+    String auxiliaryFraction(int maxBits,int maxCharacters) {
+        if(mDen.equals(BigInteger.ONE)||mNum.signum()==0)return null;
+        if((long)mNum.abs().bitLength()+mDen.abs().bitLength()>maxBits)throw new ExactFraction.TooLong();
+        String exact=toNiceString(); // existing gcd reduction and positive-denominator normalization
+        if(exact.indexOf('/')<0)return null;
+        if(exact.length()>maxCharacters)throw new ExactFraction.TooLong();
+        return exact;
+    }
+
     /**
      * Returns a truncated (rounded towards 0) representation of the result.
      * Includes n digits to the right of the decimal point.

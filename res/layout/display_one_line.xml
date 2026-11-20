@@ -66,6 +66,7 @@
             android:visibility="invisible" />
     </FrameLayout>
 
+    <include layout="@layout/fraction_result" />
     </LinearLayout>
 
     <include layout="@layout/drag_handle" />

@@ -614,4 +614,6 @@
     <string name="programmer_input_base">Input base: %1$s</string>
     <string name="programmer_output_base">Output base: %1$s</string>
     <string name="programmer_keypad_scroll">Programmer keypad. Scroll vertically to reach all keys.</string>
+    <string name="fraction_too_long">Exact fraction exceeds the display limit; not expanded</string>
+    <string name="fraction_copied">Exact fraction copied</string>
 </resources>

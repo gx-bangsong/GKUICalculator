@@ -70,6 +70,7 @@
                 android:textIsSelectable="true" />
     </LinearLayout>
 
+    <include layout="@layout/fraction_result" />
     </LinearLayout>
 
     <include layout="@layout/drag_handle" />
