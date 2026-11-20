@@ -32,6 +32,16 @@ public class HapticButton extends MaterialButton {
     /** A label may never exceed this fraction of the key's height (two-line labels stay inside). */
     private static final float KEY_LABEL_MAX_HEIGHT_RATIO = 0.42f;
 
+    // Only the remaining-mode compact viewport opts in. Other accepted keypads retain
+    // their existing width/height sizing behavior.
+    private float mCompactLabelSizePx = Float.NaN;
+
+    void setCompactLabelSizePx(float px) {
+        if(Float.compare(mCompactLabelSizePx,px)==0)return;
+        mCompactLabelSizePx=px;
+        if(!Float.isNaN(px)&&getIcon()==null)setTextSize(TypedValue.COMPLEX_UNIT_PX,px);
+    }
+
     private float mTextSizeScale = -1f;
     private float mMaxTextSizePx = -1f;
 
@@ -80,6 +90,10 @@ public class HapticButton extends MaterialButton {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         if (getIcon() == null) {
+            if(!Float.isNaN(mCompactLabelSizePx)) {
+                setTextSize(TypedValue.COMPLEX_UNIT_PX,mCompactLabelSizePx);
+                return;
+            }
             float scale = mTextSizeScale;
             if (scale <= 0f) {
                 scale = getResources().getDimension(R.dimen.dimen_key_label_scale);

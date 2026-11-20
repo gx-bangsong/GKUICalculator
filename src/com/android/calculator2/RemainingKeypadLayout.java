@@ -54,11 +54,10 @@ final class RemainingKeypadLayout {
     }
     private final Runnable fitTask=this::fit;
     private void schedule(){if(enabled){motion.removeCallbacks(fitTask);motion.post(fitTask);}}
-    private final View.OnLayoutChangeListener labelListener=(v,l,t,r,b,ol,ot,or,ob)->{if(compact)style((TextView)v);};
     private void style(TextView v) {
         boolean science=v.getParent()==advanced;
         float px=activity.getResources().getDimension(science?R.dimen.remaining_scientific_label_size:R.dimen.remaining_numeric_label_size);
-        if(Math.abs(px-v.getTextSize())>.1f)v.setTextSize(TypedValue.COMPLEX_UNIT_PX,px);
+        ((HapticButton)v).setCompactLabelSizePx(px);
     }
     private int columns(ViewGroup pad) {
         return compact?4:originalColumns(pad);
@@ -140,7 +139,7 @@ final class RemainingKeypadLayout {
         labels.clear();
         for(ViewGroup pad:new ViewGroup[]{input,advanced})for(int n=0;n<pad.getChildCount();n++) {
             View v=pad.getChildAt(n);if(!(v instanceof HapticButton))continue;
-            labels.add(new Label((TextView)v));v.addOnLayoutChangeListener(labelListener);
+            labels.add(new Label((TextView)v));style((TextView)v);
         }
         compact=true;
     }
@@ -216,7 +215,7 @@ final class RemainingKeypadLayout {
         inputHome.applyTo((ConstraintLayout)input);advancedHome.applyTo((ConstraintLayout)advanced);
         body.removeView(advanced);body.removeView(input);stack.removeView(viewport);
         stack.addView(advanced,0,advancedParams);stack.addView(input,1,inputParams);
-        for(Label label:labels){label.view.removeOnLayoutChangeListener(labelListener);label.view.setTextSize(TypedValue.COMPLEX_UNIT_PX,label.size);}
+        for(Label label:labels){((HapticButton)label.view).setCompactLabelSizePx(Float.NaN);label.view.setTextSize(TypedValue.COMPLEX_UNIT_PX,label.size);}
         labels.clear();viewport=null;body=null;motion.updateState(R.id.start_state,normal);
     }
 }
