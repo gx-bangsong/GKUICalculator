@@ -26,7 +26,8 @@ final class RemainingKeypadLayout {
     private ScrollView viewport;
     private LinearLayout body;
     private ViewGroup.LayoutParams inputParams,advancedParams;
-    private ConstraintSet normal,inputHome,advancedHome;
+    private ConstraintSet normal,inputHome,advancedHome,fullRowsHome;
+    private boolean fullRows;
     private String lastDecision="";
     // A fit decision must not be recomputed from the grid it just mutated.
     private final int inputMarginX,inputMarginY,advancedMarginX,advancedMarginY;
@@ -177,6 +178,25 @@ final class RemainingKeypadLayout {
         if(normalHeight>=neededHeight&&w>=neededWidth){restore();return;}
         int barHeight=activity.getResources().getDimensionPixelSize(R.dimen.mode_segment_height)
                 +activity.findViewById(R.id.tool_bar).getPaddingTop()+activity.findViewById(R.id.tool_bar).getPaddingBottom();
+        // A short percentage allocation is not necessarily a short window. On phones
+        // such as the recorded API30 device, the normal scientific rows fit the full task
+        // once granted more than layout_pads_ratio. Keep their parents/order/fonts intact.
+        if(!activity.isInMultiWindowMode()&&vertical&&w>=neededWidth
+                &&h>=neededHeight+barHeight+Math.ceil(160*d)) {
+            if(compact)restore();
+            if(!fullRows) {
+                fullRowsHome=new ConstraintSet();fullRowsHome.clone(motion.getConstraintSet(R.id.start_state));
+                fullRows=true;
+            }
+            ConstraintSet rows=new ConstraintSet();rows.clone(fullRowsHome);
+            rows.constrainHeight(R.id.pad_stack,neededHeight);
+            rows.constrainHeight(R.id.tool_bar,barHeight);
+            motion.updateState(R.id.start_state,rows);
+            Log.i("RemainingWindow","branch=FULL_WIDTH_ORIGINAL_ROWS availablePx="+w+"x"+h
+                    +" originalPadNeedPx="+neededWidth+"x"+neededHeight+" displayReserveDp=160 science="+scientific);
+            return;
+        }
+        if(fullRows)restore();
         int keyboardWidth=Math.max(compactWidth(input),scientific?compactWidth(advanced):0);
         boolean side=w>=keyboardWidth+Math.ceil(128*d);
         String decision="availablePx="+w+"x"+h+" availableDp="+(w/d)+"x"+(h/d)
@@ -209,6 +229,11 @@ final class RemainingKeypadLayout {
         motion.updateState(R.id.start_state,state);motion.post(this::sizeViewport);
     }
     private void restore() {
+        if(fullRows) {
+            fullRows=false;
+            motion.updateState(R.id.start_state,fullRowsHome);
+            fullRowsHome=null;
+        }
         if(!compact)return;
         Log.i("RemainingWindow","KEYPAD_RESTORE science="+scientific);
         compact=false;lastWidth=lastHeight=0;
