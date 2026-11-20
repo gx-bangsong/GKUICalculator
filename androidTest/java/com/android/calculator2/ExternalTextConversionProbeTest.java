@@ -54,7 +54,11 @@ public class ExternalTextConversionProbeTest {
         return result[0];
     }
     private void save() throws Exception {
-        try(FileWriter writer=new FileWriter(new File(context.getFilesDir(),"external-text-probe.json"))){writer.write(report.toString(2));}
+        String json=report.toString(2);
+        try(FileWriter writer=new FileWriter(new File(context.getFilesDir(),"external-text-probe.json"))){writer.write(json);}
+        // Keep observations outside app data, which the test runner may remove on teardown.
+        String encoded=android.util.Base64.encodeToString(json.getBytes(java.nio.charset.StandardCharsets.UTF_8),android.util.Base64.NO_WRAP);
+        device.executeShellCommand("printf %s '"+encoded+"' | base64 -d > /sdcard/external-text-probe.json");
     }
     private void classify() throws Exception {
         JSONArray rows=new JSONArray();report.put("classifications",rows);
@@ -105,6 +109,8 @@ public class ExternalTextConversionProbeTest {
         report.put("webviewProvider",String.valueOf(WebView.getCurrentWebViewPackage()));
         report.put("systemTextClassifier",device.executeShellCommand("dumpsys textclassification"));
         report.put("viaPackages",device.executeShellCommand("pm list packages -f mark.via"));
+        report.put("webSearchResolver",device.executeShellCommand("cmd package resolve-activity --brief -a android.intent.action.WEB_SEARCH"));
+        report.put("httpsResolver",device.executeShellCommand("cmd package resolve-activity --brief -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d https://example.invalid/"));
         try {classify();}catch(Exception e){report.put("classificationError",e.toString());}save();
         try(ActivityScenario<Calculator> scenario=ActivityScenario.launch(Calculator.class)) {
             try {
