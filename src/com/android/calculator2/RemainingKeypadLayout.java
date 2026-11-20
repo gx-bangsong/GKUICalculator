@@ -91,6 +91,13 @@ final class RemainingKeypadLayout {
         }
         compact=true;
     }
+    void refreshVisibleKeys() {
+        if(!compact)return;
+        // Inverse controls were GONE with zero measured bounds. Re-measure the retained pad
+        // subtree even when the outer MotionLayout/ScrollView dimensions have not changed.
+        advanced.forceLayout();input.forceLayout();body.forceLayout();viewport.forceLayout();
+        viewport.requestLayout();motion.requestLayout();schedule();
+    }
     private void sizeViewport() {
         if(viewport==null)return;
         ViewGroup.LayoutParams p=viewport.getLayoutParams();

@@ -15,7 +15,8 @@ import androidx.constraintlayout.widget.ConstraintSet;
 final class DateWindowLayout {
     private final Calculator activity;
     private final DisplayMotionLayout motion;
-    private final LinearLayout display,content,shared;
+    private final LinearLayout display,content;
+    private final ViewGroup shared;
     private final View toolbar,bar,pad,formulaContainer;
     private final TextView formula,result;
     private final ViewGroup.LayoutParams contentParams,sharedParams,formulaParams,textParams,resultParams;
@@ -66,8 +67,9 @@ final class DateWindowLayout {
             viewport=new ScrollView(activity);viewport.setTag("field_tool_viewport");
             viewport.setFillViewport(false);viewport.setVerticalScrollBarEnabled(true);viewport.setScrollbarFadingEnabled(false);
             display.removeView(content);content.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));
-            shared.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));
-            formulaContainer.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));
+            shared.removeView(formulaContainer);shared.removeView(result);shared.setVisibility(View.GONE);
+            content.addView(formulaContainer,new LinearLayout.LayoutParams(-1,-2));
+            content.addView(result,new LinearLayout.LayoutParams(-1,-2));
             ViewGroup.LayoutParams text=new ViewGroup.LayoutParams(textParams);text.height=-2;formula.setLayoutParams(text);
             ((CalculatorFormula)formula).setWrapToolOutput(true);((CalculatorScrollView)formulaContainer).setWrapChildToViewport(true);
             formulaContainer.setMinimumHeight(formula.getLineHeight()+formula.getPaddingTop()+formula.getPaddingBottom());
@@ -94,8 +96,10 @@ final class DateWindowLayout {
         if(!compact)return;
         compact=false;lastWidth=lastHeight=0;
         viewport.removeView(content);display.removeView(viewport);viewport=null;
+        content.removeView(formulaContainer);content.removeView(result);
+        shared.addView(formulaContainer,formulaParams);shared.addView(result,resultParams);shared.setVisibility(View.VISIBLE);
         display.addView(content,1,contentParams);shared.setLayoutParams(sharedParams);
-        formulaContainer.setLayoutParams(formulaParams);formula.setLayoutParams(textParams);result.setLayoutParams(resultParams);
+        formula.setLayoutParams(textParams);
         formulaContainer.setMinimumHeight(formulaMinimum);
         ((CalculatorFormula)formula).setWrapToolOutput(false);((CalculatorScrollView)formulaContainer).setWrapChildToViewport(false);
         result.setSingleLine(true);result.setMaxLines(resultLines);

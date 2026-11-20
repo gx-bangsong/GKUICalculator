@@ -773,7 +773,8 @@ public class WindowConfigurationTest {
             int to=viewport.centerY()+(target.top<viewport.top?distance/2:-distance/2);
             pointerDrag(x,from,to);
         }
-        throw new AssertionError("finger cannot reach whole target "+id+" "+target+" viewport="+viewport);
+        String[] name={""};scenario.onActivity(a -> name[0]=a.getResources().getResourceEntryName(id));
+        throw new AssertionError("finger cannot reach whole target "+name[0]+" "+id+" "+target+" viewport="+viewport);
     }
     private void remainingFingerKey(int id) throws Exception {
         Rect r=remainingFind(id);assertTrue(device.click(r.centerX(),r.centerY()));SystemClock.sleep(120);
@@ -829,15 +830,23 @@ public class WindowConfigurationTest {
         });
     }
     private void remainingModeTap(int id,int description) throws Exception {
-        Rect target=new Rect();
-        scenario.onActivity(a -> {
-            View v=id!=0?a.findViewById(id):null;
-            if(v==null) {
-                ViewGroup row=a.findViewById(R.id.mode_segments);
-                for(int n=0;n<row.getChildCount();n++)if(a.getString(description).contentEquals(row.getChildAt(n).getContentDescription()))v=row.getChildAt(n);
-            }
-            assertNotNull("mode entry exists",v);assertTrue("mode entry visible",visibleOnScreen(v,target));
-        });
+        Rect target=new Rect(),port=new Rect();boolean[] full={false};
+        for(int attempt=0;attempt<16;attempt++) {
+            scenario.onActivity(a -> {
+                View v=id!=0?a.findViewById(id):null;
+                if(v==null) {
+                    ViewGroup row=a.findViewById(R.id.mode_segments);
+                    for(int n=0;n<row.getChildCount();n++)if(a.getString(description).contentEquals(row.getChildAt(n).getContentDescription()))v=row.getChildAt(n);
+                }
+                assertNotNull("mode entry exists",v);int[] raw=new int[2];v.getLocationOnScreen(raw);
+                target.set(raw[0],raw[1],raw[0]+v.getWidth(),raw[1]+v.getHeight());
+                assertTrue(visibleOnScreen(a.findViewById(R.id.mode_segments_scroll),port));full[0]=port.contains(target);
+            });
+            if(full[0])break;
+            boolean right=target.right>port.right;
+            assertTrue(device.swipe(right?port.right-6:port.left+6,port.centerY(),right?port.left+6:port.right-6,port.centerY(),30));SystemClock.sleep(150);
+        }
+        assertTrue("mode reachable by horizontal finger scroll "+target+" "+port,full[0]);
         assertTrue(device.click(target.centerX(),target.centerY()));SystemClock.sleep(250);
     }
     private void remainingAwaitLayout(String stage) {

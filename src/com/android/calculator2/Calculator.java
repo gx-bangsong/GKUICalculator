@@ -823,6 +823,7 @@ public class Calculator extends AppCompatActivity
                 inverseButton.setVisibility(View.GONE);
             }
         }
+        if(mRemainingKeypadLayout!=null)mRemainingKeypadLayout.refreshVisibleKeys();
     }
 
     /**
