@@ -1669,8 +1669,19 @@ public class WindowConfigurationTest {
             awaitFractionWindow();
             fractionMeasurement("before-upper25-basic");
             evidence("fraction-before-upper-measured-basic");
-            assertTrue("real quarter, not wm size "+pair,Math.abs(share-.25f)<.04f);
+            if(Math.abs(share-.25f)>=.04f) {
+                // Explicit separate constraint diagnostic, NOT real-quarter acceptance.
+                device.executeShellCommand("am force-stop com.android.settings");
+                device.executeShellCommand("am task focus "+splitTask);
+                device.executeShellCommand("wm size 1080x650");
+                remainingAwaitLayout("fraction constraint diagnostic");
+                awaitFractionWindow();
+                fractionMeasurement("before-display650-NOT-SPLIT");
+                evidence("fraction-before-display650-NOT-SPLIT");
+            }
+            assertTrue("real quarter unavailable: "+pair,Math.abs(share-.25f)<.04f);
         } finally {
+            device.executeShellCommand("wm size reset");
             device.executeShellCommand("am force-stop com.android.settings");
             device.executeShellCommand("am task focus "+splitTask);
         }

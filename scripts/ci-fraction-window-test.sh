@@ -18,8 +18,12 @@ PY
 timeout 20s adb pull /sdcard/Android/data/com.android.calculator2.dev/files/fraction-evidence/ build/fraction-evidence/ || true
 for image in $(timeout 10s adb shell 'ls /sdcard/window-fraction-*.png /sdcard/window-split-entry-failed.png /sdcard/window-bmi-*.png' 2>/dev/null | tr -d '\r'); do timeout 15s adb pull "$image" build/fraction-evidence/ || true; done
 timeout 15s adb logcat -d -v brief FractionWindow:I SplitPhase:I WindowEvidence:I '*:S' > build/fraction-evidence/measurements.log || true
-while IFS= read -r line; do
-    line=${line//%/%25}
-    echo "::notice title=Fraction window measurement::$line"
-done < build/fraction-evidence/measurements.log
+python3 - <<'PYMEASURE'
+from pathlib import Path
+text=Path('build/fraction-evidence/measurements.log').read_text(errors='replace')
+# GitHub caps notices per step: one grouped message, not one notice per ancestor.
+lines=[line for line in text.splitlines() if 'FRACTION' in line]
+if not lines:lines=text.splitlines()[-20:]
+print('::notice title=Measured fraction geometry::'+'\n'.join(lines).replace('%','%25').replace('\n','%0A').replace('\r','%0D'))
+PYMEASURE
 exit "$result"
