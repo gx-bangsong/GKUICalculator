@@ -25,6 +25,7 @@ final class DateWindowLayout {
     private ScrollView viewport;
     private ConstraintSet original;
     private boolean enabled,compact;
+    private String fittedGeometry="";
     private int lastWidth,lastHeight,lastLeft,lastRight;
 
     DateWindowLayout(Calculator a) {
@@ -40,6 +41,8 @@ final class DateWindowLayout {
         content.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->schedule());
     }
     void setEnabled(boolean value) {
+        if(enabled==value)return;
+        fittedGeometry="";
         enabled=value;motion.removeCallbacks(fitTask);
         if(value)schedule();else restore();
     }
@@ -53,6 +56,10 @@ final class DateWindowLayout {
         Rect window=activity.getWindowManager().getCurrentWindowMetrics().getBounds();int[] origin=new int[2];motion.getLocationOnScreen(origin);
         int left=Math.max(0,window.left+insets.left-origin[0]),right=Math.max(0,origin[0]+motion.getWidth()-(window.right-insets.right));
         w-=left+right;
+        if(w<=0||h<=0)return;
+        String geometry=w+":"+h+":"+left+":"+right;
+        if(geometry.equals(fittedGeometry))return;
+        fittedGeometry=geometry;
         android.util.TypedValue ratio=new android.util.TypedValue();activity.getResources().getValue(R.dimen.layout_pads_ratio,ratio,true);
         float d=activity.getResources().getDisplayMetrics().density;
         int barHeight=activity.getResources().getDimensionPixelSize(R.dimen.mode_segment_height)+bar.getPaddingTop()+bar.getPaddingBottom();
@@ -65,6 +72,7 @@ final class DateWindowLayout {
         if(normalDisplay>=required){restore();return;}
         if(w<=0||h<=barHeight)return;
         if(!compact) {
+            android.util.Log.i("RemainingWindow","DATE_MOUNT geometry="+geometry);
             original=new ConstraintSet();original.clone(motion.getConstraintSet(R.id.start_state));
             viewport=new ScrollView(activity);viewport.setTag("field_tool_viewport");
             viewport.setFillViewport(false);viewport.setVerticalScrollBarEnabled(true);viewport.setScrollbarFadingEnabled(false);
@@ -98,6 +106,7 @@ final class DateWindowLayout {
     }
     private void restore() {
         if(!compact)return;
+        android.util.Log.i("RemainingWindow","DATE_RESTORE");
         compact=false;lastWidth=lastHeight=0;
         viewport.removeView(content);display.removeView(viewport);viewport=null;
         content.removeView(formulaContainer);content.removeView(result);

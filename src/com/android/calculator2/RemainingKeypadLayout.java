@@ -28,6 +28,9 @@ final class RemainingKeypadLayout {
     private ViewGroup.LayoutParams inputParams,advancedParams;
     private ConstraintSet normal,inputHome,advancedHome;
     private String lastDecision="";
+    // A fit decision must not be recomputed from the grid it just mutated.
+    private final int inputMarginX,inputMarginY,advancedMarginX,advancedMarginY;
+    private String fittedGeometry="";
     private boolean enabled,compact,scientific;
     private int lastWidth,lastHeight,lastLeft,lastRight;
     private static final class Label {
@@ -37,11 +40,15 @@ final class RemainingKeypadLayout {
     RemainingKeypadLayout(Calculator a) {
         activity=a;motion=a.findViewById(R.id.main_calculator);stack=a.findViewById(R.id.pad_stack);
         input=a.findViewById(R.id.input_pad);advanced=a.findViewById(R.id.advanced_pad);
+        inputMarginX=measuredMargin(input,true);inputMarginY=measuredMargin(input,false);
+        advancedMarginX=measuredMargin(advanced,true);advancedMarginY=measuredMargin(advanced,false);
         motion.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->schedule());
         stack.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{if(compact)sizeViewport();});
     }
     void setEnabled(boolean value,boolean science) {
+        if(enabled==value&&scientific==science)return;
         if(scientific!=science)restore();
+        fittedGeometry="";
         enabled=value;scientific=science;motion.removeCallbacks(fitTask);
         if(value)schedule();else restore();
     }
@@ -91,6 +98,9 @@ final class RemainingKeypadLayout {
         state.applyTo((ConstraintLayout)pad);
     }
     private int margin(ViewGroup pad,boolean horizontal) {
+        return pad==input?(horizontal?inputMarginX:inputMarginY):(horizontal?advancedMarginX:advancedMarginY);
+    }
+    private int measuredMargin(ViewGroup pad,boolean horizontal) {
         int max=0;
         for(int n=0;n<pad.getChildCount();n++)if(pad.getChildAt(n) instanceof HapticButton) {
             ViewGroup.MarginLayoutParams p=(ViewGroup.MarginLayoutParams)pad.getChildAt(n).getLayoutParams();
@@ -112,6 +122,7 @@ final class RemainingKeypadLayout {
         return originalColumns(pad)*(cell+margin(pad,true))+pad.getPaddingLeft()+pad.getPaddingRight();
     }
     private void mount() {
+        Log.i("RemainingWindow","KEYPAD_MOUNT science="+scientific);
         normal=new ConstraintSet();normal.clone(motion.getConstraintSet(R.id.start_state));
         inputParams=input.getLayoutParams();advancedParams=advanced.getLayoutParams();
         inputHome=new ConstraintSet();inputHome.clone((ConstraintLayout)input);
@@ -156,6 +167,9 @@ final class RemainingKeypadLayout {
         int left=Math.max(0,window.left+bars.left-raw[0]),right=Math.max(0,raw[0]+motion.getWidth()-(window.right-bars.right));
         int w=motion.getWidth()-motion.getPaddingLeft()-motion.getPaddingRight()-left-right;
         if(w<=0||h<=0)return;
+        String geometry=w+":"+h+":"+left+":"+right+":"+scientific;
+        if(geometry.equals(fittedGeometry)){sizeViewport();return;}
+        fittedGeometry=geometry;
         TypedValue ratio=new TypedValue();activity.getResources().getValue(R.dimen.layout_pads_ratio,ratio,true);
         int normalHeight=Math.round(h*ratio.getFloat());
         boolean vertical=stack.getOrientation()==LinearLayout.VERTICAL;
@@ -197,6 +211,7 @@ final class RemainingKeypadLayout {
     }
     private void restore() {
         if(!compact)return;
+        Log.i("RemainingWindow","KEYPAD_RESTORE science="+scientific);
         compact=false;lastWidth=lastHeight=0;
         inputHome.applyTo((ConstraintLayout)input);advancedHome.applyTo((ConstraintLayout)advanced);
         body.removeView(advanced);body.removeView(input);stack.removeView(viewport);
