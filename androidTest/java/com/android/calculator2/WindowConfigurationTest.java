@@ -1652,13 +1652,16 @@ public class WindowConfigurationTest {
             assertTrue("verified real companion "+pair,pair.verifiedCompanion());
             assertTrue("calculator must be upper "+pair,pair.app.top<pair.other.top);
             Rect divider=verifiedDivider();
-            Log.i("FractionWindow","DIVIDER hit="+divider+" display="+device.getDisplayWidth()+"x"+device.getDisplayHeight());
-            pointerDrag(divider.centerX(),divider.centerY(),Math.round(device.getDisplayHeight()*.25f));
+            Log.i("WindowEvidence","FRACTION "+"DIVIDER hit="+divider+" display="+device.getDisplayWidth()+"x"+device.getDisplayHeight());
+            // System divider belongs to SystemUI: UiAutomation has cross-window injection;
+            // Instrumentation.sendPointerSync correctly rejects it on API30.
+            assertTrue("drag verified system divider "+divider,device.drag(divider.centerX(),divider.centerY(),
+                    divider.centerX(),Math.round(device.getDisplayHeight()*.25f),80));
             assertTrue("pair settled after real touch",awaitVerifiedPair());
             device.executeShellCommand("am task focus "+splitTask);
             pair=stableSample(true,null);
             float share=pair.app.height()/(float)(pair.app.height()+pair.other.height());
-            Log.i("FractionWindow","REAL_UPPER share="+share+" "+pair);
+            Log.i("WindowEvidence","FRACTION "+"REAL_UPPER share="+share+" "+pair);
             key(R.id.digit_1);key(R.id.op_div);key(R.id.digit_3);key(R.id.eq);
             androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(
                     InstrumentationRegistry.getInstrumentation().getTargetContext());
@@ -1695,7 +1698,7 @@ public class WindowConfigurationTest {
             Rect line=new Rect(xy[0]+text.getCompoundPaddingLeft()+(int)Math.floor(layout.getLineLeft(0)),
                     top+layout.getLineTop(0),xy[0]+text.getCompoundPaddingLeft()+(int)Math.ceil(layout.getLineRight(0)),top+layout.getLineBottom(0));
             Rect visible=new Rect();visibleOnScreen(text,visible);
-            Log.i("FractionWindow",stage+" lineRaw="+line+" visibleRaw="+visible+" fullLine="+visible.contains(line)
+            Log.i("WindowEvidence","FRACTION "+stage+" lineRaw="+line+" visibleRaw="+visible+" fullLine="+visible.contains(line)
                     +" layoutHeight="+layout.getHeight()+" fontSpacing="+text.getPaint().getFontSpacing()
                     +" textPx="+text.getTextSize()+" viewportHeight="+viewport.getHeight());
             View node=text;
@@ -1703,7 +1706,7 @@ public class WindowConfigurationTest {
                 Rect raw=new Rect();int[] origin=new int[2];node.getLocationOnScreen(origin);
                 raw.set(origin[0],origin[1],origin[0]+node.getWidth(),origin[1]+node.getHeight());
                 Rect clip=new Rect();visibleOnScreen(node,clip);
-                Log.i("FractionWindow",stage+" ancestor="+node.getClass().getSimpleName()+" id="+node.getId()
+                Log.i("WindowEvidence","FRACTION "+stage+" ancestor="+node.getClass().getSimpleName()+" id="+node.getId()
                         +" raw="+raw+" visible="+clip+" measured="+node.getMeasuredHeight()+" scroll="+node.getScrollY());
                 node=node.getParent() instanceof View?(View)node.getParent():null;
             }
