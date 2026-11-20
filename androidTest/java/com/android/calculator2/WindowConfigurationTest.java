@@ -783,13 +783,38 @@ public class WindowConfigurationTest {
             Log.i("RemainingWindow",summary.toString());
         });
     }
+    private void remainingModeTap(int id,int description) throws Exception {
+        Rect target=new Rect();
+        scenario.onActivity(a -> {
+            View v=id!=0?a.findViewById(id):null;
+            if(v==null) {
+                ViewGroup row=a.findViewById(R.id.mode_segments);
+                for(int n=0;n<row.getChildCount();n++)if(a.getString(description).contentEquals(row.getChildAt(n).getContentDescription()))v=row.getChildAt(n);
+            }
+            assertNotNull("mode entry exists",v);assertTrue("mode entry visible",visibleOnScreen(v,target));
+        });
+        assertTrue(device.click(target.centerX(),target.centerY()));SystemClock.sleep(250);
+    }
+    private void remainingAwaitLayout(String stage) {
+        long until=SystemClock.uptimeMillis()+8000;boolean[] ready={false};String[] actual={""};
+        do {
+            scenario.onActivity(a -> {
+                Rect w=a.getWindowManager().getCurrentWindowMetrics().getBounds();View root=a.findViewById(R.id.main_calculator);
+                ready[0]=a.getWindow().getDecorView().hasWindowFocus()&&root.getHeight()==w.height();
+                actual[0]="window="+w+" motion="+root.getWidth()+"x"+root.getHeight()+" focus="+a.getWindow().getDecorView().hasWindowFocus();
+            });
+            if(ready[0])return;SystemClock.sleep(100);
+        }while(SystemClock.uptimeMillis()<until);
+        throw new AssertionError("window/view geometry did not settle "+stage+" "+actual[0]);
+    }
     private void remainingModeStage(String stage,java.util.List<String> failures) throws Exception {
+        remainingAwaitLayout(stage);
         for(String mode:new String[]{"basic","scientific","date","relationship"}) {
             try {
-                key(R.id.mode_segment_basic);
-                if("scientific".equals(mode))key(R.id.mode_segment_scientific);
-                if("date".equals(mode))onView(withContentDescription(R.string.tool_date)).perform(click());
-                if("relationship".equals(mode))onView(withContentDescription(R.string.tool_relationship)).perform(click());
+                remainingModeTap(R.id.mode_segment_basic,0);
+                if("scientific".equals(mode))remainingModeTap(R.id.mode_segment_scientific,0);
+                if("date".equals(mode))remainingModeTap(0,R.string.tool_date);
+                if("relationship".equals(mode))remainingModeTap(0,R.string.tool_relationship);
                 SystemClock.sleep(300);
                 if("date".equals(mode)) {
                     Rect r=new Rect();scenario.onActivity(a -> assertTrue(visibleOnScreen(a.findViewById(R.id.date_start),r)));
@@ -807,7 +832,8 @@ public class WindowConfigurationTest {
             } catch(Throwable error) {
                 String message=stage+" "+mode+" first="+error;failures.add(message);Log.e("RemainingWindow",message);
                 // Preserve per-mode first failure, but do not hide the remaining modes' measurements.
-                device.pressBack();
+                androidx.test.uiautomator.UiObject2 cancel=device.findObject(androidx.test.uiautomator.By.res("android","button2"));
+                if(cancel!=null)cancel.click();
             }
         }
     }
