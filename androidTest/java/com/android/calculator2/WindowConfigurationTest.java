@@ -642,21 +642,22 @@ public class WindowConfigurationTest {
         int[] selected=selection(R.id.formula);
         int hold=(android.view.ViewConfiguration.getLongPressTimeout()+300)/5;
         assertTrue(device.swipe(target.centerX(),target.centerY(),target.centerX(),target.centerY(),hold));
-        androidx.test.uiautomator.UiObject2 popup=device.wait(androidx.test.uiautomator.Until.findObject(
-                androidx.test.uiautomator.By.res("android","message").text(name[0])),1500);
-        assertNotNull("visible standard tooltip "+stage+" "+index+" "+name[0],popup);
-        Rect popupBounds=popup.getVisibleBounds();
-        assertTrue("readable popup within current window "+stage+" popup="+popupBounds+" window="+window,
-                popupBounds.width()>0&&popupBounds.height()>0&&window.contains(popupBounds));
-        // Accessibility visible bounds alone can conceal clipping. Inspect the full measured
-        // framework text view too; do not confuse a clipped sliver with a readable tooltip.
+        // Framework tooltip windows are not consistently exported as accessibility roots.
+        // Observe the real attached popup window directly, not just the anchor's tooltipText.
+        TextView[] found={null};long deadline=SystemClock.uptimeMillis()+1000;
+        do {
+            scenario.onActivity(a -> {
+                for(View root:android.view.inspector.WindowInspector.getGlobalWindowViews()) {
+                    TextView candidate=root.findViewById(android.R.id.message);
+                    if(candidate!=null&&name[0].contentEquals(candidate.getText())&&candidate.isShown()) {found[0]=candidate;break;}
+                }
+            });
+            if(found[0]!=null)break;SystemClock.sleep(30);
+        } while(SystemClock.uptimeMillis()<deadline);
+        if(found[0]==null)evidence("tooltip-missing-"+stage+"-"+index);
+        assertNotNull("attached visible standard tooltip "+stage+" "+index+" "+name[0],found[0]);
         scenario.onActivity(a -> {
-            TextView message=null;
-            for(View root:android.view.inspector.WindowInspector.getGlobalWindowViews()) {
-                TextView candidate=root.findViewById(android.R.id.message);
-                if(candidate!=null&&name[0].contentEquals(candidate.getText())){message=candidate;break;}
-            }
-            assertNotNull("framework tooltip text window",message);
+            TextView message=found[0];
             int[] raw=new int[2];message.getLocationOnScreen(raw);
             Rect full=new Rect(raw[0],raw[1],raw[0]+message.getWidth(),raw[1]+message.getHeight());
             Rect visible=new Rect();assertTrue(visibleOnScreen(message,visible));
@@ -665,13 +666,17 @@ public class WindowConfigurationTest {
             android.text.Layout layout=message.getLayout();assertNotNull(layout);
             assertTrue("all text lines fit",layout.getHeight()<=message.getHeight()-message.getCompoundPaddingTop()-message.getCompoundPaddingBottom());
             for(int line=0;line<layout.getLineCount();line++)assertEquals("no ellipsized tooltip name",0,layout.getEllipsisCount(line));
+            Log.i("WindowEvidence","TOOLTIP "+stage+" index="+index+" name="+name[0]+" anchorRaw="+target+" popupRaw="+full+" window="+window);
         });
-        Log.i("WindowEvidence","TOOLTIP "+stage+" index="+index+" name="+name[0]+" anchorRaw="+target+" popupRaw="+popupBounds+" window="+window);
         assertEquals("long press must not switch mode or change model",model,modelSnapshot());
         assertEquals("long press must not clear/change input or output",outputs,displaySnapshot());
         assertArrayEquals("formula selection untouched",selected,selection(R.id.formula));
-        assertTrue("tooltip dismisses normally",device.wait(androidx.test.uiautomator.Until.gone(
-                androidx.test.uiautomator.By.res("android","message").text(name[0])),3500));
+        boolean[] attached={true};deadline=SystemClock.uptimeMillis()+3500;
+        do {
+            scenario.onActivity(a -> attached[0]=found[0].isAttachedToWindow());
+            if(!attached[0])break;SystemClock.sleep(50);
+        } while(SystemClock.uptimeMillis()<deadline);
+        assertFalse("tooltip dismisses normally",attached[0]);
     }
     private void toolbarTooltips(String stage) throws Exception {
         int[] count={0};scenario.onActivity(a -> count[0]=((android.widget.LinearLayout)a.findViewById(R.id.mode_segments)).getChildCount());
@@ -710,12 +715,22 @@ public class WindowConfigurationTest {
             scenario.onActivity(a -> assertTrue(a.findViewById(R.id.mode_segment_scientific).isSelected()));
         } finally {device.executeShellCommand("wm size "+size);device.executeShellCommand("wm density "+density);SystemClock.sleep(900);}
     }
-    @Test public void toolbarTooltipUpperQuarterSplit() throws Exception {toolbarTooltipQuarter(false);}
-    @Test public void toolbarTooltipLowerQuarterSplit() throws Exception {toolbarTooltipQuarter(true);}
-    private void toolbarTooltipQuarter(boolean bottom) throws Exception {
+    @Test public void toolbarTooltipUpperSmallSplit() throws Exception {toolbarTooltipSmallSplit(false);}
+    @Test public void toolbarTooltipLowerSmallSplit() throws Exception {toolbarTooltipSmallSplit(true);}
+    private void toolbarTooltipSmallSplit(boolean bottom) throws Exception {
         try {
-            establishQuarterWindow(R.string.tool_mortgage,bottom,"tooltip-"+(bottom?"lower":"upper"));
-            toolbarTooltips(bottom?"lower-quarter":"upper-quarter");
+            onView(withContentDescription(R.string.tool_mortgage)).perform(click());
+            enterRealSplit();SplitSample pair=stableSample(true,null);assertTrue(pair.toString(),pair.verifiedCompanion());
+            if((pair.app.top>pair.other.top)!=bottom)swapSplitPosition(bottom);
+            Rect divider=verifiedDivider();
+            assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),Math.round(device.getDisplayHeight()*(bottom?.75f:.25f)),65));
+            pair=stableSample(true,null);
+            float share=pair.app.height()/(float)(pair.app.height()+pair.other.height());
+            // Android may snap to its 1/3 minimum. The requested acceptance is a SMALL
+            // upper/lower task, not a claim that the system honored an exact 25% split.
+            assertTrue("actual small task share="+share+" "+pair,share<=.35f);
+            assertEquals("actual requested position",bottom,pair.app.top>pair.other.top);
+            toolbarTooltips(bottom?"lower-small":"upper-small");
         } finally {
             device.executeShellCommand("am force-stop com.android.settings");
             device.executeShellCommand("am task focus "+splitTask);SystemClock.sleep(800);

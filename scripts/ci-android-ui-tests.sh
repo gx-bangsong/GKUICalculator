@@ -141,7 +141,7 @@ if [[ "$split_scope" == "programmer-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#programmerUpperQuarterSplitMenusSwap,com.android.calculator2.WindowConfigurationTest#programmerLowerQuarterSplitMenusSwap"
 fi
 if [[ "$split_scope" == "tooltip-only" ]]; then
-    runner_classes="com.android.calculator2.WindowConfigurationTest#toolbarTooltipNamesRotateAndRebuild,com.android.calculator2.WindowConfigurationTest#toolbarTooltipDockedAndNarrowScroll,com.android.calculator2.WindowConfigurationTest#toolbarTooltipUpperQuarterSplit,com.android.calculator2.WindowConfigurationTest#toolbarTooltipLowerQuarterSplit"
+    runner_classes="com.android.calculator2.WindowConfigurationTest#toolbarTooltipNamesRotateAndRebuild,com.android.calculator2.WindowConfigurationTest#toolbarTooltipDockedAndNarrowScroll,com.android.calculator2.WindowConfigurationTest#toolbarTooltipUpperSmallSplit,com.android.calculator2.WindowConfigurationTest#toolbarTooltipLowerSmallSplit"
 fi
 if [[ "$split_scope" == "history-edge-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#historyPhoneNavigationInsetsAndRealDrag,com.android.calculator2.WindowConfigurationTest#historyNativeCutoutInsetsAndDrag,com.android.calculator2.WindowConfigurationTest#historyRealSplitUpperAndLowerInsets,com.android.calculator2.WindowConfigurationTest#historyDockedEdgeBackgroundAndNarrowDrag"
@@ -451,7 +451,7 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
 if os.environ.get("SPLIT_SCOPE") == "tooltip-only":
-    required={"com.android.calculator2.WindowConfigurationTest":["toolbarTooltipNamesRotateAndRebuild","toolbarTooltipDockedAndNarrowScroll","toolbarTooltipUpperQuarterSplit","toolbarTooltipLowerQuarterSplit"]}
+    required={"com.android.calculator2.WindowConfigurationTest":["toolbarTooltipNamesRotateAndRebuild","toolbarTooltipDockedAndNarrowScroll","toolbarTooltipUpperSmallSplit","toolbarTooltipLowerSmallSplit"]}
 
 if os.environ.get("SPLIT_SCOPE") == "history-edge-only":
     required={"com.android.calculator2.WindowConfigurationTest":["historyPhoneNavigationInsetsAndRealDrag","historyNativeCutoutInsetsAndDrag","historyRealSplitUpperAndLowerInsets","historyDockedEdgeBackgroundAndNarrowDrag"]}
@@ -711,7 +711,7 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
 
 if os.environ.get("SPLIT_SCOPE") == "tooltip-only":
-    required={"com.android.calculator2.WindowConfigurationTest":["toolbarTooltipNamesRotateAndRebuild","toolbarTooltipDockedAndNarrowScroll","toolbarTooltipUpperQuarterSplit","toolbarTooltipLowerQuarterSplit"]}
+    required={"com.android.calculator2.WindowConfigurationTest":["toolbarTooltipNamesRotateAndRebuild","toolbarTooltipDockedAndNarrowScroll","toolbarTooltipUpperSmallSplit","toolbarTooltipLowerSmallSplit"]}
 
 if os.environ.get("SPLIT_SCOPE") == "history-edge-only":
     required={"com.android.calculator2.WindowConfigurationTest":["historyPhoneNavigationInsetsAndRealDrag","historyNativeCutoutInsetsAndDrag","historyRealSplitUpperAndLowerInsets","historyDockedEdgeBackgroundAndNarrowDrag"]}
