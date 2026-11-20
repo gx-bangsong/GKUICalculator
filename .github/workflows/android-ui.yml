@@ -365,9 +365,11 @@ jobs:
                   image.thumbnail((int(image.width*.9),int(image.height*.9)))
               source.with_name(source.stem+'-review.jpg').write_bytes(encoded.getvalue())
           PYHISTORY
-      - name: Publish history window previews
-        run: |
-          for image in evidence/ui-screenshots/window-history-*-review.jpg; do
-            [[ -f "$image" ]] || continue
-            bash scripts/ci-publish-preview.sh "$image" "$(basename "$image")" 0 warning
-          done
+      - name: Publish history tablet-portrait preview
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-tablet-portrait-review.jpg "history tablet-portrait" 0 warning
+      - name: Publish history narrow-single-column preview
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-narrow-single-column-review.jpg "history narrow-single-column" 0 warning
+      - name: Publish history tablet-real-half preview
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-tablet-real-half-review.jpg "history tablet-real-half" 0 warning
+      - name: Publish history tablet-real-narrow preview
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-tablet-real-narrow-review.jpg "history tablet-real-narrow" 0 warning

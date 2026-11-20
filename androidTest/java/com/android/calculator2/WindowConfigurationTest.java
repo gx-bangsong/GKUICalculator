@@ -482,8 +482,28 @@ public class WindowConfigurationTest {
                 HistoryAdapter.ViewHolder holder=(HistoryAdapter.ViewHolder)list.findViewHolderForAdapterPosition(position);
                 assertTrue(visibleOnScreen(holder.getResult(),copy));
             });
-            assertTrue(device.swipe(copy.centerX(),copy.centerY(),copy.centerX(),copy.centerY(),90));
-            onView(withText(android.R.string.copy)).perform(click());
+            // UiDevice.swipe steps are ~5ms each: 90 steps can be shorter than the
+            // platform long-press timeout. Wait for the lazily evaluated row, then hold.
+            long copyDeadline=SystemClock.uptimeMillis()+10000;boolean[] copyReady={false};
+            do {
+                scenario.onActivity(a -> {
+                    androidx.recyclerview.widget.RecyclerView list=a.findViewById(R.id.history_recycler_view);
+                    androidx.recyclerview.widget.LinearLayoutManager layout=(androidx.recyclerview.widget.LinearLayoutManager)list.getLayoutManager();
+                    HistoryAdapter.ViewHolder holder=(HistoryAdapter.ViewHolder)list.findViewHolderForAdapterPosition(layout.findFirstCompletelyVisibleItemPosition());
+                    copyReady[0]=holder!=null&&holder.getResult()!=null
+                            &&holder.getResult().getText().toString().equals("15");
+                    if(copyReady[0])assertTrue(visibleOnScreen(holder.getResult(),copy));
+                });
+                if(copyReady[0])break;SystemClock.sleep(100);
+            } while(SystemClock.uptimeMillis()<copyDeadline);
+            assertTrue("visible history result is fully evaluated before copy",copyReady[0]);
+            int holdSteps=Math.max(150,(android.view.ViewConfiguration.getLongPressTimeout()+250)/5);
+            assertTrue(device.swipe(copy.centerX(),copy.centerY(),copy.centerX(),copy.centerY(),holdSteps));
+            String copyLabel=InstrumentationRegistry.getInstrumentation().getTargetContext().getString(android.R.string.copy);
+            androidx.test.uiautomator.UiObject2 copyAction=device.wait(androidx.test.uiautomator.Until.findObject(
+                    androidx.test.uiautomator.By.text(copyLabel)),3000);
+            assertNotNull("real history copy action after a complete long press",copyAction);
+            copyAction.click();
             scenario.onActivity(a -> {
                 android.content.ClipboardManager clipboard=(android.content.ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE);
                 assertEquals("15",clipboard.getPrimaryClip().getItemAt(0).coerceToText(a).toString());
