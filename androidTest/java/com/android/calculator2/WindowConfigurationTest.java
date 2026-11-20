@@ -751,6 +751,92 @@ public class WindowConfigurationTest {
         }
     }
 
+    private void measureRemainingMode(String mode,String stage,java.util.List<String> failures) {
+        scenario.onActivity(a -> {
+            float d=a.getResources().getDisplayMetrics().density,sp=a.getResources().getDisplayMetrics().scaledDensity;
+            View content=a.findViewById(R.id.main_calculator);Rect window=a.getWindowManager().getCurrentWindowMetrics().getBounds();
+            StringBuilder summary=new StringBuilder(stage+" mode="+mode+" window="+window+" calculatorPx="+content.getWidth()+"x"+content.getHeight());
+            for(int id:new int[]{R.id.display,R.id.tool_control_slot,R.id.formula,R.id.result,R.id.tool_bar,R.id.input_pad,R.id.advanced_pad}) {
+                View v=a.findViewById(id);if(v==null||v.getVisibility()!=View.VISIBLE)continue;
+                Rect r=new Rect();boolean visible=visibleOnScreen(v,r);
+                summary.append(' ').append(a.getResources().getResourceEntryName(id)).append('=').append(r);
+                if((id==R.id.formula||id==R.id.result)&&(!visible||r.height()<v.getPaddingTop()+v.getPaddingBottom()+((TextView)v).getPaint().getFontMetricsInt(null)))
+                    failures.add(stage+" "+mode+" text row cannot fit glyphs "+id+" "+r);
+            }
+            for(int padId:new int[]{R.id.input_pad,R.id.advanced_pad}) {
+                ViewGroup pad=a.findViewById(padId);if(pad.getVisibility()!=View.VISIBLE)continue;
+                int count=0;float minW=Float.MAX_VALUE,minH=Float.MAX_VALUE,minSp=Float.MAX_VALUE;
+                for(int n=0;n<pad.getChildCount();n++) {
+                    View v=pad.getChildAt(n);if(!(v instanceof HapticButton)||v.getVisibility()!=View.VISIBLE)continue;
+                    count++;Rect r=new Rect();boolean visible=visibleOnScreen(v,r);
+                    minW=Math.min(minW,v.getWidth()/d);minH=Math.min(minH,v.getHeight()/d);minSp=Math.min(minSp,((TextView)v).getTextSize()/sp);
+                    if(v.getWidth()+.5<48*d||v.getHeight()+.5<48*d||!visible||r.height()!=v.getHeight()||r.width()!=v.getWidth())
+                        failures.add(stage+" "+mode+" key="+a.getResources().getResourceEntryName(v.getId())+" measured="+v.getWidth()+"x"+v.getHeight()+" rawVisible="+r);
+                }
+                summary.append(" pad#").append(padId).append(" count=").append(count).append(" minDp=").append(minW).append('x').append(minH).append(" minSp=").append(minSp);
+            }
+            if("date".equals(mode))for(int id:new int[]{R.id.date_start,R.id.date_end}) {
+                View v=a.findViewById(id);Rect r=new Rect();
+                if(v==null||!visibleOnScreen(v,r)||r.height()<48*d)failures.add(stage+" date entry below 48dp "+id+" "+r);
+            }
+            assertNull("results remain read-only",((TextView)a.findViewById(R.id.result)).getKeyListener());
+            Log.i("RemainingWindow",summary.toString());
+        });
+    }
+    private void remainingModeStage(String stage,java.util.List<String> failures) throws Exception {
+        for(String mode:new String[]{"basic","scientific","date","relationship"}) {
+            try {
+                key(R.id.mode_segment_basic);
+                if("scientific".equals(mode))key(R.id.mode_segment_scientific);
+                if("date".equals(mode))onView(withContentDescription(R.string.tool_date)).perform(click());
+                if("relationship".equals(mode))onView(withContentDescription(R.string.tool_relationship)).perform(click());
+                SystemClock.sleep(300);
+                if("date".equals(mode)) {
+                    Rect r=new Rect();scenario.onActivity(a -> assertTrue(visibleOnScreen(a.findViewById(R.id.date_start),r)));
+                    assertTrue(device.click(r.centerX(),r.centerY()));
+                    androidx.test.uiautomator.UiObject2 cancel=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.res("android","button2")),2000);
+                    assertNotNull("real touch opens date dialog",cancel);cancel.click();
+                } else {
+                    Rect clear=new Rect(),seven=new Rect();
+                    scenario.onActivity(a -> {assertTrue(visibleOnScreen(a.findViewById(R.id.clr),clear));assertTrue(visibleOnScreen(a.findViewById(R.id.digit_7),seven));});
+                    assertTrue(device.click(clear.centerX(),clear.centerY()));Map<Integer,String> before=displaySnapshot();
+                    assertTrue(device.click(seven.centerX(),seven.centerY()));SystemClock.sleep(200);
+                    assertNotEquals("real seven/relationship key executes",before,displaySnapshot());
+                }
+                measureRemainingMode(mode,stage,failures);evidence("remaining-"+stage+"-"+mode);
+            } catch(Throwable error) {
+                String message=stage+" "+mode+" first="+error;failures.add(message);Log.e("RemainingWindow",message);
+                // Preserve per-mode first failure, but do not hide the remaining modes' measurements.
+                device.pressBack();
+            }
+        }
+    }
+    @Test public void remainingModesUpperSplitMeasurements() throws Exception {remainingModesSplitMeasurements(false);}
+    @Test public void remainingModesLowerSplitMeasurements() throws Exception {remainingModesSplitMeasurements(true);}
+    private void remainingModesSplitMeasurements(boolean bottom) throws Exception {
+        java.util.List<String> failures=new java.util.ArrayList<>();
+        String position=bottom?"lower":"upper";
+        try {
+            remainingModeStage(position+"-full",failures);
+            enterRealSplit();SplitSample pair=stableSample(true,null);assertTrue("ENVIRONMENT pair "+pair,pair.verifiedCompanion());
+            if((pair.app.top>pair.other.top)!=bottom) {
+                Rect divider=verifiedDivider();assertTrue(device.click(divider.centerX(),divider.centerY()));SystemClock.sleep(90);
+                assertTrue(device.click(divider.centerX(),divider.centerY()));device.executeShellCommand("am task focus "+splitTask);pair=stableSample(true,null);
+            }
+            assertEquals("ENVIRONMENT position "+pair,bottom,pair.app.top>pair.other.top);
+            Log.i("RemainingWindow",position+"-half actual="+pair);
+            remainingModeStage(position+"-half",failures);
+            Rect divider=verifiedDivider();assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),Math.round(device.getDisplayHeight()*(bottom?.75f:.25f)),65));
+            device.executeShellCommand("am task focus "+splitTask);pair=stableSample(true,null);
+            Log.i("RemainingWindow",position+"-small actualShare="+pair.app.height()/(float)(pair.app.height()+pair.other.height())+" "+pair);
+            remainingModeStage(position+"-small",failures);
+        } finally {
+            device.executeShellCommand("am force-stop com.android.settings");device.executeShellCommand("am task focus "+splitTask);SystemClock.sleep(800);
+        }
+        Log.i("RemainingWindow",position+" violationCount="+failures.size()+" first="+(failures.isEmpty()?"none":failures.get(0)));
+        assertTrue("Measured deficiencies (first 12): "+failures.subList(0,Math.min(12,failures.size())),failures.isEmpty());
+    }
+
     private int navigationMode() {
         Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();
         return c.getResources().getInteger(c.getResources().getIdentifier("config_navBarInteractionMode","integer","android"));

@@ -104,7 +104,7 @@ done
 adb shell wm dismiss-keyguard || true
 adb shell input keyevent KEYCODE_WAKEUP || true
 
-if [[ "${SPLIT_SCOPE:-}" == "mortgage-position-only" || "${SPLIT_SCOPE:-}" == "mortgage-lower-only" || "${SPLIT_SCOPE:-}" == "tax-quarter-only" || "${SPLIT_SCOPE:-}" == "conversion-windows-only" || "${SPLIT_SCOPE:-}" == "programmer-only" ]]; then
+if [[ "${SPLIT_SCOPE:-}" == "remaining-modes-only" || "${SPLIT_SCOPE:-}" == "mortgage-position-only" || "${SPLIT_SCOPE:-}" == "mortgage-lower-only" || "${SPLIT_SCOPE:-}" == "tax-quarter-only" || "${SPLIT_SCOPE:-}" == "conversion-windows-only" || "${SPLIT_SCOPE:-}" == "programmer-only" ]]; then
     adb shell wm size 720x1920
 fi
 if [[ "${SPLIT_SCOPE:-}" == "mortgage-only" || "${SPLIT_SCOPE:-}" == "mortgage-position-only" || "${SPLIT_SCOPE:-}" == "mortgage-lower-only" || "${SPLIT_SCOPE:-}" == "tax-quarter-only" || "${SPLIT_SCOPE:-}" == "conversion-windows-only" || "${SPLIT_SCOPE:-}" == "programmer-only" ]]; then
@@ -144,6 +144,9 @@ if [[ "$split_scope" == "conversion-windows-only" ]]; then
 fi
 if [[ "$split_scope" == "programmer-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#programmerUpperQuarterSplitMenusSwap,com.android.calculator2.WindowConfigurationTest#programmerLowerQuarterSplitMenusSwap"
+fi
+if [[ "$split_scope" == "remaining-modes-only" ]]; then
+    runner_classes="com.android.calculator2.WindowConfigurationTest#remainingModesUpperSplitMeasurements,com.android.calculator2.WindowConfigurationTest#remainingModesLowerSplitMeasurements"
 fi
 if [[ "$split_scope" == "tooltip-only" ]]; then
     runner_classes="com.android.calculator2.WindowConfigurationTest#toolbarTooltipNamesRotateAndRebuild,com.android.calculator2.WindowConfigurationTest#toolbarTooltipDockedAndNarrowScroll,com.android.calculator2.WindowConfigurationTest#toolbarTooltipUpperSmallSplit,com.android.calculator2.WindowConfigurationTest#toolbarTooltipLowerSmallSplit"
@@ -290,7 +293,11 @@ for p in Path("build/outputs/androidTest-results").rglob("TEST-*.xml"):
 text="; ".join(rows).replace("%","%25")
 print("::warning title=Window functional results::"+text)
 PYWINDOW
-adb logcat -d -v brief WindowEvidence:I HistoryEdge:I SplitPhase:I MortgageForm:I MortgagePosition:I MortgageTarget:I TaxPosition:I ToolTouchCoordinates:I '*:S' > build/ui-screenshots/window-evidence.log || true
+adb logcat -d -v brief RemainingWindow:I WindowEvidence:I HistoryEdge:I SplitPhase:I MortgageForm:I MortgagePosition:I MortgageTarget:I TaxPosition:I ToolTouchCoordinates:I '*:S' > build/ui-screenshots/window-evidence.log || true
+remaining_window=$(grep 'RemainingWindow' build/ui-screenshots/window-evidence.log | tail -n 32 | head -c 22000 || true)
+remaining_window=${remaining_window//%/%25}
+remaining_window=${remaining_window//$'\n'/%0A}
+[[ -z "$remaining_window" ]] || echo "::notice title=Remaining modes measured geometry::$remaining_window"
 history_edge=$(grep 'HistoryEdge' build/ui-screenshots/window-evidence.log | tail -n 20 | head -c 12000 || true)
 if [[ -n "$history_edge" ]]; then
     history_edge=${history_edge//%/%25};history_edge=${history_edge//$'\n'/%0A}
@@ -454,6 +461,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     method = "mortgageScrollAtBothWindowPositions" if os.environ["SPLIT_SCOPE"] == "mortgage-position-only" else tool + "SurvivesRealSplitAndResize"
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
+
+if os.environ.get("SPLIT_SCOPE") == "remaining-modes-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["remainingModesUpperSplitMeasurements","remainingModesLowerSplitMeasurements"]}
 
 if os.environ.get("SPLIT_SCOPE") == "tooltip-only":
     required={"com.android.calculator2.WindowConfigurationTest":["toolbarTooltipNamesRotateAndRebuild","toolbarTooltipDockedAndNarrowScroll","toolbarTooltipUpperSmallSplit","toolbarTooltipLowerSmallSplit"]}
@@ -714,6 +724,9 @@ if os.environ.get("SPLIT_SCOPE") in ("bmi-only", "mortgage-only", "mortgage-posi
     method = "mortgageScrollAtBothWindowPositions" if os.environ["SPLIT_SCOPE"] == "mortgage-position-only" else tool + "SurvivesRealSplitAndResize"
     if os.environ["SPLIT_SCOPE"] == "mortgage-lower-only": method="mortgageLowerQuarterRealScroll"
     required = {"com.android.calculator2.WindowConfigurationTest": [method]}
+
+if os.environ.get("SPLIT_SCOPE") == "remaining-modes-only":
+    required={"com.android.calculator2.WindowConfigurationTest":["remainingModesUpperSplitMeasurements","remainingModesLowerSplitMeasurements"]}
 
 if os.environ.get("SPLIT_SCOPE") == "tooltip-only":
     required={"com.android.calculator2.WindowConfigurationTest":["toolbarTooltipNamesRotateAndRebuild","toolbarTooltipDockedAndNarrowScroll","toolbarTooltipUpperSmallSplit","toolbarTooltipLowerSmallSplit"]}
