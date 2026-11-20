@@ -160,8 +160,10 @@ public class WindowConfigurationTest {
             result[0]=v.getSelectionStart();result[1]=v.getSelectionEnd();});return result;
     }
     private void menu(int title) {
-        androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(
-            InstrumentationRegistry.getInstrumentation().getTargetContext());
+        // With a persistent history toolbar there are two legitimate overflow buttons.
+        onView(org.hamcrest.Matchers.allOf(
+                withContentDescription(androidx.appcompat.R.string.abc_action_menu_overflow_description),
+                isDescendantOfA(withId(R.id.toolbar)))).perform(click());
         onView(withText(title)).perform(click());
     }
     private void date(int id,int year,int month,int day) {

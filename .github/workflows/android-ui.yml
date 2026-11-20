@@ -334,3 +334,40 @@ jobs:
       - name: Publish lower-25-scroll-result app
         if: always()
         run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-target-25-scroll-result-app-review.jpg "Mortgage lower-25-scroll-result app" 0 warning
+
+  history-evidence:
+    name: Persistent history window screenshots
+    needs: emulator-ui
+    if: ${{ always() && inputs.split_scope == 'history-only' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v6
+        with:
+          name: calculator-ui-screenshots
+          path: evidence
+      - name: Prepare history review previews
+        run: |
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PYHISTORY'
+          from pathlib import Path
+          from PIL import Image
+          import io
+          for name in ('tablet-portrait','narrow-single-column','tablet-real-half','tablet-real-narrow'):
+              source=Path('evidence/ui-screenshots/window-history-'+name+'.png')
+              if not source.exists():
+                  print('Not captured: '+name)
+                  continue
+              image=Image.open(source).convert('RGB');image.thumbnail((640,960))
+              while True:
+                  encoded=io.BytesIO();image.save(encoded,format='JPEG',quality=50,optimize=True)
+                  if len(encoded.getvalue())<=12000: break
+                  image.thumbnail((int(image.width*.9),int(image.height*.9)))
+              source.with_name(source.stem+'-review.jpg').write_bytes(encoded.getvalue())
+          PYHISTORY
+      - name: Publish history window previews
+        run: |
+          for image in evidence/ui-screenshots/window-history-*-review.jpg; do
+            [[ -f "$image" ]] || continue
+            bash scripts/ci-publish-preview.sh "$image" "$(basename "$image")" 0 warning
+          done
