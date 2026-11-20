@@ -3,7 +3,7 @@ set -euo pipefail
 mkdir -p build/ui-screenshots
 adb shell wm dismiss-keyguard
 status=0
-./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.ExternalTextConversionProbeTest --console=plain > build/connected-debug-android-test.log 2>&1 || status=$?
+timeout 240 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.android.calculator2.ExternalTextConversionProbeTest --console=plain > build/connected-debug-android-test.log 2>&1 || status=$?
 adb pull /sdcard/external-text-probe.json build/ui-screenshots/external-text-probe.json || true
 adb pull /sdcard/external-probe-native.png build/ui-screenshots/external-probe-native.png || true
 adb pull /sdcard/external-probe-webview.png build/ui-screenshots/external-probe-webview.png || true
