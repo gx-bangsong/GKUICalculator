@@ -810,11 +810,26 @@ public class WindowConfigurationTest {
         int input=prepareTool(R.string.tool_programmer);Map<String,String> model=modelSnapshot();int[] selected=selection(input);
         try {
             enterRealSplit();SplitSample upper=stableSample(true,null);assertTrue(upper.toString(),upper.verifiedCompanion());
-            historyGestureStage("history-edge-upper-split",true);assertEquals(model,modelSnapshot());assertArrayEquals(selected,selection(input));
+            AssertionError upperFailure=null;
+            try { historyGestureStage("history-edge-upper-split",true); }
+            catch(AssertionError failure) {
+                upperFailure=failure;
+                Log.e("HistoryEdge","upper split failed; still exercising lower split",failure);
+                // Restore through the same visible handle, not by jumping the MotionLayout.
+                int[] state={0};scenario.onActivity(a -> state[0]=((DisplayMotionLayout)a.findViewById(R.id.main_calculator)).getCurrentState());
+                if(state[0]==R.id.end_state)historyRawDrag(false);
+            }
+            assertEquals(model,modelSnapshot());assertArrayEquals(selected,selection(input));
             swapSplitPosition(true);SplitSample lower=stableSample(true,null);assertTrue(lower.toString(),lower.verifiedCompanion());
             assertTrue("actual lower task",lower.app.top>lower.other.top);
-            historyGestureStage("history-edge-lower-split",true);assertEquals(model,modelSnapshot());assertArrayEquals(selected,selection(input));
+            try { historyGestureStage("history-edge-lower-split",true); }
+            catch(AssertionError failure) {
+                if(upperFailure!=null)failure.addSuppressed(upperFailure);
+                throw failure;
+            }
+            assertEquals(model,modelSnapshot());assertArrayEquals(selected,selection(input));
             key(R.id.eq);assertNotEquals("pending operation executes after history gestures",model,modelSnapshot());
+            if(upperFailure!=null)throw upperFailure;
         } finally {
             device.executeShellCommand("am force-stop com.android.settings");device.executeShellCommand("am task focus "+splitTask);
             SystemClock.sleep(800);
