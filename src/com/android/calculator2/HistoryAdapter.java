@@ -26,6 +26,9 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.ViewHold
     public static final int HISTORY_VIEW_TYPE = 1;
 
     private Evaluator mEvaluator;
+    private long mMaxIndex;
+
+    void setMaxIndex(long maxIndex) { mMaxIndex=maxIndex; }
 
     private final Calendar mCalendar = Calendar.getInstance();
 
@@ -131,7 +134,7 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.ViewHold
     }
 
     private int getEvaluatorIndex(int position) {
-        return (int) (mEvaluator.getMaxIndex() - position);
+        return (int) (mMaxIndex - position);
     }
 
     private boolean shouldShowHeader(int position, HistoryItem item) {

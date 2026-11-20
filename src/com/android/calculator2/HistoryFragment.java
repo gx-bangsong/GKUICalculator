@@ -36,6 +36,20 @@ public class HistoryFragment extends Fragment {
     private boolean mIsDisplayEmpty;
     private Parcelable mScroll;
     private long mSnapshotIndex = -1;
+    private int mRefreshGeneration;
+
+    void prepareForClear() {
+        ++mRefreshGeneration;
+        stopActionModeOrContextMenu();
+        mScroll=null;
+        mSnapshotIndex=0;
+        mDataSet=new ArrayList<>();
+        mDataSet.add(new HistoryItem());
+        if(mRecyclerView!=null)mRecyclerView.setAdapter(null);
+        mAdapter.setMaxIndex(0);
+        mAdapter.setDataSet(mDataSet);
+        if(mRecyclerView!=null)mRecyclerView.setAdapter(mAdapter);
+    }
 
     void captureScroll() {
         // A collapsed zero-height host must not overwrite the last visible list anchor.
@@ -129,6 +143,20 @@ public class HistoryFragment extends Fragment {
 
     void refreshHistory() {
         if(mEvaluator==null||mRecyclerView==null)return;
+        final int generation=++mRefreshGeneration;
+        final Evaluator evaluator=mEvaluator;
+        // eraseAll completes initialization from AsyncTask.onPostExecute (main thread).
+        // Never wait for that initialization on main while refreshing a persistent pane.
+        android.os.AsyncTask.THREAD_POOL_EXECUTOR.execute(() -> {
+            final long maxIndex=evaluator.getMaxIndex();
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                if(generation!=mRefreshGeneration||!isAdded()||mRecyclerView==null)return;
+                applySnapshot(maxIndex);
+            });
+        });
+    }
+
+    private void applySnapshot(long maxIndex) {
         final Calculator activity=(Calculator)getActivity();
         if(activity==null)return;
         final boolean isResultLayout = activity.isResultLayout();
@@ -137,7 +165,6 @@ public class HistoryFragment extends Fragment {
         final CalculatorExpr mainExpr = mEvaluator.getExpr(Evaluator.MAIN_INDEX);
         mIsDisplayEmpty = mainExpr == null || mainExpr.isEmpty();
 
-        final long maxIndex = mEvaluator.getMaxIndex();
         mAdapter.setIsResultLayout(isResultLayout);
         mAdapter.setIsOneLine(activity.isOneLine());
         mAdapter.setIsDisplayEmpty(mIsDisplayEmpty);
@@ -158,6 +185,7 @@ public class HistoryFragment extends Fragment {
             newDataSet.add(new HistoryItem());
         }
         mDataSet = newDataSet;
+        mAdapter.setMaxIndex(maxIndex);
         mAdapter.setDataSet(mDataSet);
         mAdapter.setIsResultLayout(isResultLayout);
         mAdapter.setIsOneLine(activity.isOneLine());
@@ -170,6 +198,14 @@ public class HistoryFragment extends Fragment {
     public void onViewStateRestored(@Nullable Bundle state) {
         super.onViewStateRestored(state);
         restoreScroll();
+    }
+
+    @Override
+    public void onDestroyView() {
+        captureScroll();
+        ++mRefreshGeneration;
+        mRecyclerView=null;
+        super.onDestroyView();
     }
 
     @Override

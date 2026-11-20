@@ -535,8 +535,10 @@ public class WindowConfigurationTest {
                     isDescendantOfA(withId(R.id.history_toolbar)))).perform(click());
             onView(withText(R.string.menu_clear_history)).perform(click());
             onView(withId(android.R.id.button1)).perform(click());
+            // Query DB completion off main as well: a hanging UI is not a passing empty list.
+            assertEquals(0,Evaluator.getInstance(InstrumentationRegistry.getInstrumentation().getTargetContext()).getMaxIndex());
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
             scenario.onActivity(a -> {
-                assertEquals(0,Evaluator.getInstance(a).getMaxIndex());
                 androidx.recyclerview.widget.RecyclerView list=a.findViewById(R.id.history_recycler_view);
                 assertEquals(1,list.getAdapter().getItemCount());
                 assertEquals(0,list.getAdapter().getItemViewType(0));

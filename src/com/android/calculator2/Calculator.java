@@ -1278,6 +1278,8 @@ public class Calculator extends AppCompatActivity
             if (HistoryFragment.CLEAR_DIALOG_TAG.equals(fragment.getTag())) {
                 // TODO: Try to preserve the current, saved, and memory expressions. How should we
                 // handle expressions to which they refer?
+                HistoryFragment history=getHistoryFragment();
+                if(history!=null)history.prepareForClear();
                 mEvaluator.clearEverything();
                 // TODO: It's not clear what we should really do here. This is an initial hack.
                 if(!toolOwnsDisplay())onClearEnd();
