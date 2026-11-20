@@ -1687,6 +1687,13 @@ public class WindowConfigurationTest {
             device.executeShellCommand("wm size 1080x650");
             remainingAwaitLayout("fraction display650 NOT SPLIT");
             awaitFractionWindow();
+            fractionFingerReveal(R.id.result);
+            scenario.onActivity(a -> {
+                Rect decimal=fractionMainInkRaw(a.findViewById(R.id.result));
+                Rect fraction=fractionLineRaw(a.findViewById(R.id.fraction_result));
+                assertTrue("decimal remains above fraction, not overlapped "+decimal+" / "+fraction,decimal.bottom<=fraction.top);
+                Log.i("WindowEvidence","FRACTION decimal-ink raw="+decimal+" visible="+fractionVisibleRaw(a.findViewById(R.id.result)));
+            });
             fractionFingerReveal(R.id.fraction_result);
             assertFullFractionLine("after-display650-basic-NOT-SPLIT");
             evidence("fraction-after-display650-basic-NOT-SPLIT");
@@ -1746,6 +1753,13 @@ public class WindowConfigurationTest {
             @Override public void describeTo(org.hamcrest.Description d){d.appendText("show-fraction overflow row");}
         }).perform(click());
     }
+    private Rect fractionMainInkRaw(TextView text) {
+        String value=text.getText().toString();Rect ink=new Rect();text.getPaint().getTextBounds(value,0,value.length(),ink);
+        android.graphics.RectF box=new android.graphics.RectF(ink);
+        box.offset(text.getCompoundPaddingLeft()-text.getScrollX(),text.getBaseline()-text.getScrollY());
+        android.graphics.Matrix matrix=new android.graphics.Matrix();text.transformMatrixToGlobal(matrix);matrix.mapRect(box);
+        Rect raw=new Rect();box.roundOut(raw);return raw;
+    }
     private Rect fractionLineRaw(TextView text) {
         android.text.Layout layout=text.getLayout();int[] xy=new int[2];text.getLocationOnScreen(xy);
         int top=xy[1]+text.getBaseline()-layout.getLineBaseline(0)-text.getScrollY();
@@ -1767,9 +1781,12 @@ public class WindowConfigurationTest {
             scenario.onActivity(a -> {
                 View target=a.findViewById(id);Rect visible=new Rect();visible.set(fractionVisibleRaw(target));
                 Rect required;
-                if(target instanceof TextView&&id==R.id.fraction_result)required=fractionLineRaw((TextView)target);
+                if(id==R.id.result)required=fractionMainInkRaw((TextView)target);
+                else if(target instanceof TextView&&id==R.id.fraction_result)required=fractionLineRaw((TextView)target);
                 else {int[] p=new int[2];target.getLocationOnScreen(p);required=new Rect(p[0],p[1],p[0]+target.getWidth(),p[1]+target.getHeight());}
-                full[0]=visible.contains(required);
+                // Main decimal retains its existing horizontal scrolling; verify full ink
+                // vertically without pretending all infinite decimal digits fit at once.
+                full[0]=id==R.id.result?!visible.isEmpty()&&required.top>=visible.top&&required.bottom<=visible.bottom:visible.contains(required);
                 View scroll=a.findViewById(R.id.display).findViewWithTag("fraction_display_scroll");
                 if(scroll!=null)viewport.set(fractionVisibleRaw(scroll));
                 above[0]=required.top<viewport.top;
