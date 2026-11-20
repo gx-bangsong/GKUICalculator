@@ -188,8 +188,11 @@ final class RemainingKeypadLayout {
         // A short percentage allocation is not necessarily a short window. On phones
         // such as the recorded API30 device, the normal scientific rows fit the full task
         // once granted more than layout_pads_ratio. Keep their parents/order/fonts intact.
+        TypedValue barRatio=new TypedValue();
+        activity.getResources().getValue(R.dimen.layout_tool_bar_ratio,barRatio,true);
+        int fullBarHeight=Math.max(barHeight,Math.round(h*barRatio.getFloat()));
         if(!activity.isInMultiWindowMode()&&vertical&&w>=neededWidth
-                &&h>=neededHeight+barHeight+Math.ceil(160*d)) {
+                &&h>=neededHeight+fullBarHeight+Math.ceil(160*d)) {
             if(compact)restore();
             if(!fullRows) {
                 fullRowsHome=new ConstraintSet();fullRowsHome.clone(motion.getConstraintSet(R.id.start_state));
@@ -197,7 +200,7 @@ final class RemainingKeypadLayout {
             }
             ConstraintSet rows=new ConstraintSet();rows.clone(fullRowsHome);
             rows.constrainHeight(R.id.pad_stack,neededHeight);
-            rows.constrainHeight(R.id.tool_bar,barHeight);
+            rows.constrainHeight(R.id.tool_bar,fullBarHeight);
             motion.updateState(R.id.start_state,rows);
             Log.i("RemainingWindow","branch=FULL_WIDTH_ORIGINAL_ROWS availablePx="+w+"x"+h
                     +" originalPadNeedPx="+neededWidth+"x"+neededHeight+" displayReserveDp=160 science="+scientific);
