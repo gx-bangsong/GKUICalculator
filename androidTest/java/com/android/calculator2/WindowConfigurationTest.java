@@ -768,7 +768,11 @@ public class WindowConfigurationTest {
             if(complete[0])return new Rect(target);
             assertTrue("offscreen target must have controlled scroll "+id+" target="+target+" viewport="+viewport,scrollable[0]);
             assertTrue("target fits viewport "+target+" "+viewport,target.height()<=viewport.height());
-            int distance=Math.max(12,Math.min(viewport.height()/2,target.top<viewport.top?viewport.top-target.top:target.bottom-viewport.bottom));
+            int slop=android.view.ViewConfiguration.get(InstrumentationRegistry.getInstrumentation().getTargetContext()).getScaledTouchSlop();
+            int missing=target.top<viewport.top?viewport.top-target.top:target.bottom-viewport.bottom;
+            // A real drag must first cross Android's touch slop. A 13px correction on API30
+            // could otherwise remain a tap forever, even in an operable ScrollView.
+            int distance=Math.min(viewport.height()/2,Math.max(2*slop+2,missing+slop+2));
             int x=viewport.centerX(),from=viewport.centerY()+(target.top<viewport.top?-distance/2:distance/2);
             int to=viewport.centerY()+(target.top<viewport.top?distance/2:-distance/2);
             pointerDrag(x,from,to);
