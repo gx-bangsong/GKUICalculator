@@ -70,7 +70,7 @@ final class DateWindowLayout {
             shared.removeView(formulaContainer);shared.removeView(result);shared.setVisibility(View.GONE);
             content.addView(formulaContainer,new LinearLayout.LayoutParams(-1,-2));
             content.addView(result,new LinearLayout.LayoutParams(-1,-2));
-            ViewGroup.LayoutParams text=new ViewGroup.LayoutParams(textParams);text.height=-2;formula.setLayoutParams(text);
+            ViewGroup.MarginLayoutParams text=new ViewGroup.MarginLayoutParams((ViewGroup.MarginLayoutParams)textParams);text.height=-2;formula.setLayoutParams(text);
             ((CalculatorFormula)formula).setWrapToolOutput(true);((CalculatorScrollView)formulaContainer).setWrapChildToViewport(true);
             formulaContainer.setMinimumHeight(formula.getLineHeight()+formula.getPaddingTop()+formula.getPaddingBottom());
             result.setSingleLine(false);result.setMaxLines(Integer.MAX_VALUE);result.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));

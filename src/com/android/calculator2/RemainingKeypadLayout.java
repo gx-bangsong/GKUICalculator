@@ -68,7 +68,7 @@ final class RemainingKeypadLayout {
     }
     private int padHeight(ViewGroup pad) {
         int rows=(pad==input?20:12)/columns(pad);
-        return rows*(cellHeight(pad)+margin(pad,false))+pad.getPaddingTop()+pad.getPaddingBottom();
+        return rows*(cellHeight(pad)+margin(pad,false)+1)+pad.getPaddingTop()+pad.getPaddingBottom();
     }
     private int padWidth(ViewGroup pad) {
         int cell=(int)Math.ceil(48*activity.getResources().getDisplayMetrics().density);
