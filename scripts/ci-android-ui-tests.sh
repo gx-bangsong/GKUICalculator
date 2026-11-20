@@ -294,10 +294,16 @@ text="; ".join(rows).replace("%","%25")
 print("::warning title=Window functional results::"+text)
 PYWINDOW
 adb logcat -d -v brief RemainingWindow:I WindowEvidence:I HistoryEdge:I SplitPhase:I MortgageForm:I MortgagePosition:I MortgageTarget:I TaxPosition:I ToolTouchCoordinates:I '*:S' > build/ui-screenshots/window-evidence.log || true
-remaining_window=$(grep 'RemainingWindow' build/ui-screenshots/window-evidence.log | tail -n 32 | head -c 22000 || true)
-remaining_window=${remaining_window//%/%25}
-remaining_window=${remaining_window//$'\n'/%0A}
-[[ -z "$remaining_window" ]] || echo "::notice title=Remaining modes measured geometry::$remaining_window"
+python3 - <<'PYREMAINING'
+from pathlib import Path
+lines=[s for s in Path('build/ui-screenshots/window-evidence.log').read_text(errors='replace').splitlines() if 'RemainingWindow' in s]
+chunk='';index=1
+for line in lines:
+    if len(chunk)+len(line)>3000:
+        print('::notice title=Remaining modes measured geometry '+str(index)+'::'+chunk.replace('%','%25').replace('\n','%0A'));index+=1;chunk=''
+    chunk+=line+'\n'
+if chunk:print('::notice title=Remaining modes measured geometry '+str(index)+'::'+chunk.replace('%','%25').replace('\n','%0A'))
+PYREMAINING
 history_edge=$(grep 'HistoryEdge' build/ui-screenshots/window-evidence.log | tail -n 20 | head -c 12000 || true)
 if [[ -n "$history_edge" ]]; then
     history_edge=${history_edge//%/%25};history_edge=${history_edge//$'\n'/%0A}

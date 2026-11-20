@@ -1712,6 +1712,7 @@ public class Calculator extends AppCompatActivity
         return extractNumber(value);
     }
 
+    private RemainingKeypadLayout mRemainingKeypadLayout;
     private DateWindowLayout mDateWindowLayout;
     private FieldToolViewport mFieldToolViewport;
     private ConverterKeypadLayout mConverterKeypadLayout;
@@ -1897,6 +1898,7 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void setExpandedDisplay(boolean expanded) {
+        if(mRemainingKeypadLayout!=null)mRemainingKeypadLayout.setEnabled(false,false);
         if(mDateWindowLayout!=null)mDateWindowLayout.setEnabled(false);
         // Input-heavy tools want more display room: hide the scientific pad. The layout grows
         // the display automatically when it is gone. In calculator mode the user's toggle wins.
@@ -2089,6 +2091,9 @@ public class Calculator extends AppCompatActivity
         }
         mModeBar.setModeSelection(isCalculator && !mScientificVisible,
                 isCalculator && mScientificVisible, isConverter);
+        boolean remaining=isCalculator||ToolId.RELATIONSHIP.equals(activeId);
+        if(remaining&&mRemainingKeypadLayout==null)mRemainingKeypadLayout=new RemainingKeypadLayout(this);
+        if(mRemainingKeypadLayout!=null)mRemainingKeypadLayout.setEnabled(remaining,isCalculator&&mScientificVisible);
     }
 
     // ==== Chinese uppercase numerals (中文大写数字) ====
@@ -2284,6 +2289,7 @@ public class Calculator extends AppCompatActivity
      * {@link #setExpandedDisplay(boolean)}.
      */
     private void setScientificPadVisible(boolean visible, boolean persist) {
+        if(mRemainingKeypadLayout!=null)mRemainingKeypadLayout.setEnabled(false,false);
         mScientificVisible = visible;
         if (persist) {
             getSharedPreferences(PREFS_NAME, MODE_PRIVATE)

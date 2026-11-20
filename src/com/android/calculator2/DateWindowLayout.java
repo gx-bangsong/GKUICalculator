@@ -43,7 +43,7 @@ final class DateWindowLayout {
     private final Runnable fitTask=this::fit;
     private void schedule(){if(enabled){motion.removeCallbacks(fitTask);motion.post(fitTask);}}
     private void fit() {
-        if(!enabled||motion.getCurrentState()!=R.id.start_state||motion.getWidth()==0)return;
+        if(!enabled||!motion.isAttachedToWindow()||motion.getRootWindowInsets()==null||motion.getCurrentState()!=R.id.start_state||motion.getWidth()==0)return;
         int h=motion.getHeight()-motion.getPaddingTop()-motion.getPaddingBottom();
         int w=motion.getWidth()-motion.getPaddingLeft()-motion.getPaddingRight();
         Insets insets=motion.getRootWindowInsets().getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());

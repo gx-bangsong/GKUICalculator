@@ -84,4 +84,7 @@
     <dimen name="tool_panel_item_padding">12dp</dimen>
     <dimen name="tool_panel_item_icon">28dp</dimen>
     <dimen name="tool_panel_item_text_margin_top">6dp</dimen>
+    <!-- Readable labels only for the shortage-triggered calculator/kinship scroll fallback. -->
+    <dimen name="remaining_numeric_label_size">22sp</dimen>
+    <dimen name="remaining_scientific_label_size">18sp</dimen>
 </resources>
