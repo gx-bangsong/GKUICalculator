@@ -1019,7 +1019,13 @@ public class WindowConfigurationTest {
     }
     private int imeDigitOffset(CharSequence text,int count) {
         int seen=0;
-        for(int n=0;n<text.length();n++)if(Character.isDigit(text.charAt(n))&&++seen==count)return n+1;
+        for(int n=0;n<text.length();n++)if(Character.isDigit(text.charAt(n))&&++seen==count) {
+            int offset=n+1;
+            // A grouping separator belongs to the preceding digit's rendered boundary.
+            // Choose the unambiguous numeric edit boundary, not the middle of that decoration.
+            while(offset<text.length()&&!Character.isDigit(text.charAt(offset)))offset++;
+            return offset;
+        }
         throw new AssertionError("prepared input has too few digits: "+text);
     }
     private String imeDigits(TextView view) {return view.getText().toString().replaceAll("[^0-9]", "");}
