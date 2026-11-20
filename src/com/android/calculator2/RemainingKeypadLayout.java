@@ -11,6 +11,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.constraintlayout.widget.ConstraintSet;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import android.util.Log;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,7 +26,8 @@ final class RemainingKeypadLayout {
     private ScrollView viewport;
     private LinearLayout body;
     private ViewGroup.LayoutParams inputParams,advancedParams;
-    private ConstraintSet normal;
+    private ConstraintSet normal,inputHome,advancedHome;
+    private String lastDecision="";
     private boolean enabled,compact,scientific;
     private int lastWidth,lastHeight,lastLeft,lastRight;
     private static final class Label {
@@ -51,7 +54,41 @@ final class RemainingKeypadLayout {
         if(Math.abs(px-v.getTextSize())>.1f)v.setTextSize(TypedValue.COMPLEX_UNIT_PX,px);
     }
     private int columns(ViewGroup pad) {
+        return compact?4:originalColumns(pad);
+    }
+    private int originalColumns(ViewGroup pad) {
         return pad==input?(input.findViewById(R.id.columnGuide4)==null?4:5):(advanced.findViewById(R.id.columnGuide3)==null?3:4);
+    }
+    private static final int[] NUMERIC={R.id.clr,R.id.paren,R.id.op_pct,R.id.op_div,
+        R.id.digit_7,R.id.digit_8,R.id.digit_9,R.id.op_mul,R.id.digit_4,R.id.digit_5,R.id.digit_6,R.id.op_sub,
+        R.id.digit_1,R.id.digit_2,R.id.digit_3,R.id.op_add,R.id.digit_0,R.id.dec_point,R.id.del,R.id.eq};
+    private static final int[] SCIENCE={R.id.op_sqrt,R.id.const_pi,R.id.op_pow,R.id.op_fact,
+        R.id.toggle_mode,R.id.fun_sin,R.id.fun_cos,R.id.fun_tan,R.id.toggle_inv,R.id.const_e,R.id.fun_ln,R.id.fun_log};
+    private static final int[] INVERSE={R.id.op_sqr,R.id.fun_arcsin,R.id.fun_arccos,R.id.fun_arctan,R.id.fun_exp,R.id.fun_10pow};
+    private static final int[] INVERSE_CELLS={0,5,6,7,10,11};
+    private int compactWidth(ViewGroup pad) {
+        return 4*((int)Math.ceil(48*activity.getResources().getDisplayMetrics().density)+margin(pad,true)+1)
+            +pad.getPaddingLeft()+pad.getPaddingRight();
+    }
+    private int compactHeight(ViewGroup pad) {
+        return (pad==input?5:3)*(cellHeight(pad)+margin(pad,false)+1)+pad.getPaddingTop()+pad.getPaddingBottom();
+    }
+    private void gridCell(ConstraintSet state,ViewGroup pad,int id,int cell,int width) {
+        View key=pad.findViewById(id);ViewGroup.MarginLayoutParams p=(ViewGroup.MarginLayoutParams)key.getLayoutParams();
+        int pitch=(width-pad.getPaddingLeft()-pad.getPaddingRight())/4;
+        int row=cellHeight(pad)+margin(pad,false)+1;
+        state.clear(id);state.constrainWidth(id,pitch-p.leftMargin-p.rightMargin);
+        state.constrainHeight(id,row-p.topMargin-p.bottomMargin);
+        state.connect(id,ConstraintSet.LEFT,ConstraintSet.PARENT_ID,ConstraintSet.LEFT,cell%4*pitch+p.leftMargin);
+        state.connect(id,ConstraintSet.TOP,ConstraintSet.PARENT_ID,ConstraintSet.TOP,cell/4*row+p.topMargin);
+        state.setVisibilityMode(id,ConstraintSet.VISIBILITY_MODE_IGNORE);
+    }
+    private void compactGrid(ViewGroup pad,int width) {
+        ConstraintSet state=new ConstraintSet();state.clone((ConstraintLayout)pad);
+        int[] keys=pad==input?NUMERIC:SCIENCE;
+        for(int n=0;n<keys.length;n++)gridCell(state,pad,keys[n],n,width);
+        if(pad==advanced)for(int n=0;n<INVERSE.length;n++)gridCell(state,pad,INVERSE[n],INVERSE_CELLS[n],width);
+        state.applyTo((ConstraintLayout)pad);
     }
     private int margin(ViewGroup pad,boolean horizontal) {
         int max=0;
@@ -67,22 +104,27 @@ final class RemainingKeypadLayout {
         return Math.max((int)Math.ceil(48*activity.getResources().getDisplayMetrics().density),paint.getFontMetricsInt(null));
     }
     private int padHeight(ViewGroup pad) {
-        int rows=(pad==input?20:12)/columns(pad);
+        int rows=(pad==input?20:12)/originalColumns(pad);
         return rows*(cellHeight(pad)+margin(pad,false)+1)+pad.getPaddingTop()+pad.getPaddingBottom();
     }
     private int padWidth(ViewGroup pad) {
         int cell=(int)Math.ceil(48*activity.getResources().getDisplayMetrics().density);
-        return columns(pad)*(cell+margin(pad,true))+pad.getPaddingLeft()+pad.getPaddingRight();
+        return originalColumns(pad)*(cell+margin(pad,true))+pad.getPaddingLeft()+pad.getPaddingRight();
     }
     private void mount() {
         normal=new ConstraintSet();normal.clone(motion.getConstraintSet(R.id.start_state));
         inputParams=input.getLayoutParams();advancedParams=advanced.getLayoutParams();
+        inputHome=new ConstraintSet();inputHome.clone((ConstraintLayout)input);
+        advancedHome=new ConstraintSet();advancedHome.clone((ConstraintLayout)advanced);
+        for(int id:NUMERIC)inputHome.setVisibilityMode(id,ConstraintSet.VISIBILITY_MODE_IGNORE);
+        for(int id:SCIENCE)advancedHome.setVisibilityMode(id,ConstraintSet.VISIBILITY_MODE_IGNORE);
+        for(int id:INVERSE)advancedHome.setVisibilityMode(id,ConstraintSet.VISIBILITY_MODE_IGNORE);
         viewport=new ScrollView(activity);viewport.setTag("remaining_keypad_viewport");
         viewport.setFillViewport(false);viewport.setVerticalScrollBarEnabled(true);viewport.setScrollbarFadingEnabled(false);
         body=new LinearLayout(activity);body.setOrientation(LinearLayout.VERTICAL);
         stack.removeView(advanced);stack.removeView(input);
-        body.addView(advanced,new LinearLayout.LayoutParams(-1,scientific?padHeight(advanced):0));
-        body.addView(input,new LinearLayout.LayoutParams(-1,padHeight(input)));
+        body.addView(advanced,new LinearLayout.LayoutParams(-1,scientific?compactHeight(advanced):0));
+        body.addView(input,new LinearLayout.LayoutParams(-1,compactHeight(input)));
         viewport.addView(body,new ScrollView.LayoutParams(-1,-2));stack.addView(viewport,new LinearLayout.LayoutParams(-1,-1));
         labels.clear();
         for(ViewGroup pad:new ViewGroup[]{input,advanced})for(int n=0;n<pad.getChildCount();n++) {
@@ -122,11 +164,19 @@ final class RemainingKeypadLayout {
         if(normalHeight>=neededHeight&&w>=neededWidth){restore();return;}
         int barHeight=activity.getResources().getDimensionPixelSize(R.dimen.mode_segment_height)
                 +activity.findViewById(R.id.tool_bar).getPaddingTop()+activity.findViewById(R.id.tool_bar).getPaddingBottom();
-        int keyboardWidth=Math.max(padWidth(input),scientific?padWidth(advanced):0);
+        int keyboardWidth=Math.max(compactWidth(input),scientific?compactWidth(advanced):0);
         boolean side=w>=keyboardWidth+Math.ceil(128*d);
-        int displayHeight=side?h-barHeight:Math.min((int)Math.ceil(160*d),h-barHeight-(int)Math.ceil(48*d));
+        String decision="availablePx="+w+"x"+h+" availableDp="+(w/d)+"x"+(h/d)
+            +" originalKeyboardWidthDp="+(Math.max(padWidth(input),scientific?padWidth(advanced):0)/d)
+            +" compactKeyboardWidthDp="+(keyboardWidth/d)+" displayMinimumDp=128 branch="+(side?"LEFT_DISPLAY_RIGHT_KEYPAD":"INSUFFICIENT_WIDTH")
+            +" science="+scientific;
+        if(!decision.equals(lastDecision)){Log.i("RemainingWindow",decision);lastDecision=decision;}
+        // Do not silently replace the requested short-window structure with a squeezed vertical pad.
+        if(!side){restore();return;}
+        int displayHeight=h-barHeight;
         if(displayHeight<=0)return; // No fictitious 48dp guarantee in an impossibly small task.
         if(!compact)mount();
+        if(lastWidth!=w||lastHeight!=h){compactGrid(input,keyboardWidth);compactGrid(advanced,keyboardWidth);}
         for(Label label:labels)style(label.view);
         if(lastWidth==w&&lastHeight==h&&lastLeft==left&&lastRight==right){sizeViewport();return;}
         ConstraintSet state=new ConstraintSet();state.clone(normal);
@@ -148,6 +198,7 @@ final class RemainingKeypadLayout {
     private void restore() {
         if(!compact)return;
         compact=false;lastWidth=lastHeight=0;
+        inputHome.applyTo((ConstraintLayout)input);advancedHome.applyTo((ConstraintLayout)advanced);
         body.removeView(advanced);body.removeView(input);stack.removeView(viewport);
         stack.addView(advanced,0,advancedParams);stack.addView(input,1,inputParams);
         for(Label label:labels){label.view.removeOnLayoutChangeListener(labelListener);label.view.setTextSize(TypedValue.COMPLEX_UNIT_PX,label.size);}
