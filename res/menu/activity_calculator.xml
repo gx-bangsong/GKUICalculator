@@ -15,6 +15,10 @@
     <item android:id="@+id/menu_fraction"
         android:title="@string/menu_fraction" />
 
+    <item android:id="@+id/menu_show_fraction"
+        android:title="@string/menu_show_fraction"
+        android:checkable="true" />
+
     <item android:id="@+id/menu_licenses"
         android:title="@string/menu_licenses" />
 

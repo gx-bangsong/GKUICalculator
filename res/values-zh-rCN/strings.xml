@@ -303,4 +303,5 @@
     <string name="programmer_keypad_scroll">程序员键盘，可上下滚动查看全部按键</string>
     <string name="fraction_too_long">精确分数超出显示上限，未展开</string>
     <string name="fraction_copied">已复制完整分数</string>
+    <string name="menu_show_fraction">显示分数</string>
 </resources>

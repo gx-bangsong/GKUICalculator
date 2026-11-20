@@ -616,4 +616,5 @@
     <string name="programmer_keypad_scroll">Programmer keypad. Scroll vertically to reach all keys.</string>
     <string name="fraction_too_long">Exact fraction exceeds the display limit; not expanded</string>
     <string name="fraction_copied">Exact fraction copied</string>
+    <string name="menu_show_fraction">Show fractions</string>
 </resources>

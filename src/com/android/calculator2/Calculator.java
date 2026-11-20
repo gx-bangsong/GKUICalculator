@@ -271,6 +271,7 @@ public class Calculator extends AppCompatActivity
     // the layout grows the display automatically when the scientific pad is hidden).
     private static final String PREFS_NAME = "calc_tools";
     private static final String PREF_SCIENTIFIC = "scientific_pad_visible";
+    private static final String PREF_SHOW_FRACTION = "show_exact_fraction";
     private static final String PREF_PERCENT_OF_VALUE = "percent_of_value";
 
     /** Most lines a Chinese-uppercase result may wrap onto before it starts shrinking. */
@@ -1230,10 +1231,26 @@ public class Calculator extends AppCompatActivity
 
         positionCompletedResult();
         setState(CalculatorState.RESULT);
-        final UnifiedReal exactResult=mEvaluator.getResult(Evaluator.MAIN_INDEX);
-        mFractionResult.show(exactResult,() -> mCurrentState==CalculatorState.RESULT&&!toolOwnsDisplay()
-                &&mEvaluator.getResult(Evaluator.MAIN_INDEX)==exactResult&&!isFinishing()&&!isDestroyed());
+        refreshFractionResult();
         refreshHistory();
+    }
+
+    private boolean isFractionDisplayEnabled() {
+        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean(PREF_SHOW_FRACTION, false);
+    }
+
+    /** Display-only refresh: do not evaluate, preserve history, or change calculator state. */
+    private void refreshFractionResult() {
+        if (mFractionResult == null) return;
+        if (!isFractionDisplayEnabled() || mCurrentState != CalculatorState.RESULT || toolOwnsDisplay()) {
+            mFractionResult.clear();
+            return;
+        }
+        final UnifiedReal exactResult = mEvaluator.getResult(Evaluator.MAIN_INDEX);
+        mFractionResult.show(exactResult, () -> isFractionDisplayEnabled()
+                && mCurrentState == CalculatorState.RESULT && !toolOwnsDisplay()
+                && mEvaluator.getResult(Evaluator.MAIN_INDEX) == exactResult
+                && !isFinishing() && !isDestroyed());
     }
 
     /** Reapply only geometry after the auxiliary row changes shared display height. */
@@ -1326,6 +1343,10 @@ public class Calculator extends AppCompatActivity
     public boolean onPrepareOptionsMenu(Menu menu) {
         super.onPrepareOptionsMenu(menu);
 
+        final MenuItem showFraction = menu.findItem(R.id.menu_show_fraction);
+        showFraction.setVisible(!toolOwnsDisplay());
+        showFraction.setChecked(isFractionDisplayEnabled());
+
         menu.findItem(R.id.menu_history).setVisible(!isHistoryDocked());
         // Show the leading option when displaying a result.
         menu.findItem(R.id.menu_leading).setVisible(mCurrentState == CalculatorState.RESULT);
@@ -1410,7 +1431,14 @@ public class Calculator extends AppCompatActivity
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int itemId = item.getItemId();
-        if (itemId == R.id.menu_history) {
+        if (itemId == R.id.menu_show_fraction) {
+            final boolean enabled = !isFractionDisplayEnabled();
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                    .putBoolean(PREF_SHOW_FRACTION, enabled).apply();
+            item.setChecked(enabled);
+            refreshFractionResult();
+            return true;
+        } else if (itemId == R.id.menu_history) {
             requestHistory();
             return true;
         } else if (itemId == R.id.menu_leading) {
@@ -2326,6 +2354,7 @@ public class Calculator extends AppCompatActivity
         }
         updateScientificToggleLabel();
         updateScientificToggleVisibility();
+        refreshFractionResult();
     }
 
     /**
