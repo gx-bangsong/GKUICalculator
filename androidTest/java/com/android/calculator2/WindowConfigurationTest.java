@@ -861,6 +861,33 @@ public class WindowConfigurationTest {
         }while(SystemClock.uptimeMillis()<until);
         throw new AssertionError("window/view geometry did not settle "+stage+" "+actual[0]);
     }
+    private void remainingDatePickers() throws Exception {
+        for(int id:new int[]{R.id.date_start,R.id.date_end}) {
+            Rect r=remainingFind(id);assertTrue(device.click(r.centerX(),r.centerY()));
+            androidx.test.uiautomator.UiObject2 confirm=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.res("android","button1")),2000);
+            assertNotNull("date entry opens picker "+id,confirm);confirm.click();SystemClock.sleep(250);
+        }
+        scenario.onActivity(a -> {
+            View formula=a.findViewById(R.id.formula);
+            assertTrue("formula keeps FrameLayout parent contract",formula.getLayoutParams() instanceof android.widget.FrameLayout.LayoutParams);
+            assertEquals("formula remains in horizontal scroller",a.findViewById(R.id.formula_scroll_view),formula.getParent());
+            assertFalse("date calculated result is nonempty",((TextView)a.findViewById(R.id.result)).getText().toString().isEmpty());
+        });
+    }
+    private void remainingSideStructure(String stage,String mode) {
+        scenario.onActivity(a -> {
+            Rect display=new Rect(),keys=new Rect(),formula=new Rect();
+            assertTrue(visibleOnScreen(a.findViewById(R.id.display),display));
+            assertTrue(visibleOnScreen(a.findViewById(R.id.pad_stack),keys));
+            assertTrue("25% left display / right keyboard "+stage+" "+mode+" display="+display+" keys="+keys,display.right<=keys.left);
+            assertTrue("display and keyboard share vertical space",Math.min(display.bottom,keys.bottom)>Math.max(display.top,keys.top));
+            assertTrue("formula/chain visible",visibleOnScreen(a.findViewById(R.id.formula),formula));
+            TextView text=a.findViewById(R.id.formula);
+            assertTrue("readable formula/chain row",formula.height()>=text.getLineHeight());
+            if("relationship".equals(mode))assertTrue("relationship chain keeps cursor",text.isCursorVisible());
+            Log.i("RemainingWindow",stage+" "+mode+" SIDE_ASSERT display="+display+" keypad="+keys+" formula="+formula);
+        });
+    }
     private void remainingModeStage(String stage,java.util.List<String> failures) throws Exception {
         remainingAwaitLayout(stage);
         for(String mode:new String[]{"basic","scientific","date","relationship"}) {
@@ -871,11 +898,9 @@ public class WindowConfigurationTest {
                 if("relationship".equals(mode))remainingModeTap(0,R.string.tool_relationship);
                 SystemClock.sleep(300);
                 if("date".equals(mode)) {
-                    Rect r=remainingFind(R.id.date_start);
-                    assertTrue(device.click(r.centerX(),r.centerY()));
-                    androidx.test.uiautomator.UiObject2 cancel=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.res("android","button2")),2000);
-                    assertNotNull("real touch opens date dialog",cancel);cancel.click();
+                    remainingDatePickers();
                 } else {
+                    if(stage.endsWith("-small"))remainingSideStructure(stage,mode);
                     remainingAllKeysReachable(mode);
                     remainingFingerKey(R.id.clr);Map<Integer,String> before=displaySnapshot();
                     remainingFingerKey(R.id.digit_7);SystemClock.sleep(200);
@@ -898,6 +923,7 @@ public class WindowConfigurationTest {
         String position=bottom?"lower":"upper";
         try {
             remainingModeStage(position+"-full",failures);
+            remainingModeTap(0,R.string.tool_date);remainingDatePickers();
             enterRealSplit();SplitSample pair=stableSample(true,null);assertTrue("ENVIRONMENT pair "+pair,pair.verifiedCompanion());
             if((pair.app.top>pair.other.top)!=bottom) {
                 Rect divider=verifiedDivider();assertTrue(device.click(divider.centerX(),divider.centerY()));SystemClock.sleep(90);
@@ -913,6 +939,11 @@ public class WindowConfigurationTest {
         } finally {
             device.executeShellCommand("am force-stop com.android.settings");device.executeShellCommand("am task focus "+splitTask);SystemClock.sleep(800);
         }
+        remainingModeStage(position+"-restored",failures);
+        scenario.onActivity(a -> {
+            assertNull("full screen removes keypad viewport",a.findViewById(R.id.main_calculator).findViewWithTag("remaining_keypad_viewport"));
+            assertEquals("input pad restored parent",a.findViewById(R.id.pad_stack),a.findViewById(R.id.input_pad).getParent());
+        });
         Log.i("RemainingWindow",position+" violationCount="+failures.size()+" first="+(failures.isEmpty()?"none":failures.get(0)));
         assertTrue("Measured deficiencies (first 12): "+failures.subList(0,Math.min(12,failures.size())),failures.isEmpty());
     }
