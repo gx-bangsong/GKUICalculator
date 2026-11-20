@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.widget.LinearLayout;
+import android.widget.FrameLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.constraintlayout.widget.ConstraintSet;
@@ -20,7 +21,7 @@ final class DateWindowLayout {
     private final View toolbar,bar,pad,formulaContainer;
     private final TextView formula,result;
     private final ViewGroup.LayoutParams contentParams,sharedParams,formulaParams,textParams,resultParams;
-    private final int formulaMinimum,resultLines;
+    private final int formulaMinimum,resultLines,formulaIndex,resultIndex,sharedVisibility;
     private ScrollView viewport;
     private ConstraintSet original;
     private boolean enabled,compact;
@@ -34,6 +35,7 @@ final class DateWindowLayout {
         contentParams=content.getLayoutParams();sharedParams=shared.getLayoutParams();formulaParams=formulaContainer.getLayoutParams();
         textParams=formula.getLayoutParams();resultParams=result.getLayoutParams();
         formulaMinimum=formulaContainer.getMinimumHeight();resultLines=result.getMaxLines();
+        formulaIndex=shared.indexOfChild(formulaContainer);resultIndex=shared.indexOfChild(result);sharedVisibility=shared.getVisibility();
         motion.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->schedule());
         content.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->schedule());
     }
@@ -70,7 +72,9 @@ final class DateWindowLayout {
             shared.removeView(formulaContainer);shared.removeView(result);shared.setVisibility(View.GONE);
             content.addView(formulaContainer,new LinearLayout.LayoutParams(-1,-2));
             content.addView(result,new LinearLayout.LayoutParams(-1,-2));
-            ViewGroup.MarginLayoutParams text=new ViewGroup.MarginLayoutParams((ViewGroup.MarginLayoutParams)textParams);text.height=-2;formula.setLayoutParams(text);
+            // The formula never leaves CalculatorScrollView (a HorizontalScrollView/FrameLayout).
+            // Preserve gravity, margins and relative margins as well as the concrete parent contract.
+            FrameLayout.LayoutParams text=new FrameLayout.LayoutParams((FrameLayout.LayoutParams)textParams);text.height=-2;formula.setLayoutParams(text);
             ((CalculatorFormula)formula).setWrapToolOutput(true);((CalculatorScrollView)formulaContainer).setWrapChildToViewport(true);
             formulaContainer.setMinimumHeight(formula.getLineHeight()+formula.getPaddingTop()+formula.getPaddingBottom());
             result.setSingleLine(false);result.setMaxLines(Integer.MAX_VALUE);result.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));
@@ -97,7 +101,12 @@ final class DateWindowLayout {
         compact=false;lastWidth=lastHeight=0;
         viewport.removeView(content);display.removeView(viewport);viewport=null;
         content.removeView(formulaContainer);content.removeView(result);
-        shared.addView(formulaContainer,formulaParams);shared.addView(result,resultParams);shared.setVisibility(View.VISIBLE);
+        if(formulaIndex<resultIndex) {
+            shared.addView(formulaContainer,formulaIndex,formulaParams);shared.addView(result,resultIndex,resultParams);
+        } else {
+            shared.addView(result,resultIndex,resultParams);shared.addView(formulaContainer,formulaIndex,formulaParams);
+        }
+        shared.setVisibility(sharedVisibility);
         display.addView(content,1,contentParams);shared.setLayoutParams(sharedParams);
         formula.setLayoutParams(textParams);
         formulaContainer.setMinimumHeight(formulaMinimum);
