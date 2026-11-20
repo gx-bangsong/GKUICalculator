@@ -1719,6 +1719,22 @@ public class WindowConfigurationTest {
             evidence("fraction-after-display650-scientific-NOT-SPLIT");
         } finally {device.executeShellCommand("wm size reset");}
     }
+    /** Intersect real raw bounds through EVERY ancestor: API30's child local-visible
+     * calculation can over-report a scrolled child's bottom beyond the scroll viewport. */
+    private Rect fractionVisibleRaw(View view) {
+        Rect result=null;
+        for(View node=view;node!=null;node=node.getParent() instanceof View?(View)node.getParent():null) {
+            if(node.getVisibility()!=View.VISIBLE)return new Rect();
+            int[] p=new int[2];node.getLocationOnScreen(p);
+            Rect r=new Rect(p[0],p[1],p[0]+node.getWidth(),p[1]+node.getHeight());
+            if(node!=view&&node instanceof ViewGroup&&((ViewGroup)node).getClipToPadding()) {
+                r.left+=node.getPaddingLeft();r.top+=node.getPaddingTop();
+                r.right-=node.getPaddingRight();r.bottom-=node.getPaddingBottom();
+            }
+            if(result==null)result=r;else if(!result.intersect(r))return new Rect();
+        }
+        return result==null?new Rect():result;
+    }
     private Rect fractionLineRaw(TextView text) {
         android.text.Layout layout=text.getLayout();int[] xy=new int[2];text.getLocationOnScreen(xy);
         int top=xy[1]+text.getBaseline()-layout.getLineBaseline(0)-text.getScrollY();
@@ -1728,8 +1744,8 @@ public class WindowConfigurationTest {
     private void assertFullFractionLine(String stage) {
         fractionMeasurement(stage);
         scenario.onActivity(a -> {
-            TextView t=a.findViewById(R.id.fraction_result);Rect visible=new Rect();visibleOnScreen(t,visible);
-            assertEquals("unchanged preview font size",a.getResources().getDimension(R.dimen.result_textsize),t.getTextSize(),.01f);
+            TextView t=a.findViewById(R.id.fraction_result);Rect visible=new Rect();visible.set(fractionVisibleRaw(t));
+            assertEquals("unchanged preview font size",(float)a.getResources().getDimensionPixelSize(R.dimen.result_textsize),t.getTextSize(),.01f);
             assertTrue("complete line, not just a nonzero viewport: "+visible+" line="+fractionLineRaw(t),visible.contains(fractionLineRaw(t)));
         });
     }
@@ -1738,13 +1754,13 @@ public class WindowConfigurationTest {
         for(int attempt=0;attempt<10;attempt++) {
             boolean[] full={false},above={false};Rect viewport=new Rect();
             scenario.onActivity(a -> {
-                View target=a.findViewById(id);Rect visible=new Rect();visibleOnScreen(target,visible);
+                View target=a.findViewById(id);Rect visible=new Rect();visible.set(fractionVisibleRaw(target));
                 Rect required;
                 if(target instanceof TextView&&id==R.id.fraction_result)required=fractionLineRaw((TextView)target);
                 else {int[] p=new int[2];target.getLocationOnScreen(p);required=new Rect(p[0],p[1],p[0]+target.getWidth(),p[1]+target.getHeight());}
                 full[0]=visible.contains(required);
                 View scroll=a.findViewById(R.id.display).findViewWithTag("fraction_display_scroll");
-                if(scroll!=null)visibleOnScreen(scroll,viewport);
+                if(scroll!=null)viewport.set(fractionVisibleRaw(scroll));
                 above[0]=required.top<viewport.top;
             });
             if(full[0])return;
@@ -1795,7 +1811,7 @@ public class WindowConfigurationTest {
             int top=xy[1]+text.getBaseline()-layout.getLineBaseline(0)-text.getScrollY();
             Rect line=new Rect(xy[0]+text.getCompoundPaddingLeft()+(int)Math.floor(layout.getLineLeft(0)),
                     top+layout.getLineTop(0),xy[0]+text.getCompoundPaddingLeft()+(int)Math.ceil(layout.getLineRight(0)),top+layout.getLineBottom(0));
-            Rect visible=new Rect();visibleOnScreen(text,visible);
+            Rect visible=new Rect();visible.set(fractionVisibleRaw(text));
             Log.i("WindowEvidence","FRACTION "+stage+" lineRaw="+line+" visibleRaw="+visible+" fullLine="+visible.contains(line)
                     +" layoutHeight="+layout.getHeight()+" fontSpacing="+text.getPaint().getFontSpacing()
                     +" textPx="+text.getTextSize()+" viewportHeight="+viewport.getHeight());
@@ -1803,7 +1819,7 @@ public class WindowConfigurationTest {
             while(node!=null) {
                 Rect raw=new Rect();int[] origin=new int[2];node.getLocationOnScreen(origin);
                 raw.set(origin[0],origin[1],origin[0]+node.getWidth(),origin[1]+node.getHeight());
-                Rect clip=new Rect();visibleOnScreen(node,clip);
+                Rect clip=new Rect();clip.set(fractionVisibleRaw(node));
                 Log.i("WindowEvidence","FRACTION "+stage+" ancestor="+node.getClass().getSimpleName()+" id="+node.getId()
                         +" raw="+raw+" visible="+clip+" measured="+node.getMeasuredHeight()+" scroll="+node.getScrollY());
                 node=node.getParent() instanceof View?(View)node.getParent():null;

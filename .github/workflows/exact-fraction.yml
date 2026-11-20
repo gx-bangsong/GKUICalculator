@@ -8,6 +8,7 @@ on:
       - 'src/com/android/calculator2/BoundedRational.java'
       - 'test/java/com/android/calculator2/ExactFractionTest.java'
       - 'src/com/android/calculator2/FractionResult*.java'
+      - 'src/com/android/calculator2/FractionDisplayScroll.java'
       - 'src/com/android/calculator2/Calculator.java'
       - 'androidTest/java/com/android/calculator2/ExactFractionUiTest.java'
       - 'res/menu/activity_calculator.xml'
