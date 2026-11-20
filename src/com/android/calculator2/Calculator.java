@@ -2072,7 +2072,9 @@ public class Calculator extends AppCompatActivity
             mSegmentBasicView.setEnabled(true);
         }
         if (mSegmentScientificView != null) {
-            mSegmentScientificView.setEnabled(isCalculator || isConverter);
+            // An enabled mode entry also lets the framework show its long-press name.
+            // The existing click handler safely leaves a tool before opening science mode.
+            mSegmentScientificView.setEnabled(true);
         }
         if (mSegmentConvertView != null) {
             mSegmentConvertView.setEnabled(true);
@@ -2250,10 +2252,11 @@ public class Calculator extends AppCompatActivity
             }
             setScientificPadVisible(false, /* persist */ true);
         } else if (id == R.id.mode_segment_scientific) {
-            if (mToolManager != null && mToolManager.isActive()) {
+            final boolean leavingTool = mToolManager != null && mToolManager.isActive();
+            if (leavingTool) {
                 mToolManager.activate(ToolId.CALCULATOR);
             }
-            setScientificPadVisible(!mScientificVisible, /* persist */ true);
+            setScientificPadVisible(leavingTool || !mScientificVisible, /* persist */ true);
         } else if (id == R.id.mode_segment_convert) {
             if (mToolManager != null) {
                 final ToolMode active = mToolManager.getActive();

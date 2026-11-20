@@ -626,6 +626,7 @@ public class WindowConfigurationTest {
                 name[0]=expected.toString();assertEquals("localized name on segment "+index,name[0],icon.getTooltipText().toString());
                 assertTrue("accessibility name retained",icon.getContentDescription()!=null&&icon.getContentDescription().length()>0);
                 assertTrue("click action retained",icon.isClickable());
+                assertTrue("all mode entries enabled for touch hints and switching",icon.isEnabled());
                 assertTrue(visibleOnScreen(a.findViewById(R.id.mode_segments_scroll),viewport));
                 int[] raw=new int[2];icon.getLocationOnScreen(raw);target.set(raw[0],raw[1],raw[0]+icon.getWidth(),raw[1]+icon.getHeight());
                 window.set(a.getWindowManager().getCurrentWindowMetrics().getBounds());
@@ -702,7 +703,7 @@ public class WindowConfigurationTest {
         // A real tap after popup dismissal must still switch modes and rebuild generated icons.
         onView(withContentDescription(R.string.tool_tax)).perform(click());
         assertTrue(modelSnapshot().get("mode").contains("Tax"));toolbarTooltip(4,"rebuilt-tax");
-        key(R.id.mode_segment_basic);key(R.id.mode_segment_scientific);
+        key(R.id.mode_segment_scientific);
         scenario.onActivity(a -> assertTrue(a.findViewById(R.id.mode_segment_scientific).isSelected()));
         device.setOrientationLeft();awaitOrientation(Configuration.ORIENTATION_LANDSCAPE);
         toolbarTooltips("landscape-scientific");
