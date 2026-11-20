@@ -1651,7 +1651,7 @@ public class WindowConfigurationTest {
             SplitSample pair=stableSample(true,null);
             assertTrue("verified real companion "+pair,pair.verifiedCompanion());
             assertTrue("calculator must be upper "+pair,pair.app.top<pair.other.top);
-            Rect divider=verifiedDivider();
+            Rect divider=fractionDividerTarget();
             Log.i("WindowEvidence","FRACTION "+"DIVIDER hit="+divider+" display="+device.getDisplayWidth()+"x"+device.getDisplayHeight());
             // System divider belongs to SystemUI: UiAutomation has cross-window injection;
             // Instrumentation.sendPointerSync correctly rejects it on API30.
@@ -1669,22 +1669,28 @@ public class WindowConfigurationTest {
             awaitFractionWindow();
             fractionMeasurement("before-upper25-basic");
             evidence("fraction-before-upper-measured-basic");
-            if(Math.abs(share-.25f)>=.04f) {
-                // Explicit separate constraint diagnostic, NOT real-quarter acceptance.
-                device.executeShellCommand("am force-stop com.android.settings");
-                device.executeShellCommand("am task focus "+splitTask);
-                device.executeShellCommand("wm size 1080x650");
-                remainingAwaitLayout("fraction constraint diagnostic");
-                awaitFractionWindow();
-                fractionMeasurement("before-display650-NOT-SPLIT");
-                evidence("fraction-before-display650-NOT-SPLIT");
-            }
             assertTrue("real quarter unavailable: "+pair,Math.abs(share-.25f)<.04f);
         } finally {
-            device.executeShellCommand("wm size reset");
             device.executeShellCommand("am force-stop com.android.settings");
             device.executeShellCommand("am task focus "+splitTask);
         }
+    }
+    /** API30 exposes the divider handle's local rect offset incorrectly in UIAutomator.
+     * Intersect the real system divider WINDOW with the independently measured task gap.
+     * Both rectangles are screen/raw; no fixed offset or unverified gap-only injection. */
+    private Rect fractionDividerTarget() throws Exception {
+        SplitSample s=splitSample();assertTrue(s.toString(),s.verifiedCompanion());
+        Rect gap=new Rect(Math.max(s.app.left,s.other.left),Math.min(s.app.bottom,s.other.bottom),
+                Math.min(s.app.right,s.other.right),Math.max(s.app.top,s.other.top));
+        assertFalse("nonoverlapping vertical tasks "+s,gap.isEmpty());
+        for(android.view.accessibility.AccessibilityWindowInfo window:InstrumentationRegistry.getInstrumentation().getUiAutomation().getWindows()) {
+            if(window.getType()!=android.view.accessibility.AccessibilityWindowInfo.TYPE_SPLIT_SCREEN_DIVIDER)continue;
+            Rect system=new Rect();window.getBoundsInScreen(system);Rect hit=new Rect(system);
+            assertTrue("real divider window intersects task gap system="+system+" gap="+gap,hit.intersect(gap));
+            Log.i("WindowEvidence","FRACTION DIVIDER_RAW system="+system+" gap="+gap+" verifiedHit="+hit);
+            return hit;
+        }
+        throw new AssertionError("no real divider window; refusing gap-only target");
     }
     private void awaitFractionWindow() {
         long end=SystemClock.uptimeMillis()+10000;boolean[] ready={false};
