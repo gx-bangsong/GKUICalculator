@@ -79,9 +79,9 @@ final class FractionDisplayScroll {
             @Override public boolean dispatchTouchEvent(MotionEvent e) {
                 // Only this completed-result surface owns these drags. The history handle
                 // remains outside; do not change global display/history gestures.
-                if(e.getActionMasked()==MotionEvent.ACTION_DOWN)getParent().requestDisallowInterceptTouchEvent(true);
+                if(e.getActionMasked()==MotionEvent.ACTION_DOWN&&getParent()!=null)getParent().requestDisallowInterceptTouchEvent(true);
                 boolean handled=super.dispatchTouchEvent(e);
-                if(e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL)
+                if((e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL)&&getParent()!=null)
                     getParent().requestDisallowInterceptTouchEvent(false);
                 return handled;
             }
