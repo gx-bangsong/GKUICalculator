@@ -282,7 +282,12 @@ for p in Path("build/outputs/androidTest-results").rglob("TEST-*.xml"):
 text="; ".join(rows).replace("%","%25")
 print("::warning title=Window functional results::"+text)
 PYWINDOW
-adb logcat -d -v brief WindowEvidence:I SplitPhase:I MortgageForm:I MortgagePosition:I MortgageTarget:I TaxPosition:I ToolTouchCoordinates:I '*:S' > build/ui-screenshots/window-evidence.log || true
+adb logcat -d -v brief WindowEvidence:I HistoryEdge:I SplitPhase:I MortgageForm:I MortgagePosition:I MortgageTarget:I TaxPosition:I ToolTouchCoordinates:I '*:S' > build/ui-screenshots/window-evidence.log || true
+history_edge=$(grep 'HistoryEdge' build/ui-screenshots/window-evidence.log | tail -n 20 | head -c 12000 || true)
+if [[ -n "$history_edge" ]]; then
+    history_edge=${history_edge//%/%25};history_edge=${history_edge//$'\n'/%0A}
+    echo "::warning title=History edge boundaries and pixel samples::$history_edge"
+fi
 # Keep the two remaining acceptance failures readable without downloading artifacts.
 converter_evidence=$(python3 - <<'PYCONVERTER'
 from pathlib import Path

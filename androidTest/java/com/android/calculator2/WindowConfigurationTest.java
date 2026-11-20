@@ -665,7 +665,8 @@ public class WindowConfigurationTest {
             top[0]=insets.getInsets(android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout()).top;
             if(insets.getDisplayCutout()!=null)for(Rect r:insets.getDisplayCutout().getBoundingRects())cutouts.add(new Rect(r));
             history[0]=a.getColor(R.color.history_background_color);display[0]=a.getColor(R.color.display_background_color);wide[0]=a.isHistoryDocked();
-            assertEquals("transparent system status bar exposes actual region backgrounds",android.graphics.Color.TRANSPARENT,a.getWindow().getStatusBarColor());
+            assertEquals("system status surface follows history presentation",
+                    wide[0]?android.graphics.Color.TRANSPARENT:history[0],a.getWindow().getStatusBarColor());
         });
         if(top[0]==0){Log.i("HistoryEdge",stage+" STATUS_PIXELS not applicable: this task has no top system inset");return;}
         android.graphics.Bitmap image=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();assertNotNull(image);
@@ -762,7 +763,12 @@ public class WindowConfigurationTest {
             String overlays=device.executeShellCommand("cmd overlay list");
             if(overlays.contains("[ ] com.android.internal.display.cutout.emulation.tall")) {
                 device.executeShellCommand("cmd overlay enable com.android.internal.display.cutout.emulation.tall");cutoutEnabled=true;SystemClock.sleep(900);
-                scenario.onActivity(a -> assertNotNull("actual platform cutout emulation",a.getWindow().getDecorView().getRootWindowInsets().getDisplayCutout()));
+                long deadline=SystemClock.uptimeMillis()+5000;boolean[] ready={false};
+                do {
+                    scenario.onActivity(a -> ready[0]=a.getWindow().getDecorView().getRootWindowInsets().getDisplayCutout()!=null);
+                    if(ready[0])break;SystemClock.sleep(100);
+                } while(SystemClock.uptimeMillis()<deadline);
+                assertTrue("actual platform cutout emulation after SHORT_EDGES layout",ready[0]);
             } else Log.w("HistoryEdge","CUTOUT_NOT_AVAILABLE: no tall overlay; no cutout coverage claimed");
             for(int mode:new int[]{2,0}) {
                 setNavigationMode(mode);

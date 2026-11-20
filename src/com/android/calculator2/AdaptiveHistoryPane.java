@@ -17,6 +17,7 @@ final class AdaptiveHistoryPane {
     private final View divider;
     private final View statusBackground;
     private boolean wide;
+    private Insets safeInsets = Insets.NONE;
 
     AdaptiveHistoryPane(Calculator activity) {
         this.activity = activity;
@@ -36,10 +37,7 @@ final class AdaptiveHistoryPane {
             private final android.graphics.Paint paint = new android.graphics.Paint();
             @Override protected void onDraw(android.graphics.Canvas canvas) {
                 if (wide) return; // The edge-reaching sidebar paints its own status background.
-                android.view.WindowInsets insets = root.getRootWindowInsets();
-                if (insets == null) return;
-                int top = insets.getInsets(WindowInsets.Type.systemBars()
-                        | WindowInsets.Type.displayCutout()).top;
+                int top = safeInsets.top;
                 paint.setColor(androidx.core.graphics.ColorUtils.blendARGB(
                         activity.getColor(R.color.display_background_color),
                         activity.getColor(R.color.history_background_color),
@@ -47,6 +45,7 @@ final class AdaptiveHistoryPane {
                 canvas.drawRect(0, 0, getWidth(), top, paint);
             }
         };
+        statusBackground.setWillNotDraw(false);
         statusBackground.setTag("history_status_background");
         statusBackground.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         root.addView(statusBackground, new FrameLayout.LayoutParams(-1, -1));
@@ -56,7 +55,16 @@ final class AdaptiveHistoryPane {
 
     boolean isWide() { return wide; }
 
-    void invalidateSystemBarBackground() { statusBackground.invalidate(); }
+    void invalidateSystemBarBackground() {
+        // Android 11–14 may composite a task status colour separately in split screen.
+        // Keep that surface in sync too; on enforced edge-to-edge the view paints beneath it.
+        activity.getWindow().setStatusBarColor(wide ? android.graphics.Color.TRANSPARENT
+                : androidx.core.graphics.ColorUtils.blendARGB(
+                    activity.getColor(R.color.display_background_color),
+                    activity.getColor(R.color.history_background_color),
+                    Math.max(0f, Math.min(1f, motion.getProgress()))));
+        statusBackground.invalidate();
+    }
 
     void scheduleFit() {
         root.removeCallbacks(fitTask);
@@ -84,6 +92,7 @@ final class AdaptiveHistoryPane {
                 || activity.isFinishing() || activity.isDestroyed()) return;
         Insets bars = activity.getWindowManager().getCurrentWindowMetrics().getWindowInsets()
                 .getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+        safeInsets = bars;
         int width = root.getWidth() - bars.left - bars.right;
         int height = root.getHeight() - bars.top - bars.bottom;
         float density = root.getResources().getDisplayMetrics().density;

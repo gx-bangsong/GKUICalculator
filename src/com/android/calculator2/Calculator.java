@@ -2398,6 +2398,9 @@ public class Calculator extends AppCompatActivity
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         // Paint the actual regions behind system icons, including a two-colour tablet status
         // bar. Content remains inset; no fixed bar heights and no progress-dependent padding.
+        android.view.WindowManager.LayoutParams attributes=getWindow().getAttributes();
+        attributes.layoutInDisplayCutoutMode=android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        getWindow().setAttributes(attributes);
         getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
         getWindow().setNavigationBarColor(android.graphics.Color.TRANSPARENT);
         getWindow().setStatusBarContrastEnforced(false);
