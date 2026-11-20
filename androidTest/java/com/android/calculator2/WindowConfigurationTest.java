@@ -1040,7 +1040,13 @@ public class WindowConfigurationTest {
             Log.e("RemainingWindow","KEYPAD_FAILURE transition="+transition[0],error);
             scenario.onActivity(a -> Log.e("RemainingWindow","KEYPAD_FAILURE_GEOMETRY "+keypadGeometry(a)));
             evidence("keyboard-first-failure");
-            device.dumpWindowHierarchy(new java.io.File("/sdcard/window-keyboard-failure.xml"));
+            try {
+                java.io.File dump=new java.io.File(InstrumentationRegistry.getInstrumentation().getTargetContext()
+                        .getExternalFilesDir(null),"window-keyboard-failure.xml");
+                device.dumpWindowHierarchy(dump);
+            } catch(Exception diagnosticError) {
+                error.addSuppressed(diagnosticError); // Preserve the real assertion, not a storage error.
+            }
             throw error;
         } finally {
             device.executeShellCommand("pkill -2 screenrecord");recording.interrupt();
