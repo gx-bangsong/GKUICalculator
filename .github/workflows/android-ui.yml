@@ -338,7 +338,7 @@ jobs:
   history-evidence:
     name: Persistent history window screenshots
     needs: emulator-ui
-    if: ${{ always() && inputs.split_scope == 'history-only' }}
+    if: ${{ always() && (inputs.split_scope == 'history-only' || inputs.split_scope == 'history-edge-only') }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -354,7 +354,7 @@ jobs:
           from pathlib import Path
           from PIL import Image
           import io
-          for name in ('tablet-portrait','narrow-single-column','tablet-real-half','tablet-real-narrow'):
+          for name in ('tablet-portrait','narrow-single-column','tablet-real-half','tablet-real-narrow','edge-nav2-portrait-expanded','edge-nav2-portrait-collapsed-return','edge-nav0-landscape-expanded','edge-lower-split-expanded','edge-docked'):
               source=Path('evidence/ui-screenshots/window-history-'+name+'.png')
               if not source.exists():
                   print('Not captured: '+name)
@@ -374,3 +374,13 @@ jobs:
         run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-tablet-real-half-review.jpg "history tablet-real-half" 0 warning
       - name: Publish history tablet-real-narrow preview
         run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-tablet-real-narrow-review.jpg "history tablet-real-narrow" 0 warning
+      - name: Publish history edge nav2-portrait-expanded
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-nav2-portrait-expanded-review.jpg "history edge nav2-portrait-expanded" 0 warning
+      - name: Publish history edge nav2-portrait-collapsed-return
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-nav2-portrait-collapsed-return-review.jpg "history edge nav2-portrait-collapsed-return" 0 warning
+      - name: Publish history edge nav0-landscape-expanded
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-nav0-landscape-expanded-review.jpg "history edge nav0-landscape-expanded" 0 warning
+      - name: Publish history edge lower-split-expanded
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-lower-split-expanded-review.jpg "history edge lower-split-expanded" 0 warning
+      - name: Publish history edge docked
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-docked-review.jpg "history edge docked" 0 warning

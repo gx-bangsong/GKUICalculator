@@ -656,6 +656,35 @@ public class WindowConfigurationTest {
             Log.i("HistoryEdge",stage+" window="+window+" safe="+safe+" toolbarRaw="+toolbar+" listRaw="+list+" docked="+a.isHistoryDocked());
         });
     }
+    private void historyStatusPixels(String stage) {
+        Rect window=new Rect();int[] top={0},history={0},display={0};boolean[] wide={false};
+        java.util.List<Rect> cutouts=new java.util.ArrayList<>();
+        scenario.onActivity(a -> {
+            window.set(a.getWindowManager().getCurrentWindowMetrics().getBounds());
+            android.view.WindowInsets insets=a.getWindow().getDecorView().getRootWindowInsets();
+            top[0]=insets.getInsets(android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout()).top;
+            if(insets.getDisplayCutout()!=null)for(Rect r:insets.getDisplayCutout().getBoundingRects())cutouts.add(new Rect(r));
+            history[0]=a.getColor(R.color.history_background_color);display[0]=a.getColor(R.color.display_background_color);wide[0]=a.isHistoryDocked();
+            assertEquals("transparent system status bar exposes actual region backgrounds",android.graphics.Color.TRANSPARENT,a.getWindow().getStatusBarColor());
+        });
+        if(top[0]==0){Log.i("HistoryEdge",stage+" STATUS_PIXELS not applicable: this task has no top system inset");return;}
+        android.graphics.Bitmap image=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();assertNotNull(image);
+        try {
+            int y=window.top+top[0]-3,matched=0,sampled=0;StringBuilder values=new StringBuilder();
+            for(int n=1;n<10;n++) {
+                int x=window.left+window.width()*n/10;boolean cutout=false;
+                for(Rect r:cutouts)if(r.contains(x-window.left,y-window.top))cutout=true;
+                if(cutout)continue;
+                int expected=wide[0]&&n>=4?display[0]:history[0];
+                int actual=image.getPixel(x,y);sampled++;if(actual==expected)matched++;
+                values.append(x).append(':').append(Integer.toHexString(actual)).append('/').append(Integer.toHexString(expected)).append(' ');
+            }
+            Log.i("HistoryEdge",stage+" STATUS_PIXELS y="+y+" matches="+matched+"/"+sampled+" "+values);
+            assertTrue("sample status background outside cutout",sampled>=4);
+            assertEquals("status background matches region, no colour band "+stage+" "+values,sampled,matched);
+        } finally {image.recycle();}
+    }
+
     private void historyMenu(int title) {
         onView(org.hamcrest.Matchers.allOf(withContentDescription(androidx.appcompat.R.string.abc_action_menu_overflow_description),
                 isDescendantOfA(withId(R.id.history_toolbar)))).perform(click());
@@ -714,7 +743,7 @@ public class WindowConfigurationTest {
         };
         scenario.onActivity(a -> ((DisplayMotionLayout)a.findViewById(R.id.main_calculator)).addTransitionListener(monitor));
         try {
-            evidence(stage+"-collapsed");historyRawDrag(true);historySafeBounds(stage);evidence(stage+"-expanded");
+            evidence(stage+"-collapsed");historyRawDrag(true);historySafeBounds(stage);historyStatusPixels(stage);evidence(stage+"-expanded");
             assertTrue("actual intermediate motion frames "+stage,samples[0]>=3);
             assertTrue("no progress-dependent/duplicate padding "+animationErrors,animationErrors.isEmpty());
             if(endpoints){historyEndpoint(false,stage);historyEndpoint(true,stage);}
@@ -775,7 +804,7 @@ public class WindowConfigurationTest {
                 assertEquals("history background reaches top edge",window.top,host.top);
                 assertEquals("history background reaches bottom edge",window.bottom,host.bottom);
             });
-            evidence("history-edge-docked");resizeHistoryWindow("800x1200",false);
+            historyStatusPixels("docked");evidence("history-edge-docked");resizeHistoryWindow("800x1200",false);
             historyGestureStage("history-edge-after-narrow",false);
             resizeHistoryWindow("1200x1800",true);assertDockedHistoryBounds();historySafeBounds("docked-return");evidence("history-edge-docked-return");
         } finally {device.executeShellCommand("wm size "+size);device.executeShellCommand("wm density "+density);SystemClock.sleep(800);}
