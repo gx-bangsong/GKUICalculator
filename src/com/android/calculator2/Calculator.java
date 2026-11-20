@@ -1712,6 +1712,7 @@ public class Calculator extends AppCompatActivity
         return extractNumber(value);
     }
 
+    private DateWindowLayout mDateWindowLayout;
     private FieldToolViewport mFieldToolViewport;
     private ConverterKeypadLayout mConverterKeypadLayout;
     private ProgrammerKeypadLayout mProgrammerKeypadLayout;
@@ -1826,6 +1827,11 @@ public class Calculator extends AppCompatActivity
         mFormulaContainer.setVisibility(sharedVisibility);
         mFormulaText.setVisibility(sharedVisibility);
         mResultText.setVisibility(sharedVisibility);
+        if(mToolManager!=null && mToolManager.getActive()!=null
+                && ToolId.DATE.equals(mToolManager.getActive().getId())) {
+            if(mDateWindowLayout==null)mDateWindowLayout=new DateWindowLayout(this);
+            mDateWindowLayout.setEnabled(true);
+        }
         if(usesFieldToolViewport()) {
             if(mFieldToolViewport==null)mFieldToolViewport=new FieldToolViewport(this);
             mFieldToolViewport.setEnabled(true);
@@ -1840,6 +1846,7 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void restoreCalculatorDisplay() {
+        if(mDateWindowLayout!=null)mDateWindowLayout.setEnabled(false);
         if(mConverterKeypadLayout!=null)mConverterKeypadLayout.setEnabled(false);
         if(mFieldToolViewport!=null)mFieldToolViewport.setEnabled(false);
         mFormulaText.removeTextChangedListener(mFormulaTextWatcher);
@@ -1890,6 +1897,7 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void setExpandedDisplay(boolean expanded) {
+        if(mDateWindowLayout!=null)mDateWindowLayout.setEnabled(false);
         // Input-heavy tools want more display room: hide the scientific pad. The layout grows
         // the display automatically when it is gone. In calculator mode the user's toggle wins.
         applyAdvancedPadVisibility(expanded ? false : mScientificVisible);
