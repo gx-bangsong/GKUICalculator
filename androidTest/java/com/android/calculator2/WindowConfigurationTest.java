@@ -1652,19 +1652,21 @@ public class WindowConfigurationTest {
             assertTrue("verified real companion "+pair,pair.verifiedCompanion());
             assertTrue("calculator must be upper "+pair,pair.app.top<pair.other.top);
             Rect divider=verifiedDivider();
-            assertTrue(device.swipe(divider.centerX(),divider.centerY(),divider.centerX(),Math.round(device.getDisplayHeight()*.25f),65));
+            Log.i("FractionWindow","DIVIDER hit="+divider+" display="+device.getDisplayWidth()+"x"+device.getDisplayHeight());
+            pointerDrag(divider.centerX(),divider.centerY(),Math.round(device.getDisplayHeight()*.25f));
+            assertTrue("pair settled after real touch",awaitVerifiedPair());
             device.executeShellCommand("am task focus "+splitTask);
             pair=stableSample(true,null);
             float share=pair.app.height()/(float)(pair.app.height()+pair.other.height());
             Log.i("FractionWindow","REAL_UPPER share="+share+" "+pair);
-            assertTrue("real quarter, not wm size "+pair,Math.abs(share-.25f)<.04f);
             key(R.id.digit_1);key(R.id.op_div);key(R.id.digit_3);key(R.id.eq);
             androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu(
                     InstrumentationRegistry.getInstrumentation().getTargetContext());
             onView(withText(R.string.menu_show_fraction)).perform(click());
             awaitFractionWindow();
             fractionMeasurement("before-upper25-basic");
-            evidence("fraction-before-upper25-basic");
+            evidence("fraction-before-upper-measured-basic");
+            assertTrue("real quarter, not wm size "+pair,Math.abs(share-.25f)<.04f);
         } finally {
             device.executeShellCommand("am force-stop com.android.settings");
             device.executeShellCommand("am task focus "+splitTask);
