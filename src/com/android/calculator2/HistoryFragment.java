@@ -8,6 +8,7 @@ package com.android.calculator2;
 import static androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_DRAGGING;
 
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,11 +34,44 @@ public class HistoryFragment extends Fragment {
     private ArrayList<HistoryItem> mDataSet = new ArrayList<>();
 
     private boolean mIsDisplayEmpty;
+    private Parcelable mScroll;
+    private long mSnapshotIndex = -1;
+
+    void captureScroll() {
+        if(mRecyclerView!=null&&mRecyclerView.getLayoutManager()!=null)
+            mScroll=mRecyclerView.getLayoutManager().onSaveInstanceState();
+    }
+
+    void restoreScroll() {
+        if(mScroll!=null&&mRecyclerView!=null&&mRecyclerView.getLayoutManager()!=null)
+            mRecyclerView.getLayoutManager().onRestoreInstanceState(mScroll);
+    }
+
+    void setDocked(boolean docked) {
+        if(getView()==null)return;
+        Toolbar toolbar=getView().findViewById(R.id.history_toolbar);
+        if(docked)toolbar.setNavigationIcon(null);
+        else {
+            android.util.TypedValue value=new android.util.TypedValue();
+            requireContext().getTheme().resolveAttribute(androidx.appcompat.R.attr.homeAsUpIndicator,value,true);
+            toolbar.setNavigationIcon(value.resourceId);
+        }
+        toolbar.setNavigationContentDescription(docked?null:getString(R.string.desc_navigate_up));
+        restoreScroll();
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle out) {
+        captureScroll();
+        out.putParcelable("history_scroll",mScroll);
+        super.onSaveInstanceState(out);
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mAdapter = new HistoryAdapter(mDataSet);
+        if(savedInstanceState!=null)mScroll=savedInstanceState.getParcelable("history_scroll");
     }
 
     @Override
@@ -86,6 +120,15 @@ public class HistoryFragment extends Fragment {
         mEvaluator = Evaluator.getInstance(activity);
         mAdapter.setEvaluator(mEvaluator);
 
+        refreshHistory();
+        setDocked(activity.isHistoryDocked());
+        restoreScroll();
+    }
+
+    void refreshHistory() {
+        if(mEvaluator==null||mRecyclerView==null)return;
+        final Calculator activity=(Calculator)getActivity();
+        if(activity==null)return;
         final boolean isResultLayout = activity.isResultLayout();
 
         // Snapshot display state here. For the rest of the lifecycle of this current
@@ -95,6 +138,15 @@ public class HistoryFragment extends Fragment {
         mIsDisplayEmpty = mainExpr == null || mainExpr.isEmpty();
 
         final long maxIndex = mEvaluator.getMaxIndex();
+        mAdapter.setIsResultLayout(isResultLayout);
+        mAdapter.setIsOneLine(activity.isOneLine());
+        mAdapter.setIsDisplayEmpty(mIsDisplayEmpty);
+        if(maxIndex==mSnapshotIndex) {
+            mAdapter.notifyDataSetChanged();
+            return;
+        }
+        if(mSnapshotIndex>=0)captureScroll();
+        mSnapshotIndex=maxIndex;
 
         final ArrayList<HistoryItem> newDataSet = new ArrayList<>();
 
@@ -111,6 +163,7 @@ public class HistoryFragment extends Fragment {
         mAdapter.setIsOneLine(activity.isOneLine());
         mAdapter.setIsDisplayEmpty(mIsDisplayEmpty);
         mAdapter.notifyDataSetChanged();
+        restoreScroll();
     }
 
     @Override

@@ -376,6 +376,107 @@ public class WindowConfigurationTest {
         onView(withId(R.id.digit_7)).perform(click());
         onView(withId(R.id.formula)).check(matches(withText("7")));
     }
+    /** Real WindowManager display changes; not synthetic child measurement or a split claim. */
+    private void resizeHistoryWindow(String size, boolean docked) throws Exception {
+        device.executeShellCommand("wm size "+size);
+        SystemClock.sleep(1200);
+        long deadline=SystemClock.uptimeMillis()+12000;
+        boolean[] ready={false};
+        do {
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            scenario.onActivity(a -> ready[0]=a.getWindow().getDecorView().hasWindowFocus()
+                    &&a.isHistoryDocked()==docked);
+            if(ready[0])return;
+            SystemClock.sleep(100);
+        } while(SystemClock.uptimeMillis()<deadline);
+        fail("history window did not settle size="+size+" docked="+docked);
+    }
+
+    private void assertDockedHistoryBounds() {
+        scenario.onActivity(a -> {
+            assertTrue(a.isHistoryDocked());
+            Rect h=new Rect(),right=new Rect(),list=new Rect(),toolbar=new Rect();
+            assertTrue(visibleOnScreen(a.findViewById(R.id.history_frame),h));
+            assertTrue(visibleOnScreen(a.findViewById(R.id.main_calculator),right));
+            assertTrue(visibleOnScreen(a.findViewById(R.id.history_recycler_view),list));
+            assertTrue(visibleOnScreen(a.findViewById(R.id.history_toolbar),toolbar));
+            float d=a.getResources().getDisplayMetrics().density;
+            assertTrue("independent, nonoverlapping columns "+h+" "+right,h.right<right.left);
+            assertTrue("usable right width "+right,right.width()/d>=560);
+            assertTrue("history list below toolbar "+list+" "+toolbar,list.top>=toolbar.bottom);
+            android.graphics.Insets bars=a.getWindowManager().getCurrentWindowMetrics().getWindowInsets()
+                    .getInsets(android.view.WindowInsets.Type.systemBars()|android.view.WindowInsets.Type.displayCutout());
+            Rect window=a.getWindowManager().getCurrentWindowMetrics().getBounds();
+            assertTrue("history clear toolbar outside top system bar",toolbar.top>=window.top+bars.top);
+            assertTrue("history list outside bottom system bar",list.bottom<=window.bottom-bars.bottom);
+            assertNull(((androidx.appcompat.widget.Toolbar)a.findViewById(R.id.toolbar)).getNavigationIcon());
+            assertNull(((androidx.appcompat.widget.Toolbar)a.findViewById(R.id.history_toolbar)).getNavigationIcon());
+            assertEquals(View.GONE,a.findViewById(R.id.drag_handle_view).getVisibility());
+            assertEquals("one history fragment",1,a.getSupportFragmentManager().getFragments().stream()
+                    .filter(f -> f instanceof HistoryFragment).count());
+            assertEquals("no duplicate backstack",0,a.getSupportFragmentManager().getBackStackEntryCount());
+            Log.i("WindowEvidence","DOCKED history="+h+" calculator="+right+" list="+list+" toolbar="+toolbar);
+        });
+    }
+
+    @Test public void adaptiveHistoryUsesActualWindowAndKeepsToolState() throws Exception {
+        String density=device.executeShellCommand("wm density");
+        java.util.regex.Matcher override=java.util.regex.Pattern.compile("Override density: (\\d+)").matcher(density);
+        String restoreDensity=override.find()?override.group(1):"reset";
+        String size=device.executeShellCommand("wm size");
+        override=java.util.regex.Pattern.compile("Override size: (\\d+x\\d+)").matcher(size);
+        String restoreSize=override.find()?override.group(1):"reset";
+        try {
+            device.executeShellCommand("wm density 160");
+            resizeHistoryWindow("1200x1800",true);
+            assertDockedHistoryBounds();
+            // Calculate through real keypad. The already-mounted history must refresh immediately.
+            key(R.id.clr);digits("7");key(R.id.op_add);digits("8");key(R.id.eq);
+            long until=SystemClock.uptimeMillis()+10000;boolean[] refreshed={false};
+            do {
+                scenario.onActivity(a -> {
+                    androidx.recyclerview.widget.RecyclerView list=a.findViewById(R.id.history_recycler_view);
+                    refreshed[0]=list.findViewHolderForAdapterPosition(0) instanceof HistoryAdapter.ViewHolder
+                        &&((HistoryAdapter.ViewHolder)list.findViewHolderForAdapterPosition(0)).getResult()!=null
+                        &&((HistoryAdapter.ViewHolder)list.findViewHolderForAdapterPosition(0)).getResult().getText().toString().contains("15");
+                });
+                if(refreshed[0])break;SystemClock.sleep(100);
+            } while(SystemClock.uptimeMillis()<until);
+            assertTrue("new calculation appears in mounted history",refreshed[0]);
+            evidence("history-tablet-portrait");
+            onView(withContentDescription(R.string.tool_programmer)).perform(click());
+            int input=prepareTool(R.string.tool_programmer);
+            Map<String,String> model=modelSnapshot();int[] selected=selection(input);
+            resizeHistoryWindow("1800x1200",true);
+            assertDockedHistoryBounds();
+            assertEquals(model,modelSnapshot());assertArrayEquals(selected,selection(input));
+            evidence("history-tablet-landscape");
+            resizeHistoryWindow("800x1200",false);
+            assertEquals(model,modelSnapshot());assertArrayEquals(selected,selection(input));
+            scenario.onActivity(a -> {
+                assertNotNull(((androidx.appcompat.widget.Toolbar)a.findViewById(R.id.toolbar)).getNavigationIcon());
+                assertEquals(View.VISIBLE,a.findViewById(R.id.drag_handle_view).getVisibility());
+            });
+            evidence("history-narrow-single-column");
+            onView(withContentDescription(R.string.menu_history)).perform(click());
+            awaitMotionState(R.id.end_state);
+            device.pressBack();awaitMotionState(R.id.start_state);
+            assertEquals("modal history must not reactivate tool",model,modelSnapshot());
+            resizeHistoryWindow("1600x550",false);
+            assertEquals("wide but short remains single column",model,modelSnapshot());
+            evidence("history-short-single-column");
+            resizeHistoryWindow("1200x1800",true);
+            assertDockedHistoryBounds();assertEquals(model,modelSnapshot());
+            evidence("history-restored-double-column");
+            key(R.id.eq);
+            assertNotEquals("restored pending calculation executes",model,modelSnapshot());
+        } finally {
+            device.executeShellCommand("wm size "+restoreSize);
+            device.executeShellCommand("wm density "+restoreDensity);
+            SystemClock.sleep(1000);
+        }
+    }
+
     private void assertBasicKeyboardFillsStack() {
         scenario.onActivity(a -> {
             View advanced=a.findViewById(R.id.advanced_pad);

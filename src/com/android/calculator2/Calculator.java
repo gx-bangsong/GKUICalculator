@@ -199,6 +199,7 @@ public class Calculator extends AppCompatActivity
             new OnFormulaContextMenuClickListener() {
         @Override
         public boolean onPaste(ClipData clip) {
+            if(toolOwnsDisplay())return false;
             final ClipData.Item item = clip.getItemCount() == 0 ? null : clip.getItemAt(0);
             if (item == null) {
                 // nothing to paste, bail early...
@@ -219,6 +220,7 @@ public class Calculator extends AppCompatActivity
 
         @Override
         public void onMemoryRecall() {
+            if(toolOwnsDisplay())return;
             clearIfNotInputState();
             long memoryIndex = mEvaluator.getMemoryIndex();
             if (memoryIndex != 0) {
@@ -397,7 +399,7 @@ public class Calculator extends AppCompatActivity
         final androidx.appcompat.widget.Toolbar topToolbar = findViewById(R.id.toolbar);
         topToolbar.setNavigationIcon(R.drawable.ic_history);
         topToolbar.setNavigationContentDescription(R.string.menu_history);
-        topToolbar.setNavigationOnClickListener(v -> mMainCalculator.transitionToEnd());
+        topToolbar.setNavigationOnClickListener(v -> requestHistory());
 
         mModeView = findViewById(R.id.mode);
         mFormulaText = findViewById(R.id.formula);
@@ -509,6 +511,7 @@ public class Calculator extends AppCompatActivity
             onInverseToggled(false);
         }
         restoreDisplay();
+        mHistoryPane=new AdaptiveHistoryPane(this);
     }
 
     @Override
@@ -520,7 +523,7 @@ public class Calculator extends AppCompatActivity
         // If we did not do this, it would be possible to traverse to main Calculator elements from
         // HistoryFragment.
         mMainCalculator.setImportantForAccessibility(
-                mMainCalculator.getCurrentState() == R.id.end_state
+                !isHistoryDocked() && mMainCalculator.getCurrentState() == R.id.end_state
                         ? View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
                         : View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
     }
@@ -666,6 +669,8 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void onBackPressed() {
+        HistoryFragment docked=getHistoryFragment();
+        if(isHistoryDocked()&&docked!=null&&docked.stopActionModeOrContextMenu())return;
         if (!stopActionModeOrContextMenu()) {
             final HistoryFragment historyFragment = getHistoryFragment();
             if (mMainCalculator.getCurrentState() == R.id.end_state
@@ -839,10 +844,10 @@ public class Calculator extends AppCompatActivity
     }
 
     private void removeHistoryFragment() {
-        final FragmentManager manager = getSupportFragmentManager();
-        if (manager != null && !manager.isDestroyed()) {
-            manager.popBackStack(HistoryFragment.TAG, FragmentManager.POP_BACK_STACK_INCLUSIVE);
-        }
+        // Keep the one fragment and its list state in the zero-height modal host.
+        // Moving to/from the sidebar must not create another history page/backstack entry.
+        HistoryFragment history=getHistoryFragment();
+        if(history!=null)history.captureScroll();
 
         // When HistoryFragment is hidden, the main Calculator is important for accessibility again.
         mMainCalculator.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
@@ -1248,6 +1253,7 @@ public class Calculator extends AppCompatActivity
         mResultText.setTextColor(formulaTextColor);
         mFormulaContainer.setTranslationY(formulaTranslationY);
         setState(CalculatorState.RESULT);
+        refreshHistory();
     }
 
     // Restore positions of the formula and result displays back to their original,
@@ -1273,9 +1279,10 @@ public class Calculator extends AppCompatActivity
                 // handle expressions to which they refer?
                 mEvaluator.clearEverything();
                 // TODO: It's not clear what we should really do here. This is an initial hack.
-                onClearEnd();
+                if(!toolOwnsDisplay())onClearEnd();
                 mEvaluatorCallback.onMemoryStateChanged();
-                onBackPressed();
+                refreshHistory();
+                if(!isHistoryDocked())mMainCalculator.transitionToStart();
             } else if (Evaluator.TIMEOUT_DIALOG_TAG.equals(fragment.getTag())) {
                 // Timeout extension request.
                 mEvaluator.setLongTimeout();
@@ -1297,6 +1304,7 @@ public class Calculator extends AppCompatActivity
     public boolean onPrepareOptionsMenu(Menu menu) {
         super.onPrepareOptionsMenu(menu);
 
+        menu.findItem(R.id.menu_history).setVisible(!isHistoryDocked());
         // Show the leading option when displaying a result.
         menu.findItem(R.id.menu_leading).setVisible(mCurrentState == CalculatorState.RESULT);
 
@@ -1381,7 +1389,7 @@ public class Calculator extends AppCompatActivity
     public boolean onOptionsItemSelected(MenuItem item) {
         int itemId = item.getItemId();
         if (itemId == R.id.menu_history) {
-            mMainCalculator.transitionToEnd();
+            requestHistory();
             return true;
         } else if (itemId == R.id.menu_leading) {
             displayFull();
@@ -1474,7 +1482,7 @@ public class Calculator extends AppCompatActivity
         return true;
     }
 
-    private HistoryFragment getHistoryFragment() {
+    HistoryFragment getHistoryFragment() {
         final FragmentManager manager = getSupportFragmentManager();
         if (manager == null || manager.isDestroyed()) {
             return null;
@@ -1483,27 +1491,20 @@ public class Calculator extends AppCompatActivity
         return fragment == null || fragment.isRemoving() ? null : (HistoryFragment) fragment;
     }
 
+    private void createHistoryFragment() {
+        FragmentManager manager=getSupportFragmentManager();
+        if(manager.isDestroyed()||manager.isStateSaved()||getHistoryFragment()!=null)return;
+        manager.beginTransaction().add(R.id.history_frame,new HistoryFragment(),HistoryFragment.TAG).commitNow();
+    }
+
     private void showHistoryFragment() {
-        if (getHistoryFragment() != null) {
-            // If the fragment already exists, do nothing.
-            return;
-        }
-
-        final FragmentManager manager = getSupportFragmentManager();
-        if (manager == null || manager.isDestroyed() || !prepareForHistory()) {
-            return;
-        }
-
+        if(isHistoryDocked()){ensureDockedHistory();return;}
+        if(!prepareForHistory())return;
         stopActionModeOrContextMenu();
-        manager.beginTransaction()
-                .replace(R.id.history_frame, new HistoryFragment(), HistoryFragment.TAG)
-                .addToBackStack(HistoryFragment.TAG)
-                .commit();
-
-        // When HistoryFragment is visible, hide all descendants of the main Calculator view.
-        mMainCalculator.setImportantForAccessibility(
-                View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
-        // TODO: pass current scroll position of result
+        createHistoryFragment();
+        HistoryFragment history=getHistoryFragment();
+        if(history!=null){history.refreshHistory();history.restoreScroll();}
+        mMainCalculator.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
     }
 
     private void displayMessage(String title, String message) {
@@ -1707,6 +1708,38 @@ public class Calculator extends AppCompatActivity
     private FieldToolViewport mFieldToolViewport;
     private ConverterKeypadLayout mConverterKeypadLayout;
     private ProgrammerKeypadLayout mProgrammerKeypadLayout;
+    private AdaptiveHistoryPane mHistoryPane;
+
+    boolean isHistoryDocked(){return mHistoryPane!=null&&mHistoryPane.isWide();}
+
+    void onHistoryDockChanged() {
+        boolean docked=isHistoryDocked();
+        mMainCalculator.setHistoryDocked(docked);
+        View handle=findViewById(R.id.drag_handle_view);
+        if(handle!=null)handle.setVisibility(docked?View.GONE:View.VISIBLE);
+        androidx.appcompat.widget.Toolbar toolbar=findViewById(R.id.toolbar);
+        toolbar.setNavigationIcon(docked?null:androidx.core.content.ContextCompat.getDrawable(this,R.drawable.ic_history));
+        toolbar.setNavigationContentDescription(docked?null:getString(R.string.menu_history));
+        mMainCalculator.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
+        HistoryFragment history=getHistoryFragment();
+        if(history!=null)history.setDocked(docked);
+        invalidateOptionsMenu();
+    }
+
+    void ensureDockedHistory() {
+        if(!isHistoryDocked())return;
+        if(getHistoryFragment()==null)createHistoryFragment();
+    }
+
+    private void requestHistory() {
+        if(isHistoryDocked()) {ensureDockedHistory();return;}
+        mMainCalculator.transitionToEnd();
+    }
+
+    private void refreshHistory() {
+        HistoryFragment history=getHistoryFragment();
+        if(history!=null)history.refreshHistory();
+    }
 
     boolean isMortgageViewport() {
         return mToolManager!=null&&mToolManager.getActive()!=null
@@ -2358,6 +2391,7 @@ public class Calculator extends AppCompatActivity
             (v, windowInsets) -> {
                 Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
                 v.setPadding(0, insets.top, 0, insets.bottom);
+                if(mHistoryPane!=null)mHistoryPane.scheduleFit();
                 return WindowInsetsCompat.CONSUMED;
             });
     }

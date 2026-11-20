@@ -25,6 +25,13 @@ public class DisplayMotionLayout extends MotionLayout {
     private MotionEvent mPreviousEvent;
     private final int mTouchSlop;
     private boolean mOutOfBounds;
+    private boolean mHistoryDocked;
+
+    void setHistoryDocked(boolean value) {
+        mHistoryDocked=value;
+        setInteractionEnabled(!value);
+        mPointerId=-1;mIsScrolling=false;clearLastMotion();
+    }
 
     public DisplayMotionLayout(@NonNull Context context) {
         this(context, null);
@@ -43,6 +50,7 @@ public class DisplayMotionLayout extends MotionLayout {
 
     @Override
     public final boolean onInterceptTouchEvent(@NonNull MotionEvent motionEvent) {
+        if(mHistoryDocked)return false;
         switch (motionEvent.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN:
