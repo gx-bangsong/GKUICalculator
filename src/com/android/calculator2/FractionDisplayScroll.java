@@ -38,8 +38,10 @@ final class FractionDisplayScroll {
         display.addOnLayoutChangeListener(resize);
     }
     void setEnabled(boolean value) {
+        boolean changed=enabled!=value;
         enabled=value;
         if(value)update();else unmount();
+        if(changed)display.post(() -> FractionScrollDiagnostics.snapshot(display,"enabled="+enabled));
     }
     private static int outerHeight(View v) {
         int h=v.getMeasuredHeight();
@@ -60,6 +62,8 @@ final class FractionDisplayScroll {
         int primaryRows=shared instanceof FrameLayout?primaryLine:2*primaryLine;
         int oneFractionLine=fraction.getLineHeight()+fraction.getCompoundPaddingTop()+fraction.getCompoundPaddingBottom();
         int belowToolbar=available-outerHeight(toolbar);
+        FractionScrollDiagnostics.state(display,"DECISION displayH="+display.getHeight()+" actualClip="+FractionScrollDiagnostics.visible(display)
+                +" available="+available+" belowToolbar="+belowToolbar+" primaryRows="+primaryRows+" fractionLine="+oneFractionLine+" mounted="+(scroll!=null));
         if(belowToolbar>=primaryRows+oneFractionLine) {unmount();return;}
         // If even one fraction line does not fit below the toolbar, scroll the toolbar as
         // ordinary content too. Clipping stays enabled: nothing paints over toolbar/keys.
@@ -77,13 +81,30 @@ final class FractionDisplayScroll {
         includesToolbar=withToolbar;
         scroll=new ScrollView(display.getContext()) {
             @Override public boolean dispatchTouchEvent(MotionEvent e) {
+                FractionScrollDiagnostics.event(this,"outer.dispatch.in",e,null);
                 // Only this completed-result surface owns these drags. The history handle
                 // remains outside; do not change global display/history gestures.
                 if(e.getActionMasked()==MotionEvent.ACTION_DOWN&&getParent()!=null)getParent().requestDisallowInterceptTouchEvent(true);
                 boolean handled=super.dispatchTouchEvent(e);
                 if((e.getActionMasked()==MotionEvent.ACTION_UP||e.getActionMasked()==MotionEvent.ACTION_CANCEL)&&getParent()!=null)
                     getParent().requestDisallowInterceptTouchEvent(false);
+                FractionScrollDiagnostics.event(this,"outer.dispatch.out",e,handled);
                 return handled;
+            }
+            @Override public boolean onInterceptTouchEvent(MotionEvent e) {
+                boolean intercept=super.onInterceptTouchEvent(e);
+                FractionScrollDiagnostics.event(this,"outer.intercept",e,intercept);return intercept;
+            }
+            @Override public boolean onTouchEvent(MotionEvent e) {
+                FractionScrollDiagnostics.event(this,"outer.touch.in",e,null);
+                boolean handled=super.onTouchEvent(e);
+                FractionScrollDiagnostics.event(this,"outer.touch.out",e,handled);return handled;
+            }
+            @Override public void requestDisallowInterceptTouchEvent(boolean disallow) {
+                FractionScrollDiagnostics.disallow(this,"outer",disallow);super.requestDisallowInterceptTouchEvent(disallow);
+            }
+            @Override protected void onScrollChanged(int x,int y,int oldX,int oldY) {
+                super.onScrollChanged(x,y,oldX,oldY);FractionScrollDiagnostics.scroll(this,"outer",oldY,y);
             }
             @Override public boolean requestChildRectangleOnScreen(View child,android.graphics.Rect rect,boolean immediate) {
                 return false; // hidden formula/selection must not auto-scroll a completed result

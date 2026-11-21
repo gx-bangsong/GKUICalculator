@@ -6,7 +6,7 @@
     android:visibility="gone"
     android:focusable="false"
     android:scrollbars="vertical">
-    <com.android.calculator2.AlignedTextView
+    <com.android.calculator2.FractionResultText
         android:id="@+id/fraction_result"
         style="@style/DisplayTextStyle.Result"
         android:layout_width="match_parent"

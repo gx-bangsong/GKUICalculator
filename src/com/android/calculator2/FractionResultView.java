@@ -13,6 +13,26 @@ public final class FractionResultView extends ScrollView {
         if(expandedContent!=expanded){expandedContent=expanded;requestLayout();}
     }
     public FractionResultView(Context c,AttributeSet attrs){super(c,attrs);setFillViewport(false);}
+    @Override public boolean dispatchTouchEvent(android.view.MotionEvent e) {
+        FractionScrollDiagnostics.event(this,"inner.dispatch.in",e,null);
+        boolean handled=super.dispatchTouchEvent(e);
+        FractionScrollDiagnostics.event(this,"inner.dispatch.out",e,handled);return handled;
+    }
+    @Override public boolean onInterceptTouchEvent(android.view.MotionEvent e) {
+        boolean intercept=super.onInterceptTouchEvent(e);
+        FractionScrollDiagnostics.event(this,"inner.intercept",e,intercept);return intercept;
+    }
+    @Override public boolean onTouchEvent(android.view.MotionEvent e) {
+        FractionScrollDiagnostics.event(this,"inner.touch.in",e,null);
+        boolean handled=super.onTouchEvent(e);
+        FractionScrollDiagnostics.event(this,"inner.touch.out",e,handled);return handled;
+    }
+    @Override public void requestDisallowInterceptTouchEvent(boolean disallow) {
+        FractionScrollDiagnostics.disallow(this,"inner",disallow);super.requestDisallowInterceptTouchEvent(disallow);
+    }
+    @Override protected void onScrollChanged(int x,int y,int oldX,int oldY) {
+        super.onScrollChanged(x,y,oldX,oldY);FractionScrollDiagnostics.scroll(this,"inner",oldY,y);
+    }
     @Override protected void onMeasure(int widthSpec,int heightSpec) {
         View parent=(View)getParent();
         int available=parent.getHeight()-parent.getPaddingTop()-parent.getPaddingBottom();

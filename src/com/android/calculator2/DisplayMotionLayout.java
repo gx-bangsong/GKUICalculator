@@ -48,8 +48,33 @@ public class DisplayMotionLayout extends MotionLayout {
         mTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
     }
 
+    @Override public boolean dispatchTouchEvent(MotionEvent event) {
+        FractionScrollDiagnostics.event(this,"root.dispatch.in",event,null);
+        boolean handled=super.dispatchTouchEvent(event);
+        FractionScrollDiagnostics.event(this,"root.dispatch.out",event,handled);
+        return handled;
+    }
+
+    @Override public void requestDisallowInterceptTouchEvent(boolean disallow) {
+        FractionScrollDiagnostics.disallow(this,"root",disallow);
+        super.requestDisallowInterceptTouchEvent(disallow);
+    }
+
+    @Override public boolean onTouchEvent(MotionEvent event) {
+        FractionScrollDiagnostics.event(this,"root.touch.in",event,null);
+        boolean handled=super.onTouchEvent(event);
+        FractionScrollDiagnostics.event(this,"root.touch.out",event,handled);
+        return handled;
+    }
+
     @Override
     public final boolean onInterceptTouchEvent(@NonNull MotionEvent motionEvent) {
+        boolean intercept=interceptDisplayTouchEvent(motionEvent);
+        FractionScrollDiagnostics.event(this,"root.intercept",motionEvent,intercept);
+        return intercept;
+    }
+
+    private boolean interceptDisplayTouchEvent(@NonNull MotionEvent motionEvent) {
         if(mHistoryDocked)return false;
         switch (motionEvent.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
