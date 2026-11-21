@@ -33,4 +33,9 @@
     <color name="calculator_display_divider">#FF3D3E35</color>
     <color name="mode_segment_ripple">#33D5C39A</color>
 
+    <!-- Semantic aliases for the pre-Monet fallback. -->
+    <color name="calculator_key_scientific">@color/calculator_key_number</color>
+    <color name="calculator_key_operator_text">@color/calculator_key_text</color>
+    <color name="calculator_key_action_text">@color/calculator_key_text</color>
+    <color name="calculator_key_clear_text">@color/calculator_key_text</color>
 </resources>

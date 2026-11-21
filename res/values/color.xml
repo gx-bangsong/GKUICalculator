@@ -4,7 +4,7 @@
      SPDX-License-Identifier: Apache-2.0
 
      A warm, low-contrast calculator palette inspired by the Google Calculator v10 preview.
-     The key colors are explicit so the keypad stays visually consistent across wallpapers.
+     Static Android 11 fallback; API 31+ overrides every semantic role with system Monet colors.
 -->
 <resources>
 
@@ -42,4 +42,9 @@
          checked segment uses calculator_chip_selected_background. -->
     <color name="mode_segment_ripple">#33796849</color>
 
+    <!-- Semantic aliases for the pre-Monet fallback. -->
+    <color name="calculator_key_scientific">@color/calculator_key_number</color>
+    <color name="calculator_key_operator_text">@color/calculator_key_text</color>
+    <color name="calculator_key_action_text">@color/calculator_key_text</color>
+    <color name="calculator_key_clear_text">@color/calculator_key_text</color>
 </resources>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Checked pills use the same muted olive surface as Google's compact converter category. -->
+<!-- Checked pills use the semantic secondary-container role. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:color="@color/calculator_chip_selected_background" android:state_checked="true" />
     <item android:color="@color/calculator_chip_background" />

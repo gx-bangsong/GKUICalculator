@@ -1,10 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Keep the warm dark calculator palette on Android 14+. -->
+<!-- Android 34+: system Monet roles; static fallbacks remain in unqualified values. -->
 <resources>
-    <color name="history_background_color">#FF25261F</color>
-    <color name="display_background_color">#FF191A15</color>
-    <color name="display_formula_text_color">#FFF1EEE3</color>
-    <color name="display_result_text_color">#FFBDCEA7</color>
-    <color name="display_result_exponent_text_color">#FFBDCEA7</color>
-    <color name="tool_panel_background_color">#FF24251E</color>
+    <color name="history_background_color">@android:color/system_surface_container_dark</color>
+    <color name="display_background_color">@android:color/system_surface_dark</color>
+    <color name="display_formula_text_color">@android:color/system_on_surface_dark</color>
+    <color name="display_result_text_color">@android:color/system_tertiary_dark</color>
+    <color name="display_result_exponent_text_color">@android:color/system_tertiary_dark</color>
+    <color name="tool_panel_background_color">@android:color/system_surface_container_dark</color>
+    <color name="tool_field_text_color">@android:color/system_on_surface_dark</color>
+    <color name="calculator_key_number">@android:color/system_surface_container_high_dark</color>
+    <color name="calculator_key_scientific">@android:color/system_surface_container_dark</color>
+    <color name="calculator_key_action">@android:color/system_primary_container_dark</color>
+    <color name="calculator_key_operator">@android:color/system_secondary_container_dark</color>
+    <color name="calculator_key_clear">@android:color/system_surface_container_highest_dark</color>
+    <color name="calculator_key_equals">@android:color/system_tertiary_dark</color>
+    <color name="calculator_key_text">@android:color/system_on_surface_dark</color>
+    <color name="calculator_key_operator_text">@android:color/system_on_secondary_container_dark</color>
+    <color name="calculator_key_action_text">@android:color/system_on_primary_container_dark</color>
+    <color name="calculator_key_clear_text">@android:color/system_on_surface_dark</color>
+    <color name="calculator_key_text_disabled">@android:color/system_outline_dark</color>
+    <color name="calculator_key_text_on_accent">@android:color/system_on_tertiary_dark</color>
+    <color name="calculator_chip_background">@android:color/system_surface_container_dark</color>
+    <color name="calculator_chip_text">@android:color/system_on_surface_variant_dark</color>
+    <color name="calculator_chip_selected_background">@android:color/system_secondary_container_dark</color>
+    <color name="calculator_chip_selected_text">@android:color/system_on_secondary_container_dark</color>
+    <color name="calculator_unit_selector_background">@android:color/system_surface_container_high_dark</color>
+    <color name="calculator_unit_selector_text">@android:color/system_on_surface_dark</color>
+    <color name="calculator_display_divider">@android:color/system_outline_variant_dark</color>
 </resources>
