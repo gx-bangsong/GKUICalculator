@@ -23,7 +23,15 @@ for seed in blue red; do
       -e palette_label "$label" -e expected_dark "$dark" \
       com.android.calculator2.dev.test/androidx.test.runner.AndroidJUnitRunner \
       | tee "build/monet-evidence/$label-test.txt"
-    adb pull /sdcard/Android/data/com.android.calculator2.dev/files/monet-evidence/. build/monet-evidence/
+    # Surface real instrumentation failures even when hosted log downloads are unavailable.
+    python3 - "$label" <<'PYLOG'
+import sys
+from pathlib import Path
+label=sys.argv[1]
+text=Path(f'build/monet-evidence/{label}-test.txt').read_text()[-14000:]
+print('::notice title=Monet instrumentation '+label+'::'+text.replace('%','%25').replace('\n','%0A').replace('\r','%0D'))
+PYLOG
+    adb pull /sdcard/Android/data/com.android.calculator2.dev/files/monet-evidence/. build/monet-evidence/ || true
     grep -q 'OK (1 test)' "build/monet-evidence/$label-test.txt"
   done
 done
