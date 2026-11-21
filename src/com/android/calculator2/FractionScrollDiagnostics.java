@@ -65,11 +65,17 @@ final class FractionScrollDiagnostics {
     static Rect visible(View v) {
         Rect result=raw(v);
         for(View node=v;node!=null;node=node.getParent() instanceof View?(View)node.getParent():null) {
-            if(node.getVisibility()!=View.VISIBLE)return new Rect();
+            if(node.getVisibility()!=View.VISIBLE||node.getAlpha()==0)return new Rect();
+            Rect ownClip=node.getClipBounds();
+            if(ownClip!=null) {
+                Matrix m=new Matrix();node.transformMatrixToGlobal(m);RectF box=new RectF(ownClip);m.mapRect(box);
+                Rect mapped=new Rect();box.roundOut(mapped);if(!result.intersect(mapped))return new Rect();
+            }
             if(node!=v&&node instanceof ViewGroup) {
                 ViewGroup group=(ViewGroup)node;
                 if(group.getClipChildren()&&!result.intersect(raw(group)))return new Rect();
-                if(group.getClipToPadding()) {
+                if(group.getClipToPadding()&&(group.getPaddingLeft()!=0||group.getPaddingTop()!=0
+                        ||group.getPaddingRight()!=0||group.getPaddingBottom()!=0)) {
                     Matrix m=new Matrix();group.transformMatrixToGlobal(m);
                     RectF f=new RectF(group.getPaddingLeft(),group.getPaddingTop(),
                             group.getWidth()-group.getPaddingRight(),group.getHeight()-group.getPaddingBottom());
@@ -130,12 +136,16 @@ final class FractionScrollDiagnostics {
                 +" outerMounted="+(outer!=null&&outer.isAttachedToWindow())+" fractionVisible="+showing(anchor));
         if(text.getLayout()!=null) {
             Rect line=firstLine(text),clip=visible(text);
+            View inner=root.findViewById(R.id.fraction_viewport);
+            View carrier=outer!=null&&outer.isAttachedToWindow()?outer:inner;
+            Rect carrierClip=carrier==null?new Rect():visible(carrier);
             append("LINE fontPx="+text.getTextSize()+" layoutH="+text.getLayout().getHeight()+" firstRaw="+line+" actualClip="+clip
-                    +" fullFirstLine="+(!line.isEmpty()&&clip.contains(line))+" viewportTooShort="+(clip.height()<line.height()));
+                    +" fullFirstLine="+(!line.isEmpty()&&clip.contains(line))+" carrierClip="+carrierClip
+                    +" carrierTooShort="+(carrierClip.height()<line.height()));
         }
         for(View node=text;node!=null;node=node.getParent() instanceof View?(View)node.getParent():null) {
             String info="NODE "+name(node)+" measuredH="+node.getMeasuredHeight()+" h="+node.getHeight()
-                    +" raw="+raw(node)+" clip="+visible(node)+" scrollY="+node.getScrollY();
+                    +" raw="+raw(node)+" clip="+visible(node)+" ownClip="+node.getClipBounds()+" scrollY="+node.getScrollY();
             if(node instanceof ScrollView) {
                 ScrollView s=(ScrollView)node;
                 info+=" viewportH="+(s.getHeight()-s.getPaddingTop()-s.getPaddingBottom())
