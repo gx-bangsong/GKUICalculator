@@ -31,7 +31,7 @@ public class MonetPaletteTest {
     private void key(int id) { onView(withId(id)).perform(click()); }
     private void shot(Context c, String name) throws Exception {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-        File dir=c.getExternalFilesDir("monet-evidence");assertNotNull(dir);dir.mkdirs();
+        File dir=new File(c.getFilesDir(),"monet-evidence");assertNotNull(dir);dir.mkdirs();
         assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
                 .takeScreenshot(new File(dir,name+".png")));
     }
@@ -86,7 +86,7 @@ public class MonetPaletteTest {
             key(R.id.mode_segment_basic);
             onView(withContentDescription(R.string.tool_tax)).perform(click());
             key(R.id.tax_insurance_detail);shot(c,label+"-dialog");androidx.test.espresso.Espresso.pressBack();
-            File dir=c.getExternalFilesDir("monet-evidence");
+            File dir=new File(c.getFilesDir(),"monet-evidence");
             try(FileWriter out=new FileWriter(new File(dir,label+".json"))){out.write(report.toString(2));}
         }
     }

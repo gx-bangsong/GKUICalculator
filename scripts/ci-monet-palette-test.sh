@@ -31,13 +31,21 @@ label=sys.argv[1]
 text=Path(f'build/monet-evidence/{label}-test.txt').read_text()[-14000:]
 print('::notice title=Monet instrumentation '+label+'::'+text.replace('%','%25').replace('\n','%0A').replace('\r','%0D'))
 PYLOG
-    adb pull /sdcard/Android/data/com.android.calculator2.dev/files/monet-evidence/. build/monet-evidence/ || true
+    adb exec-out run-as com.android.calculator2.dev tar -C files/monet-evidence -cf - . | tar -xf - -C build/monet-evidence
     grep -q 'OK (1 test)' "build/monet-evidence/$label-test.txt"
   done
 done
 python3 - <<'PY'
 import json
+import sys
+import traceback
 from pathlib import Path
+
+def failure(kind, error, tb):
+    message=''.join(traceback.format_exception(kind,error,tb))
+    print('::error title=Monet palette comparison failed::'+message.replace('%','%25').replace('\n','%0A').replace('\r','%0D'))
+    sys.__excepthook__(kind,error,tb)
+sys.excepthook=failure
 p=Path('build/monet-evidence')
 for mode in ('light','dark'):
     blue=json.loads((p/f'blue-{mode}.json').read_text())
