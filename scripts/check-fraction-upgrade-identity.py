@@ -44,6 +44,7 @@ report = {"acceptedSha": "c5755d727d7cccc9e80274262ee9d7a5c2427e85", "cleanupSha
 Path("build").mkdir(exist_ok=True)
 Path("build/fraction-upgrade-identity.json").write_text(json.dumps(report, indent=2) + "\n")
 print(json.dumps(report, indent=2))
+print("::notice title=Exact APK identity::" + json.dumps({"checks": checks, "accepted": old, "cleanup": new}))
 if not all(checks.values()):
     print("::error title=In-place upgrade blocked::Accepted APK identity does not match cleanup APK. Do NOT uninstall or clear data as a workaround.")
     raise SystemExit(1)

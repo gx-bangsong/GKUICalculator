@@ -113,4 +113,6 @@ jobs:
         if: always()
         with:
           name: fraction-cleanup-upgrade-identity
-          path: build/fraction-upgrade-identity.json
+          path: |
+            build/fraction-upgrade-identity.json
+            build/outputs/apk/debug/*.apk
