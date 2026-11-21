@@ -79,13 +79,13 @@ public class MonetPaletteTest {
             key(R.id.mode_segment_scientific);shot(c,label+"-science");
             onView(withContentDescription(R.string.menu_history)).perform(click());
             onView(withId(R.id.history_toolbar)).check(androidx.test.espresso.assertion.ViewAssertions.matches(isDisplayed()));
-            shot(c,label+"-history");pressBack();
+            shot(c,label+"-history");androidx.test.espresso.Espresso.pressBack();
             key(R.id.mode_segment_basic);key(R.id.mode_segment_convert);shot(c,label+"-units");
-            key(R.id.unit_from);shot(c,label+"-unit-menu");pressBack();
+            key(R.id.unit_from);shot(c,label+"-unit-menu");androidx.test.espresso.Espresso.pressBack();
             key(R.id.mode_segment_convert);shot(c,label+"-currency");
             key(R.id.mode_segment_basic);
             onView(withContentDescription(R.string.tool_tax)).perform(click());
-            key(R.id.tax_insurance_detail);shot(c,label+"-dialog");pressBack();
+            key(R.id.tax_insurance_detail);shot(c,label+"-dialog");androidx.test.espresso.Espresso.pressBack();
             File dir=c.getExternalFilesDir("monet-evidence");
             try(FileWriter out=new FileWriter(new File(dir,label+".json"))){out.write(report.toString(2));}
         }
