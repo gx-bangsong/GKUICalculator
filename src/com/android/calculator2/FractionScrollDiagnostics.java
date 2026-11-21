@@ -28,10 +28,13 @@ import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Debug-only, bounded geometry/gesture trace. No expressions, result strings, clipboard data,
+/** Developer-opt-in only, bounded geometry/gesture trace (off in ordinary debug APKs). No expressions, result strings, clipboard data,
  * screenshots, network, permissions or touch/layout changes. Downloads export is off the UI thread.
  */
 final class FractionScrollDiagnostics {
+    // Deliberate source opt-in for a dedicated developer diagnostic build only.
+    // Debuggable APKs and saved export URIs MUST NOT enable tracing/export by themselves.
+    static final boolean DEVELOPER_ENABLED=false;
     private static final String TAG="FractionScroll";
     private static final int LIMIT=96*1024;
     private static final StringBuilder trace=new StringBuilder();
@@ -43,7 +46,7 @@ final class FractionScrollDiagnostics {
     private static int sequence, gesture, rootIdentity;
     private static long lastScrollExport;
     private static boolean debug(View v) {
-        return (v.getContext().getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0;
+        return DEVELOPER_ENABLED&&(v.getContext().getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0;
     }
     private static boolean showing(View v) {
         View fraction=v.getRootView().findViewById(R.id.fraction_viewport);

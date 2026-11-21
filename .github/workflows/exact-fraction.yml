@@ -16,6 +16,7 @@ on:
       - 'res/menu/activity_calculator.xml'
       - 'androidTest/java/com/android/calculator2/WindowConfigurationTest.java'
       - 'scripts/ci-fraction-window-test.sh'
+      - 'scripts/check-fraction-upgrade-identity.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -83,3 +84,33 @@ jobs:
             build/outputs/apk/debug/*.apk
             build/outputs/androidTest-results
             build/fraction-evidence
+  upgrade-identity:
+    name: Compare cleanup APK with accepted installed APK
+    needs: numerical
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: '17'
+          cache: gradle
+      - name: Fetch exact user-accepted APK (not a rebuild)
+        uses: actions/download-artifact@v6
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 44842680193
+          name: exact-fraction-api30-apk-and-evidence
+          path: accepted-fraction-apk
+      - run: ./gradlew assembleDebug --console=plain
+      - name: Verify package, version and signing identity before claiming replacement support
+        run: python3 scripts/check-fraction-upgrade-identity.py
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: fraction-cleanup-upgrade-identity
+          path: build/fraction-upgrade-identity.json

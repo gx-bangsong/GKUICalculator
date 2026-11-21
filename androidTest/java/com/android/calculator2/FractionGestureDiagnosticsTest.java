@@ -29,10 +29,15 @@ import org.junit.runner.RunWith;
 public class FractionGestureDiagnosticsTest {
     private ActivityScenario<Calculator> scenario;
     private UiDevice device;
+    private android.net.Uri existingDownload;
+    private java.io.File existingPrivateLog;
+    private final String sentinel="Existing diagnostic belongs to the user; cleanup must not modify or delete it.";
+    private int downloadsBefore;
     @Before public void launch() throws Exception {
         device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());device.setOrientationNatural();
         Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();
         c.getSharedPreferences("calc_tools",Context.MODE_PRIVATE).edit().clear().commit();
+        seedExistingLogs(c);
         scenario=ActivityScenario.launch(Calculator.class);
         key(R.id.mode_segment_basic);key(R.id.clr);
         key(R.id.digit_1);key(R.id.op_div);key(R.id.digit_3);key(R.id.eq);
@@ -162,26 +167,52 @@ public class FractionGestureDiagnosticsTest {
             });
         }catch(Throwable e){failures.add(e);}
         finally {scenario.onActivity(a -> FractionScrollDiagnostics.snapshot(a.findViewById(R.id.display),"end diagnostic NOT REAL SPLIT enableFirst="+enableFirst));}
-        try {awaitDownloadsLog(enableFirst);}catch(Throwable e){failures.add(e);}
+        try {assertNoAutomaticExport();}catch(Throwable e){failures.add(e);}
         if(!failures.isEmpty()) {
             AssertionError error=new AssertionError("Auxiliary diagnostic failures="+failures.size()+" first="+failures.get(0));
             for(Throwable e:failures)error.addSuppressed(e);throw error;
         }
     }
-    private void awaitDownloadsLog(boolean order) throws Exception {
-        Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();
+    private void seedExistingLogs(Context c) throws Exception {
+        assertFalse("daily APK must require explicit developer opt-in, not just DEBUGGABLE",FractionScrollDiagnostics.DEVELOPER_ENABLED);
         long version=c.getPackageManager().getPackageInfo(c.getPackageName(),0).getLongVersionCode();
-        long end=SystemClock.uptimeMillis()+8000;
-        do {
-            String uri=c.getSharedPreferences("fraction_diagnostic_export",Context.MODE_PRIVATE).getString("download_"+version,null);
-            if(uri!=null)try(java.io.InputStream in=c.getContentResolver().openInputStream(android.net.Uri.parse(uri))) {
-                java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();byte[] block=new byte[4096];int count;
-                while(in!=null&&(count=in.read(block))!=-1)bytes.write(block,0,count);
-                if(bytes.toString("UTF-8").contains("end diagnostic NOT REAL SPLIT enableFirst="+order))return;
-            }catch(java.io.IOException ignored){}
-            SystemClock.sleep(50);
-        }while(SystemClock.uptimeMillis()<end);
-        fail("diagnostic log was not readable from Downloads");
+        android.content.ContentValues values=new android.content.ContentValues();
+        values.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME,"GKUI-fraction-scroll-"+version+".txt");
+        values.put(android.provider.MediaStore.MediaColumns.MIME_TYPE,"text/plain");
+        values.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH,android.os.Environment.DIRECTORY_DOWNLOADS);
+        existingDownload=c.getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);
+        assertNotNull(existingDownload);
+        try(java.io.OutputStream out=c.getContentResolver().openOutputStream(existingDownload,"wt")) {
+            assertNotNull(out);out.write(sentinel.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        // Model an upgrade with the OLD automatic-export URI still saved. Do not clear it.
+        c.getSharedPreferences("fraction_diagnostic_export",Context.MODE_PRIVATE).edit()
+                .putString("download_"+version,existingDownload.toString()).commit();
+        java.io.File dir=c.getExternalFilesDir("fraction-diagnostics");assertNotNull(dir);dir.mkdirs();
+        existingPrivateLog=new java.io.File(dir,"GKUI-fraction-scroll-"+version+".txt");
+        try(java.io.OutputStream out=new java.io.FileOutputStream(existingPrivateLog)) {
+            out.write(sentinel.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        downloadsBefore=ownDownloadsCount(c);
+    }
+    private int ownDownloadsCount(Context c) {
+        try(android.database.Cursor rows=c.getContentResolver().query(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                new String[]{android.provider.MediaStore.MediaColumns._ID},
+                android.provider.MediaStore.MediaColumns.OWNER_PACKAGE_NAME+"=?",new String[]{c.getPackageName()},null)) {
+            assertNotNull(rows);return rows.getCount();
+        }
+    }
+    private void assertNoAutomaticExport() throws Exception {
+        Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        try(java.io.InputStream in=c.getContentResolver().openInputStream(existingDownload)) {
+            assertNotNull("existing download must not be deleted",in);
+            java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();byte[] buffer=new byte[4096];int count;
+            while((count=in.read(buffer))!=-1)bytes.write(buffer,0,count);
+            assertEquals("existing public diagnostic must not be overwritten",sentinel,bytes.toString("UTF-8"));
+        }
+        assertEquals("existing app-specific log must not be overwritten or removed",sentinel,
+                new String(java.nio.file.Files.readAllBytes(existingPrivateLog.toPath()),java.nio.charset.StandardCharsets.UTF_8));
+        assertEquals("fraction gestures/toggles must not create Downloads entries",downloadsBefore,ownDownloadsCount(c));
     }
     @Test public void enableThenResizeTextAndBlank() throws Exception {exercise(true);}
     @Test public void resizeThenEnableTextAndBlank() throws Exception {exercise(false);}
