@@ -6,10 +6,25 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
+import traceback
+
+
+def describe_failure(kind, error, tb):
+    message = "".join(traceback.format_exception(kind, error, tb))
+    report = {"cleanupSha": os.environ.get("GITHUB_SHA"), "identityCheckError": message,
+              "acceptedApkCandidates": [str(p) for p in Path("accepted-fraction-apk").rglob("*.apk")]}
+    Path("build").mkdir(exist_ok=True)
+    Path("build/fraction-upgrade-identity.json").write_text(json.dumps(report, indent=2) + "\n")
+    print("::error title=APK identity check could not execute::" + message[:6000].replace("%", "%25").replace("\n", "%0A").replace("\r", "%0D"))
+    sys.__excepthook__(kind, error, tb)
+
+
+sys.excepthook = describe_failure
 
 
 def one_apk(directory):
-    files = list(Path(directory).rglob("*.apk"))
+    files = list(Path(directory).rglob("ExactCalculator-debug.apk"))
     if len(files) != 1:
         raise RuntimeError(f"Expected one main APK in {directory}, got {len(files)}")
     return files[0]
@@ -22,7 +37,7 @@ tool = next(p for p in reversed(tools) if (p / "apksigner").is_file() and (p / "
 
 def identity(apk):
     certs = subprocess.check_output([str(tool / "apksigner"), "verify", "--print-certs", str(apk)], text=True)
-    digests = re.findall(r"Signer #\d+ certificate SHA-256 digest: (\S+)", certs)
+    digests = re.findall(r"certificate SHA-256 digest: (\S+)", certs)
     if not digests:
         raise RuntimeError("No signing certificate digest: " + str(apk))
     badging = subprocess.check_output([str(tool / "aapt"), "dump", "badging", str(apk)], text=True)
