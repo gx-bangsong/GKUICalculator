@@ -6,6 +6,8 @@
 package com.android.calculator2.tools.modes;
 
 import android.content.Context;
+import android.os.Bundle;
+import com.android.calculator2.tools.ToolState;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.View;
@@ -13,6 +15,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.EditText;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -30,6 +33,8 @@ import com.android.calculator2.tools.model.DecimalExpression;
 import com.android.calculator2.tools.model.DecimalExpression.Operation;
 import com.android.calculator2.tools.model.TemperatureConversion;
 import com.android.calculator2.tools.model.UnitConversion;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
@@ -43,9 +48,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Offline, data-driven unit conversion. Category and unit selection use anchored popup menus.
- * Linear categories also expose an "Add custom unit" action that opens a Material 3 form and
- * persists the resulting exact conversion factor through {@link UnitRepository}.
+ * Offline, data-driven unit conversion. Categories remain as inline, horizontally scrollable pills;
+ * individual unit menus are anchored to their current selectors. Linear categories also expose an
+ * "Add custom unit" action that persists an exact conversion factor through {@link UnitRepository}.
  */
 public class UnitConverterMode implements ToolMode {
 
@@ -69,6 +74,8 @@ public class UnitConverterMode implements ToolMode {
     private int mToSecondaryIndex;
     private boolean mSecondaryEnabled;
 
+    private int mCaret = -1;
+
     private final DecimalExpression mInput = new DecimalExpression(DEFAULT_INPUT);
 
     @Nullable
@@ -76,7 +83,7 @@ public class UnitConverterMode implements ToolMode {
     @Nullable
     private View mControlRoot;
     @Nullable
-    private TextView mCategoryView;
+    private ChipGroup mCategoryPills;
     @Nullable
     private TextView mFromView;
     @Nullable
@@ -107,7 +114,7 @@ public class UnitConverterMode implements ToolMode {
 
     @Override
     public int getIconRes() {
-        return 0;
+        return R.drawable.ic_tool_units;
     }
 
     @Override
@@ -137,8 +144,17 @@ public class UnitConverterMode implements ToolMode {
         redisplay();
     }
 
-    @Override
-    public void onActivate(@NonNull ToolHost host, @Nullable String carryValue) {
+    @Override public Bundle saveState() {
+        Bundle state=new Bundle();state.putStringArray("input",mInput.saveEditingState());
+        state.putInt("from",mFromIndex);state.putInt("to",mToIndex);state.putInt("secondary",mToSecondaryIndex);
+        state.putBoolean("secondaryEnabled",mSecondaryEnabled);
+        state.putBundle("selection",ToolState.selection(mInputView));
+        state.putInt("category",mCategoryIndex);
+        return state;
+    }
+    @Override public void onRestore(ToolHost host,Bundle state) { activate(host,null,state); }
+    @Override public void onActivate(ToolHost host,String carryValue) { activate(host,carryValue,null); }
+    private void activate(ToolHost host,String carryValue,Bundle state) {
         mHost = host;
         final Context context = host.getContext();
         if (mRepository == null) {
@@ -146,6 +162,8 @@ public class UnitConverterMode implements ToolMode {
         }
         mCategories = mRepository.getCategories();
 
+        if(state==null) {
+        mCaret = -1;
         mInput.set(carryValue != null ? carryValue : DEFAULT_INPUT);
         mCategoryIndex = 0;
         mFromIndex = 0;
@@ -153,12 +171,19 @@ public class UnitConverterMode implements ToolMode {
         mToSecondaryIndex = Math.min(2, Math.max(0, currentUnitCount() - 1));
         mSecondaryEnabled = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .getBoolean(PREF_SECONDARY, false);
+        } else {
+            mCaret=-1;mInput.restoreEditingState(state.getStringArray("input"));
+            mCategoryIndex=state.getInt("category");mFromIndex=state.getInt("from");
+            mToIndex=state.getInt("to");mToSecondaryIndex=state.getInt("secondary");
+            mSecondaryEnabled=state.getBoolean("secondaryEnabled");
+        }
         if (mSecondaryEnabled) {
             host.setExpandedDisplay(true);
         }
 
         mountControls(context);
         redisplay();
+        if(state!=null) ToolState.restoreSelection(mInputView,state.getBundle("selection"));
     }
 
     @Override
@@ -169,45 +194,61 @@ public class UnitConverterMode implements ToolMode {
 
     @Override
     public boolean onPadKey(int viewId) {
-        if (viewId == R.id.op_add) {
-            mInput.onOperator(Operation.ADD);
-        } else if (viewId == R.id.op_sub) {
-            mInput.onOperator(Operation.SUBTRACT);
-        } else if (viewId == R.id.op_mul) {
-            mInput.onOperator(Operation.MULTIPLY);
-        } else if (viewId == R.id.op_div) {
-            mInput.onOperator(Operation.DIVIDE);
-        } else if (viewId == R.id.eq) {
+        Operation operation;
+        if (viewId == R.id.op_add) operation = Operation.ADD;
+        else if (viewId == R.id.op_sub) operation = Operation.SUBTRACT;
+        else if (viewId == R.id.op_mul) operation = Operation.MULTIPLY;
+        else if (viewId == R.id.op_div) operation = Operation.DIVIDE;
+        else if (viewId == R.id.eq) {
             mInput.onEquals();
-        } else {
-            return false;
-        }
+            mCaret = mInput.getDisplayText().length();
+            redisplay();
+            return true;
+        } else return false;
+        int edited = mInput.insertOperator(operation, selectionStart(), selectionEnd());
+        if (edited < 0) return true;
+        mCaret = edited;
         redisplay();
         return true;
     }
 
     @Override
     public void onDigit(int digit) {
-        mInput.onDigit(digit);
+        mCaret = mInput.insertDigit(digit, selectionStart(), selectionEnd());
         redisplay();
     }
 
     @Override
     public void onDecimalPoint() {
-        mInput.onDecimalPoint();
+        mCaret = mInput.insertDecimalPoint(selectionStart(), selectionEnd());
         redisplay();
     }
 
     @Override
     public void onDelete() {
-        mInput.onDelete();
+        mCaret = mInput.deleteAt(selectionStart(), selectionEnd());
         redisplay();
     }
 
     @Override
     public void onClear() {
         mInput.onClear();
+        mCaret = 0;
         redisplay();
+    }
+
+    private int selectionStart() {
+        if (mInputView == null || mInputView.getSelectionStart() < 0) {
+            return mInput.getDisplayText().length();
+        }
+        return Math.min(mInputView.getSelectionStart(), mInputView.getSelectionEnd());
+    }
+
+    private int selectionEnd() {
+        if (mInputView == null || mInputView.getSelectionEnd() < 0) {
+            return mInput.getDisplayText().length();
+        }
+        return Math.max(mInputView.getSelectionStart(), mInputView.getSelectionEnd());
     }
 
     // ---- UI ----
@@ -223,7 +264,7 @@ public class UnitConverterMode implements ToolMode {
         }
         mControlRoot = LayoutInflater.from(context)
                 .inflate(R.layout.tool_unit_control, slot, false);
-        mCategoryView = mControlRoot.findViewById(R.id.unit_category);
+        mCategoryPills = mControlRoot.findViewById(R.id.unit_category_pills);
         mFromView = mControlRoot.findViewById(R.id.unit_from);
         mToView = mControlRoot.findViewById(R.id.unit_to);
         mInputView = mControlRoot.findViewById(R.id.unit_input_text);
@@ -231,11 +272,13 @@ public class UnitConverterMode implements ToolMode {
         mSecondaryRow = mControlRoot.findViewById(R.id.unit_secondary_row);
         mToSecondaryView = mControlRoot.findViewById(R.id.unit_to_2);
         mSecondaryResultView = mControlRoot.findViewById(R.id.unit_result_2_text);
+        // Only the source is editable. Outputs are selectable TextViews, not editors.
+        if (mInputView != null) mInputView.setShowSoftInputOnFocus(false);
 
         final ImageButton swap = mControlRoot.findViewById(R.id.unit_swap);
         swap.setOnClickListener(v -> swapUnits());
 
-        configureCategoryDropdown();
+        configureCategoryPills(context);
         configureUnitDropdowns();
         updateLabels();
         updateSecondaryVisibility();
@@ -256,7 +299,7 @@ public class UnitConverterMode implements ToolMode {
             slot.setVisibility(View.GONE);
         }
         mControlRoot = null;
-        mCategoryView = null;
+        mCategoryPills = null;
         mFromView = null;
         mToView = null;
         mInputView = null;
@@ -266,37 +309,37 @@ public class UnitConverterMode implements ToolMode {
         mSecondaryResultView = null;
     }
 
-    private void configureCategoryDropdown() {
-        if (mCategoryView != null) {
-            mCategoryView.setOnClickListener(v -> showCategoryDropdown());
+    private void configureCategoryPills(@NonNull Context context) {
+        if (mCategoryPills == null) {
+            return;
+        }
+        mCategoryPills.setSingleSelection(true);
+        mCategoryPills.setSelectionRequired(true);
+        mCategoryPills.removeAllViews();
+        for (int i = 0; i < mCategories.size(); i++) {
+            final int categoryIndex = i;
+            final UnitCategory category = mCategories.get(i);
+            final Chip chip = (Chip) LayoutInflater.from(context)
+                    .inflate(R.layout.unit_category_chip, mCategoryPills, false);
+            chip.setText(category.getDisplayName());
+            chip.setContentDescription(category.getDisplayName());
+            chip.setChecked(i == mCategoryIndex);
+            chip.setOnClickListener(v -> selectCategory(categoryIndex));
+            mCategoryPills.addView(chip);
         }
     }
 
-    /** Uses one click source only; AutoCompleteTextView used to race its internal touch handler. */
-    private void showCategoryDropdown() {
-        if (mCategoryView == null || mCategories.isEmpty() || mOpenDropdown != null) {
+    private void selectCategory(int position) {
+        if (position < 0 || position >= mCategories.size() || position == mCategoryIndex) {
             return;
         }
-        final PopupMenu popup = createPopup(mCategoryView);
-        for (int i = 0; i < mCategories.size(); i++) {
-            popup.getMenu().add(Menu.NONE, i + 1, i,
-                    mCategories.get(i).getDisplayName());
-        }
-        popup.setOnMenuItemClickListener(item -> {
-            final int position = item.getItemId() - 1;
-            if (position < 0 || position >= mCategories.size()) {
-                return false;
-            }
-            mCategoryIndex = position;
-            mFromIndex = 0;
-            mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
-            mToSecondaryIndex = Math.min(2, Math.max(0, currentUnitCount() - 1));
-            configureUnitDropdowns();
-            updateLabels();
-            redisplay();
-            return true;
-        });
-        popup.show();
+        mCategoryIndex = position;
+        mFromIndex = 0;
+        mToIndex = Math.min(1, Math.max(0, currentUnitCount() - 1));
+        mToSecondaryIndex = Math.min(2, Math.max(0, currentUnitCount() - 1));
+        configureUnitDropdowns();
+        updateLabels();
+        redisplay();
     }
 
     private void configureUnitDropdowns() {
@@ -492,8 +535,13 @@ public class UnitConverterMode implements ToolMode {
         if (category == null) {
             return;
         }
-        if (mCategoryView != null) {
-            mCategoryView.setText(category.getDisplayName());
+        if (mCategoryPills != null) {
+            for (int i = 0; i < mCategoryPills.getChildCount(); i++) {
+                final View child = mCategoryPills.getChildAt(i);
+                if (child instanceof Chip) {
+                    ((Chip) child).setChecked(i == mCategoryIndex);
+                }
+            }
         }
         if (mFromView != null && !category.getUnits().isEmpty()) {
             mFromView.setText(category.getUnits().get(clamp(mFromIndex)).getDisplayName());
@@ -557,6 +605,8 @@ public class UnitConverterMode implements ToolMode {
 
         if (mInputView != null) {
             mInputView.setText(mInput.getDisplayText());
+            ((EditText) mInputView).setSelection(mCaret < 0
+                    ? mInputView.length() : Math.min(mCaret, mInputView.length()));
         }
         if (mResultView != null) {
             mResultView.setText(resultText);
@@ -650,15 +700,6 @@ public class UnitConverterMode implements ToolMode {
             }
         }
         return false;
-    }
-
-    @NonNull
-    private List<String> categoryNames() {
-        final List<String> names = new ArrayList<>();
-        for (UnitCategory category : mCategories) {
-            names.add(category.getDisplayName());
-        }
-        return names;
     }
 
     @NonNull

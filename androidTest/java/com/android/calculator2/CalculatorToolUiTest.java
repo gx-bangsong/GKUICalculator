@@ -8,21 +8,39 @@ package com.android.calculator2;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.matcher.ViewMatchers.isCompletelyDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.isSelected;
+import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
-import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.os.SystemClock;
+import android.util.Log;
+import android.view.MenuItem;
+import android.view.View;
 
+import androidx.test.core.app.ActivityScenario;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject;
+import androidx.test.uiautomator.UiObjectNotFoundException;
+import androidx.test.uiautomator.UiSelector;
 
-import org.junit.Rule;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.io.IOException;
 
 /**
  * Instrumented UI tests for the life-calculation tool bar.
@@ -35,31 +53,409 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class CalculatorToolUiTest {
 
-    @Rule
-    public ActivityScenarioRule<Calculator> mActivityRule =
-            new ActivityScenarioRule<>(Calculator.class);
+    private ActivityScenario<Calculator> mActivityScenario;
 
-    /** The "more" overlay must be collapsed (not displayed) when the app launches. */
-    @Test
-    public void overlayStartsCollapsed() {
-        onView(withId(R.id.tool_panel_overlay))
-                .check(matches(org.hamcrest.Matchers.not(isDisplayed())));
+    /**
+     * Recover System UI before launching the calculator: closing a persistently stalled System UI
+     * process can destroy an already-launched activity, so start ActivityScenario afterward.
+     */
+    @Before
+    public void recoverSystemUiThenLaunchCalculator() {
+        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        try {
+            device.wakeUp();
+            device.executeShellCommand("wm dismiss-keyguard");
+            // A present prompt is seen at once; the old 5 s budget was fully spent on every
+            // one of the 15 tests when no prompt existed (~75 s of pure waiting per run).
+            recoverSystemUiPrompt(device, 400);
+        } catch (Exception exception) {
+            Log.w("CalculatorToolUiTest", "Unable to recover emulator window focus", exception);
+        }
+        launchWithWindowFocus(device);
     }
 
-    /** Tapping the "more" button must expand the overlay. */
-    @Test
-    public void moreButtonExpandsOverlay() {
-        onView(withId(R.id.tool_more_button)).perform(click());
-        onView(withId(R.id.tool_panel_overlay)).check(matches(isDisplayed()));
+    /**
+     * The very first launch after the emulator boots can end up with a window that never gains
+     * focus (System UI, IME and the media scanner all settle at once, and Espresso's root picker
+     * gives up after ten seconds of that). Relaunching once the system has settled has always
+     * worked, so each test gets up to three launches, each with its own focus wait.
+     */
+    private void launchWithWindowFocus(UiDevice device) {
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            mActivityScenario = ActivityScenario.launch(Calculator.class);
+            if (awaitWindowFocus(device)) {
+                return;
+            }
+            Log.w("CalculatorToolUiTest", "Calculator window unfocused after launch " + attempt
+                    + ", relaunching");
+            try {
+                mActivityScenario.close();
+            } catch (RuntimeException ignored) {
+                // a half-started scenario still needs the next launch to replace it
+            }
+        }
+        throw new AssertionError(
+                "Calculator window never gained focus after three launches; the emulator never settled");
     }
 
-    /** Tapping "more" again must collapse the overlay. */
+    /**
+     * Waits for the launched activity to hold window focus, dismissing any System UI recovery
+     * prompt that shows up while waiting (those dialogs steal focus and never go away on their
+     * own). Returns false after 30 seconds without focus.
+     */
+    private boolean awaitWindowFocus(UiDevice device) {
+        final long deadline = SystemClock.uptimeMillis() + 30000;
+        long nextPromptCheck = 0;
+        while (SystemClock.uptimeMillis() < deadline) {
+            final boolean[] focused = new boolean[1];
+            try {
+                mActivityScenario.onActivity(activity -> focused[0] = activity.hasWindowFocus());
+            } catch (IllegalStateException ignored) {
+                return false;   // scenario already dead; let the caller relaunch
+            }
+            if (focused[0]) {
+                return true;
+            }
+            final long now = SystemClock.uptimeMillis();
+            if (now >= nextPromptCheck) {
+                recoverSystemUiPrompt(device, 250);
+                nextPromptCheck = now + 2000;
+            }
+            SystemClock.sleep(250);
+        }
+        return false;
+    }
+
+    @After
+    public void closeCalculatorActivity() {
+        if (mActivityScenario != null) {
+            mActivityScenario.close();
+        }
+    }
+
+    /** A first-run install opens on the standard keypad, with 123 selected in the mode control. */
     @Test
-    public void moreButtonCollapsesOverlay() {
-        onView(withId(R.id.tool_more_button)).perform(click());   // expand
-        onView(withId(R.id.tool_more_button)).perform(click());   // collapse
-        onView(withId(R.id.tool_panel_overlay))
+    public void firstRunUsesStandardKeypad() {
+        resetTestPreferences();
+        onView(withId(R.id.advanced_pad))
                 .check(matches(org.hamcrest.Matchers.not(isDisplayed())));
+        onView(withId(R.id.mode_segment_basic)).check(matches(isSelected()));
+        onView(withId(R.id.mode_segment_scientific)).check(matches(not(isSelected())));
+    }
+
+    /** The fx segment is the only way to reach the scientific pad from the calculator. */
+    @Test
+    public void scientificSegmentTogglesPad() {
+        resetTestPreferences();
+        onView(withId(R.id.mode_segment_scientific)).perform(click());
+        onView(withId(R.id.advanced_pad)).check(matches(isDisplayed()));
+        onView(withId(R.id.mode_segment_scientific)).check(matches(isSelected()));
+        onView(withId(R.id.mode_segment_basic)).check(matches(not(isSelected())));
+
+        onView(withId(R.id.mode_segment_basic)).perform(click());
+        onView(withId(R.id.advanced_pad))
+                .check(matches(org.hamcrest.Matchers.not(isDisplayed())));
+        onView(withId(R.id.mode_segment_basic)).check(matches(isSelected()));
+    }
+
+    /**
+     * Google Calculator keeps the display and the 123 / fx / ⇄ strip perfectly still when the
+     * scientific pad opens: the pad block has a fixed height and only its rows are re-divided.
+     * Ours used to grow a separate 0.17 H band and push the display up, so lock the geometry.
+     */
+    @Test
+    public void scientificPadDoesNotMoveDisplay() {
+        resetTestPreferences();
+        final int[] before = new int[4];
+        final int[] after = new int[4];
+        mActivityScenario.onActivity(activity -> {
+            final View display = activity.findViewById(R.id.display);
+            final View bar = activity.findViewById(R.id.tool_bar);
+            before[0] = display.getHeight();
+            before[1] = display.getTop();
+            before[2] = bar.getTop();
+            before[3] = activity.findViewById(R.id.input_pad).getHeight();
+        });
+        onView(withId(R.id.mode_segment_scientific)).perform(click());
+        onView(withId(R.id.advanced_pad)).check(matches(isDisplayed()));
+        mActivityScenario.onActivity(activity -> {
+            final View display = activity.findViewById(R.id.display);
+            final View bar = activity.findViewById(R.id.tool_bar);
+            after[0] = display.getHeight();
+            after[1] = display.getTop();
+            after[2] = bar.getTop();
+            after[3] = activity.findViewById(R.id.input_pad).getHeight();
+        });
+        assertEquals("display height changed when fx opened", before[0], after[0]);
+        assertEquals("display top changed when fx opened", before[1], after[1]);
+        assertEquals("mode strip moved when fx opened", before[2], after[2]);
+        assertTrue("digit rows should get shorter, not move", after[3] < before[3]);
+    }
+
+    /** The converter segment opens a converter without leaving the mode control. */
+    @Test
+    public void convertSegmentOpensConverter() {
+        resetTestPreferences();
+        onView(withId(R.id.mode_segment_convert)).perform(click());
+        onView(withId(R.id.mode_segment_convert)).check(matches(isSelected()));
+        onView(withId(R.id.unit_category_pills)).check(matches(isDisplayed()));
+
+        // ⇄ again flips to the other converter, and 123 returns to the calculator.
+        onView(withId(R.id.mode_segment_convert)).perform(click());
+        onView(withId(R.id.currency_input_text)).check(matches(isDisplayed()));
+        onView(withId(R.id.mode_segment_basic)).perform(click());
+        onView(withId(R.id.mode_segment_basic)).check(matches(isSelected()));
+        onView(withId(R.id.input_pad)).check(matches(isDisplayed()));
+    }
+
+    /**
+     * Every tool is reachable from the mode control itself: the programmer calculator and the
+     * life-calculation tools (BMI, income tax, mortgage, date, relatives) are icon-only segments
+     * built by ToolBarView.render(), so they are identified by content description.
+     */
+    @Test
+    public void everyToolHasAModeSegment() {
+        resetTestPreferences();
+        onView(withContentDescription(R.string.tool_programmer)).perform(click());
+        onView(withContentDescription(R.string.tool_programmer)).check(matches(isSelected()));
+        onView(withId(R.id.mode_segment_basic)).check(matches(not(isSelected())));
+
+        onView(withContentDescription(R.string.tool_bmi)).perform(click());
+        onView(withContentDescription(R.string.tool_bmi)).check(matches(isSelected()));
+        onView(withContentDescription(R.string.tool_programmer)).check(matches(not(isSelected())));
+
+        onView(withId(R.id.mode_segment_basic)).perform(click());
+        onView(withId(R.id.mode_segment_basic)).check(matches(isSelected()));
+    }
+
+    /**
+     * The pill is the only tool switcher, so on a fresh install every tool must already be a
+     * segment inside it and fully on screen: none hidden behind a menu or scrolled out of view.
+     */
+    @Test
+    public void pillShowsEveryToolWithoutScrolling() {
+        resetTestPreferences();
+        final int[] tools = {R.string.tool_programmer, R.string.tool_bmi, R.string.tool_tax,
+                R.string.tool_mortgage, R.string.tool_date, R.string.tool_relationship};
+        for (int tool : tools) {
+            onView(withContentDescription(tool)).check(matches(isCompletelyDisplayed()));
+        }
+        mActivityScenario.onActivity(activity -> {
+            final View pill = activity.findViewById(R.id.mode_segments_scroll);
+            final View row = activity.findViewById(R.id.mode_segments);
+            assertEquals("segments must fill the pill exactly", pill.getWidth(), row.getWidth());
+            assertEquals(9, ((android.view.ViewGroup) row).getChildCount());
+        });
+    }
+
+    /**
+     * The first kinship press after a cold start must not stall: the tables load and expand off
+     * the main thread, so the press draws the chain with a preparing line and the answer follows
+     * on its own. The old regression froze the press for the whole table build (seconds on a
+     * device, minutes on the shared CI emulator), so the contract under test is the click's own
+     * main-thread cost - the arrival of the answer is covered by the JVM RelationshipTest.
+     */
+    @Test
+    public void firstKinshipPressDoesNotStallThePad() {
+        resetTestPreferences();
+        onView(withContentDescription(R.string.tool_relationship)).perform(click());
+        final long start = SystemClock.uptimeMillis();
+        onView(withId(R.id.digit_7)).perform(click());   // 父, the first kinship step
+        final long millis = SystemClock.uptimeMillis() - start;
+        assertTrue("first kinship press stalled the main thread for " + millis + " ms",
+                millis < 5000);
+        // The chain is drawn at once; only the answer waits for the tables.
+        onView(withId(R.id.formula)).check(matches(withText(not(""))));
+    }
+
+    /**
+     * The overflow percent option flips 100+10% between 110 (of the value) and 100.1 (ratio).
+     * Pad input goes through Espresso (its view sync survives the slow first draw); the overflow
+     * popup and the result reads afterwards go through UiAutomator, because the AppCompat popup
+     * leaves the activity window unfocused and Espresso's root picker times out on it.
+     */
+    @Test
+    public void percentModeOptionSwitchesAdditiveSemantics() {
+        resetTestPreferences();
+        onView(withId(R.id.clr)).perform(click());
+        onView(withId(R.id.digit_1)).perform(click());
+        onView(withId(R.id.digit_0)).perform(click());
+        onView(withId(R.id.digit_0)).perform(click());
+        onView(withId(R.id.op_add)).perform(click());
+        onView(withId(R.id.digit_1)).perform(click());
+        onView(withId(R.id.digit_0)).perform(click());
+        onView(withId(R.id.op_pct)).perform(click());
+        onView(withId(R.id.result)).check(matches(withText("110")));
+
+        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+
+        clickPercentMenuOption();
+        waitForResult(device, context.getPackageName(), "100.1");
+        assertEquals(false, readPercentOfValuePref());
+
+        clickPercentMenuOption();
+        waitForResult(device, context.getPackageName(), "110");
+        assertEquals(true, readPercentOfValuePref());
+    }
+
+    /**
+     * Builds the options menu the way the framework would and taps the percent item through the
+     * activity's own callbacks. The AppCompat overflow popup lives in its own window that the
+     * shared CI emulator repeatedly fails to expose to UiAutomator (and which steals window
+     * focus from Espresso), while everything the option does lives in onCreateOptionsMenu /
+     * onPrepareOptionsMenu / onOptionsItemSelected anyway.
+     */
+    private void clickPercentMenuOption() {
+        mActivityScenario.onActivity(activity -> {
+            final android.view.Menu menu = newOptionsMenuBar(activity);
+            activity.onCreateOptionsMenu(menu);
+            activity.onPrepareOptionsMenu(menu);
+            final MenuItem item = menu.findItem(R.id.menu_percent_of_value);
+            assertNotNull("percent option missing from the options menu", item);
+            assertTrue("percent option hidden while the calculator is active", item.isVisible());
+            assertTrue("percent option handler refused the click",
+                    activity.onOptionsItemSelected(item));
+        });
+    }
+
+    /**
+     * AppCompat's MenuBuilder implementation, built through reflection: its package moved
+     * between appcompat releases, and the test module must compile against whichever the
+     * material dependency resolves.
+     */
+    private static android.view.Menu newOptionsMenuBar(Context context) {
+        final String[] candidates = {
+                "androidx.appcompat.view.MenuBuilder",
+                "androidx.appcompat.view.menu.MenuBuilder",
+        };
+        for (String name : candidates) {
+            try {
+                return (android.view.Menu) Class.forName(name)
+                        .getConstructor(Context.class).newInstance(context);
+            } catch (ReflectiveOperationException ignored) {
+                // try the next known location
+            }
+        }
+        throw new AssertionError("no appcompat MenuBuilder implementation on the classpath");
+    }
+
+    private boolean readPercentOfValuePref() {
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        return context.getSharedPreferences("calc_tools", Context.MODE_PRIVATE)
+                .getBoolean("percent_of_value", true);
+    }
+
+    private static void waitForResult(UiDevice device, String pkg, String expected) {
+        final long deadline = SystemClock.uptimeMillis() + 20000;
+        String text = "";
+        while (SystemClock.uptimeMillis() < deadline) {
+            try {
+                final UiObject result = device.findObject(
+                        new UiSelector().resourceId(pkg + ":id/result"));
+                if (result.exists()) {
+                    text = result.getText();
+                    if (expected.equals(text)) {
+                        return;
+                    }
+                }
+            } catch (UiObjectNotFoundException e) {
+                // keep polling until the deadline
+            }
+            SystemClock.sleep(200);
+        }
+        throw new AssertionError("result never became " + expected + ", last: " + text);
+    }
+
+    /** Unit categories stay as inline pills, rather than opening a full-screen unit chooser. */
+    @Test
+    public void unitCategoriesRemainInlinePills() {
+        openUnitConverter();
+        onView(withId(R.id.unit_category_pills)).check(matches(isDisplayed()));
+        onView(withText(R.string.tool_units_area)).perform(click());
+        onView(withId(R.id.unit_from)).check(matches(isDisplayed()));
+        onView(withId(R.id.unit_to)).check(matches(isDisplayed()));
+    }
+
+    /** Capture the two key UI states so the emulator job can publish screenshots for review. */
+    @Test
+    public void captureCalculatorScreenshot() throws IOException {
+        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        boolean keypadShown = false;
+        String diagnostics = "";
+        for (int attempt = 1; attempt <= 3 && !keypadShown; attempt++) {
+            if (attempt > 1) {
+                // A stalled System UI or a missed first draw can leave the window unattached on
+                // the hosted emulator; give it a recovery pass before judging the layout again.
+                Log.w("CalculatorToolUiTest", "Keypad not shown on attempt " + (attempt - 1)
+                        + "; recovering emulator before retry");
+                try {
+                    device.wakeUp();
+                    device.executeShellCommand("wm dismiss-keyguard");
+                    recoverSystemUiPrompt(device, 1000);
+                    mActivityScenario.recreate();
+                } catch (Exception exception) {
+                    Log.w("CalculatorToolUiTest", "Emulator recovery pass failed", exception);
+                }
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+            }
+            final boolean[] shown = new boolean[1];
+            final String[] detail = new String[1];
+            mActivityScenario.onActivity(activity -> {
+                final View inputPad = activity.findViewById(R.id.input_pad);
+                shown[0] = inputPad != null && inputPad.isShown();
+                detail[0] = describeViewChain(activity, inputPad);
+            });
+            keypadShown = shown[0];
+            diagnostics = detail[0];
+        }
+        assertTrue("Calculator keypad is not visible. " + diagnostics, keypadShown);
+        saveScreenshot("calculator-default.png");
+    }
+
+    /** Human-readable state of a view and its ancestors, so a failure names the culprit. */
+    private static String describeViewChain(android.app.Activity activity, View view) {
+        final StringBuilder sb = new StringBuilder();
+        sb.append("activity(finishing=").append(activity.isFinishing())
+                .append(", destroyed=").append(activity.isDestroyed())
+                .append(", focused=").append(activity.hasWindowFocus()).append(')');
+        if (view == null) {
+            return sb.append(" input_pad=null").toString();
+        }
+        View current = view;
+        while (current != null) {
+            final String name = current.getId() == View.NO_ID
+                    ? current.getClass().getSimpleName()
+                    : current.getResources().getResourceEntryName(current.getId());
+            sb.append(" <- ").append(name)
+                    .append("(vis=").append(visibilityName(current))
+                    .append(", shown=").append(current.isShown())
+                    .append(", ").append(current.getWidth()).append('x')
+                    .append(current.getHeight()).append(')');
+            current = current.getParent() instanceof View ? (View) current.getParent() : null;
+        }
+        return sb.toString();
+    }
+
+    private static String visibilityName(View view) {
+        switch (view.getVisibility()) {
+            case View.VISIBLE:
+                return "VISIBLE";
+            case View.INVISIBLE:
+                return "INVISIBLE";
+            case View.GONE:
+                return "GONE";
+            default:
+                return Integer.toString(view.getVisibility());
+        }
+    }
+
+    @Test
+    public void captureUnitConverterScreenshot() throws IOException {
+        resetTestPreferences();
+        openUnitConverter();
+        onView(withId(R.id.unit_category_pills)).check(matches(isDisplayed()));
+        saveScreenshot("calculator-units.png");
     }
 
     /** A pending instant result from the calculator must not overwrite a newly opened tool. */
@@ -71,9 +467,7 @@ public class CalculatorToolUiTest {
         onView(withId(R.id.digit_9)).perform(click());
         // Do not press equals: this leaves the calculator's instant evaluation active, matching
         // the regression where its result was redrawn after the mortgage display was mounted.
-        onView(withId(R.id.tool_more_button)).perform(click());
-        onView(allOf(withId(R.id.tool_panel_item_text),
-                withText(R.string.tool_mortgage), isDisplayed())).perform(click());
+        onView(withContentDescription(R.string.tool_mortgage)).perform(click());
 
         final Context context = ApplicationProvider.getApplicationContext();
         onView(withId(R.id.result)).check(matches(withText(containsString(
@@ -83,9 +477,7 @@ public class CalculatorToolUiTest {
     /** 中文大写 applies to the primary mortgage result (月供/首月), not only its totals. */
     @Test
     public void uppercaseNumbersIncludePrimaryMortgagePayment() {
-        onView(withId(R.id.tool_more_button)).perform(click());
-        onView(allOf(withId(R.id.tool_panel_item_text),
-                withText(R.string.tool_mortgage), isDisplayed())).perform(click());
+        onView(withContentDescription(R.string.tool_mortgage)).perform(click());
         // The off state must remain obvious and tappable; after tapping, the glyph itself previews
         // the Arabic-to-financial conversion.
         onView(withId(R.id.uppercase_toggle))
@@ -101,9 +493,7 @@ public class CalculatorToolUiTest {
     /** Unit conversion accepts +, −, ×, ÷ and equals from the calculator pad. */
     @Test
     public void unitConverterAcceptsArithmetic() {
-        onView(withId(R.id.tool_more_button)).perform(click());
-        onView(allOf(withId(R.id.tool_panel_item_text),
-                withText(R.string.tool_unit), isDisplayed())).perform(click());
+        onView(withId(R.id.mode_segment_convert)).perform(click());
         onView(withId(R.id.clr)).perform(click());
         onView(withId(R.id.digit_2)).perform(click());
         onView(withId(R.id.op_add)).perform(click());
@@ -118,9 +508,9 @@ public class CalculatorToolUiTest {
     /** Currency replaces the existing value column with 大写 and accepts arithmetic input. */
     @Test
     public void currencyConverterUsesValueColumnForUppercaseAndAcceptsArithmetic() {
-        onView(withId(R.id.tool_more_button)).perform(click());
-        onView(allOf(withId(R.id.tool_panel_item_text),
-                withText(R.string.tool_currency), isDisplayed())).perform(click());
+        // The convert segment opens units first; a second tap switches to currency.
+        onView(withId(R.id.mode_segment_convert)).perform(click());
+        onView(withId(R.id.mode_segment_convert)).perform(click());
         onView(withId(R.id.clr)).perform(click());
         onView(withId(R.id.digit_8)).perform(click());
         onView(withId(R.id.op_div)).perform(click());
@@ -132,5 +522,100 @@ public class CalculatorToolUiTest {
         // The same circled amount view now shows 大写; no duplicate reading is drawn below.
         onView(withId(R.id.currency_input_text)).check(matches(withText("肆")));
         onView(withId(R.id.result)).check(matches(withText("")));
+    }
+
+    private void resetTestPreferences() {
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        context.getSharedPreferences("calc_tools", Context.MODE_PRIVATE)
+                .edit().clear().commit();
+        mActivityScenario.recreate();
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+    }
+
+    private void openUnitConverter() {
+        onView(withId(R.id.mode_segment_convert)).perform(click());
+    }
+
+    private void saveScreenshot(String name) throws IOException {
+        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        final Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        final String packageName = context.getPackageName();
+        final String path = "/sdcard/" + name;
+        boolean capturedUnobstructedFrame = false;
+
+        // System UI can become unresponsive again while the emulator is settling. If a recovery
+        // dialog appears across a capture, dismiss it and overwrite the file with a clean frame.
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            recoverSystemUiPrompt(device, attempt == 1 ? 1000 : 250);
+            ensureCalculatorForeground(device, packageName);
+            if (hasSystemUiRecoveryPrompt(device, 250)
+                    || !packageName.equals(device.getCurrentPackageName())) {
+                Log.w("CalculatorToolUiTest", "Emulator is not ready for screenshot attempt " + attempt);
+                continue;
+            }
+
+            device.executeShellCommand("screencap -p " + path);
+            if (!hasSystemUiRecoveryPrompt(device, 1000)
+                    && packageName.equals(device.getCurrentPackageName())) {
+                capturedUnobstructedFrame = true;
+                break;
+            }
+            Log.w("CalculatorToolUiTest", "System UI recovery interrupted screenshot attempt " + attempt);
+        }
+
+        assertTrue("Could not capture a calculator screenshot without a System UI recovery dialog",
+                capturedUnobstructedFrame);
+        assertEquals("Calculator is not the foreground app at screenshot time",
+                packageName, device.getCurrentPackageName());
+        Log.i("CalculatorToolUiTest", "Saved unobstructed test-generated screenshot: " + path);
+    }
+
+    private static void recoverSystemUiPrompt(UiDevice device, long initialWaitMillis) {
+        if (!hasSystemUiRecoveryPrompt(device, initialWaitMillis)) {
+            Log.i("CalculatorToolUiTest", "No System UI ANR prompt is visible");
+            return;
+        }
+
+        try {
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                final UiObject waitButton = device.findObject(new UiSelector().text("Wait"));
+                if (waitButton.waitForExists(250)) {
+                    Log.i("CalculatorToolUiTest", "Dismissing the System UI ANR prompt with Wait");
+                    waitButton.click();
+                    device.waitForIdle(5000);
+                }
+                if (!hasSystemUiRecoveryPrompt(device, 500)) {
+                    return;
+                }
+
+                final UiObject closeAppButton = device.findObject(new UiSelector().text("Close app"));
+                if (closeAppButton.waitForExists(250)) {
+                    Log.w("CalculatorToolUiTest", "System UI is still stalled; closing it to recover focus");
+                    closeAppButton.click();
+                    device.waitForIdle(10000);
+                }
+            }
+            Log.w("CalculatorToolUiTest", "System UI recovery prompt remained after dismissal attempts");
+        } catch (Exception exception) {
+            Log.w("CalculatorToolUiTest", "Unable to recover emulator window focus", exception);
+        }
+    }
+
+    private static boolean hasSystemUiRecoveryPrompt(UiDevice device, long timeoutMillis) {
+        final UiObject waitButton = device.findObject(new UiSelector().text("Wait"));
+        final UiObject closeAppButton = device.findObject(new UiSelector().text("Close app"));
+        final UiObject systemUiAnrTitle = device.findObject(
+                new UiSelector().textContains("isn't responding"));
+        return waitButton.waitForExists(timeoutMillis)
+                || closeAppButton.waitForExists(100)
+                || systemUiAnrTitle.waitForExists(100);
+    }
+
+    private static void ensureCalculatorForeground(UiDevice device, String packageName)
+            throws IOException {
+        if (!packageName.equals(device.getCurrentPackageName())) {
+            device.executeShellCommand("am start -n " + packageName + "/.Calculator");
+            device.waitForIdle(5000);
+        }
     }
 }

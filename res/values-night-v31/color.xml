@@ -1,23 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-     SPDX-FileCopyrightText: 2026 The LineageOS Project
-     SPDX-License-Identifier: Apache-2.0
-
-     Android 12+ (API 31+), dark: restore Material You dynamic colors (overriding the static
-     fallbacks in values-night/color.xml).
--->
+<!-- Android 31+: system Monet roles; static fallbacks remain in unqualified values. -->
 <resources>
-
-    <!-- Display background -->
-    <color name="history_background_color">@color/material_dynamic_neutral30</color>
-    <color name="display_background_color">@color/material_dynamic_neutral20</color>
-
-    <!-- Display text -->
+    <color name="history_background_color">@color/material_dynamic_neutral10</color>
+    <color name="display_background_color">@color/material_dynamic_neutral10</color>
     <color name="display_formula_text_color">@color/material_dynamic_neutral90</color>
-    <color name="display_result_text_color">@color/material_dynamic_neutral70</color>
-    <color name="display_result_exponent_text_color">@color/material_dynamic_secondary60</color>
-
-    <!-- Tool overlay panel surface -->
-    <color name="tool_panel_background_color">@color/material_dynamic_neutral30</color>
-
+    <color name="display_result_text_color">@color/material_dynamic_tertiary80</color>
+    <color name="display_result_exponent_text_color">@color/material_dynamic_tertiary80</color>
+    <color name="tool_panel_background_color">@color/material_dynamic_neutral10</color>
+    <color name="tool_field_text_color">@color/material_dynamic_neutral90</color>
+    <color name="calculator_key_number">@color/material_dynamic_neutral20</color>
+    <color name="calculator_key_scientific">@color/material_dynamic_neutral10</color>
+    <color name="calculator_key_action">@color/material_dynamic_primary30</color>
+    <color name="calculator_key_operator">@color/material_dynamic_secondary30</color>
+    <color name="calculator_key_clear">@color/material_dynamic_neutral20</color>
+    <color name="calculator_key_equals">@color/material_dynamic_tertiary80</color>
+    <color name="calculator_key_text">@color/material_dynamic_neutral90</color>
+    <color name="calculator_key_operator_text">@color/material_dynamic_secondary90</color>
+    <color name="calculator_key_action_text">@color/material_dynamic_primary90</color>
+    <color name="calculator_key_clear_text">@color/material_dynamic_neutral90</color>
+    <color name="calculator_key_text_disabled">@color/material_dynamic_neutral50</color>
+    <color name="calculator_key_text_on_accent">@color/material_dynamic_tertiary20</color>
+    <color name="calculator_chip_background">@color/material_dynamic_neutral20</color>
+    <color name="calculator_chip_text">@color/material_dynamic_neutral_variant80</color>
+    <color name="calculator_chip_selected_background">@color/material_dynamic_secondary30</color>
+    <color name="calculator_chip_selected_text">@color/material_dynamic_secondary90</color>
+    <color name="calculator_unit_selector_background">@color/material_dynamic_neutral20</color>
+    <color name="calculator_unit_selector_text">@color/material_dynamic_neutral90</color>
+    <color name="calculator_display_divider">@color/material_dynamic_neutral_variant30</color>
 </resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Compact mode pill preceding the calculator/tool filters. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?android:attr/colorControlHighlight">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/calculator_chip_background" />
+            <corners android:radius="20dp" />
+        </shape>
+    </item>
+</ripple>

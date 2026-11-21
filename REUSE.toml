@@ -13,6 +13,12 @@ SPDX-FileCopyrightText = "2014 The Android Open Source Project"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
+path = ["docs/ui-comparison/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 The GKUICalculator Project"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
 path = [".github/workflows/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "The LineageOS Project"

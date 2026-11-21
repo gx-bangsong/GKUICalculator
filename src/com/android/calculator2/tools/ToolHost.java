@@ -88,6 +88,12 @@ public interface ToolHost {
      */
     void setExpandedDisplay(boolean expanded);
 
+    /**
+     * True while the scientific pad is actually showing (and no expanded-display tool forced it
+     * away). Drives the {@code fx} segment of the mode bar.
+     */
+    boolean isScientificPadVisible();
+
     /** Relabel/restore the scientific pad for Programmer mode and enable valid radix digits. */
     void setProgrammerPadMode(boolean enabled, int radix);
 

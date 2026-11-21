@@ -49,6 +49,22 @@ public final class IncomeTaxCalculator {
         }
     }
 
+    /** Year-end one-off bonus taxed separately (全年一次性奖金单独计税). */
+    public static final class BonusResult {
+        /** Tax payable on the bonus. */
+        public final BigDecimal tax;
+        /** Bonus after tax. */
+        public final BigDecimal afterTax;
+        /** Rate of the bracket the bonus/12 falls into. */
+        public final BigDecimal rate;
+
+        public BonusResult(BigDecimal tax, BigDecimal afterTax, BigDecimal rate) {
+            this.tax = tax;
+            this.afterTax = afterTax;
+            this.rate = rate;
+        }
+    }
+
     private IncomeTaxCalculator() {
     }
 
@@ -111,6 +127,33 @@ public final class IncomeTaxCalculator {
         BigDecimal annualTaxableIncome = monthlyNet.multiply(new BigDecimal(12), mc);
         return new Result(annualTaxableIncome, cumTax12, lastMonth, annualAfterTax,
                 lastBracket.getRate());
+    }
+
+    /**
+     * Year-end one-off bonus under separate taxation (全年一次性奖金单独计税): the bracket is
+     * chosen by bonus / 12 against the monthly equivalents of the annual cumulative brackets
+     * (upTo / 12), and the tax is {@code bonus * rate − quickDeduction / 12}, floored at zero.
+     */
+    public static BonusResult computeYearEndBonus(@NonNull BigDecimal bonus,
+            @NonNull TaxTable table, MathContext mc) {
+        final BigDecimal twelve = new BigDecimal(12);
+        if (bonus.signum() <= 0 || table.getBrackets().isEmpty()) {
+            return new BonusResult(BigDecimal.ZERO, bonus.max(BigDecimal.ZERO), BigDecimal.ZERO);
+        }
+        final BigDecimal monthly = bonus.divide(twelve, mc);
+        TaxBracket bracket = table.getBrackets().get(table.getBrackets().size() - 1);
+        for (TaxBracket candidate : table.getBrackets()) {
+            if (monthly.compareTo(candidate.getUpTo().divide(twelve, mc)) <= 0) {
+                bracket = candidate;
+                break;
+            }
+        }
+        BigDecimal tax = bonus.multiply(bracket.getRate(), mc)
+                .subtract(bracket.getQuickDeduction().divide(twelve, mc), mc);
+        if (tax.signum() < 0) {
+            tax = BigDecimal.ZERO;
+        }
+        return new BonusResult(tax, bonus.subtract(tax, mc), bracket.getRate());
     }
 
     private static TaxBracket bracketFor(@NonNull List<TaxBracket> brackets,

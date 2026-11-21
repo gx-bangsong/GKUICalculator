@@ -26,11 +26,20 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
+import com.android.calculator2.tools.model.ChineseNumerals;
+
 /**
  * TextView adapted for displaying the formula and allowing pasting.
  */
 public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMenuItemClickListener,
         ClipboardManager.OnPrimaryClipChangedListener {
+
+    // These shared numeric displays change between input and selectable output buffers.
+    // A retained Android SpellChecker session assumes Editable even after that transition
+    // (SpellParser.stop casts on detach). Math/relationship tokens need no spelling service.
+    @Override public boolean isSuggestionsEnabled() { return false; }
 
     public static final String TAG_ACTION_MODE = "ACTION_MODE";
 
@@ -50,6 +59,27 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
     private float mMinimumTextSizeOverride = Float.NaN;
 
     private final ClipboardManager mClipboardManager;
+
+    private boolean mInputEnabled = true;
+    private android.text.method.KeyListener mInputKeyListener;
+    private View.OnLongClickListener mInputLongClickListener;
+
+    /** The same shared line is an input only for calculator/relationship modes. */
+    public void setInputEnabled(boolean enabled) {
+        stopActionModeOrContextMenu();
+        if (mInputKeyListener == null) mInputKeyListener = getKeyListener();
+        mInputEnabled = enabled;
+        setKeyListener(enabled ? mInputKeyListener : null);
+        setTextIsSelectable(true);
+        setCursorVisible(enabled);
+        setShowSoftInputOnFocus(false);
+        setOnLongClickListener(enabled ? mInputLongClickListener : null);
+    }
+
+    @Override public boolean onTextContextMenuItem(int id) {
+        if (!mInputEnabled && id != android.R.id.copy && id != android.R.id.selectAll) return false;
+        return super.onTextContextMenuItem(id);
+    }
 
     private int mWidthConstraint = -1;
     private ActionMode mActionMode;
@@ -71,6 +101,9 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
         super(context, attrs, defStyleAttr);
 
         mClipboardManager = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+        setTextIsSelectable(true);
+        setCursorVisible(true);
+        setShowSoftInputOnFocus(false);
 
         final TypedArray a = context.obtainStyledAttributes(
                 attrs, R.styleable.CalculatorFormula, defStyleAttr, 0);
@@ -87,6 +120,17 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
         } else {
             setupContextMenu();
         }
+        setShowSoftInputOnFocus(false);
+    }
+
+    private boolean mWrapToolOutput;
+
+    void setWrapToolOutput(boolean wrap) {
+        mWrapToolOutput=wrap;
+        setSingleLine(!wrap);
+        setMaxLines(wrap?Integer.MAX_VALUE:1);
+        setHorizontallyScrolling(!wrap);
+        requestLayout();
     }
 
     @Override
@@ -108,7 +152,7 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
         // Re-calculate our textSize based on new width.
         mWidthConstraint = MeasureSpec.getSize(widthMeasureSpec)
                 - getPaddingLeft() - getPaddingRight();
-        final float textSize = getVariableTextSize(getText());
+        final float textSize = mWrapToolOutput?getEffectiveMaximumTextSize():getVariableTextSize(getText());
         if (getTextSize() != textSize) {
             setTextSizeInternal(TypedValue.COMPLEX_UNIT_PX, textSize, false /* notifyListener */);
         }
@@ -136,6 +180,7 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
         super.onTextChanged(text, start, lengthBefore, lengthAfter);
 
         setTextSize(TypedValue.COMPLEX_UNIT_PX, getVariableTextSize(text.toString()));
+        if (!mInputEnabled) setLongClickable(text.length() > 0);
     }
 
     private void setTextSizeInternal(int unit, float size, boolean notifyListener) {
@@ -264,7 +309,10 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
         } else {
             announceForAccessibility(newText);
         }
-        setText(newText, BufferType.SPANNABLE);
+        // Tool builders may themselves implement Editable. Keep spans/selection but do not
+        // expose a mutable character buffer for an output role.
+        setText(mInputEnabled ? newText : new android.text.SpannableString(newText),
+                BufferType.SPANNABLE);
     }
 
     public boolean stopActionModeOrContextMenu() {
@@ -336,10 +384,11 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
                 outRect.left = (int) (outRect.right * 0.9f);
             }
         };
-        setOnLongClickListener(v -> {
+        mInputLongClickListener = v -> {
             mActionMode = startActionMode(mPasteActionModeCallback, ActionMode.TYPE_FLOATING);
             return true;
-        });
+        };
+        setOnLongClickListener(mInputLongClickListener);
     }
 
     /**
@@ -382,6 +431,7 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
 
     @Override
     public boolean onMenuItemClick(MenuItem item) {
+        if (!mInputEnabled) return false;
         int itemId = item.getItemId();
         if (itemId == R.id.memory_recall) {
             mOnContextMenuClickListener.onMemoryRecall();
@@ -389,17 +439,46 @@ public class CalculatorFormula extends AlignedTextView implements MenuItem.OnMen
         } else if (itemId == R.id.menu_paste) {
             paste();
             return true;
+        } else if (itemId == R.id.action_to_uppercase) {
+            final CharSequence text = getText();
+            int start = getSelectionStart();
+            int end = getSelectionEnd();
+            if (start < 0 || end < 0 || text == null) {
+                start = 0;
+                end = text == null ? 0 : text.length();
+            }
+            if (start > end) {
+                final int swap = start;
+                start = end;
+                end = swap;
+            }
+            final CharSequence selected = text.subSequence(start, end);
+            final String uppercase = ChineseNumerals.toUppercase(selected.toString());
+            final String message = uppercase == null || uppercase.isEmpty() ? "—" : uppercase;
+            new MaterialAlertDialogBuilder(getContext())
+                    .setTitle(R.string.tool_field_uppercase_title)
+                    .setMessage(message)
+                    .setPositiveButton(android.R.string.copy, (dialog, which) -> {
+                        final ClipboardManager clipboard = (ClipboardManager) getContext()
+                                .getSystemService(Context.CLIPBOARD_SERVICE);
+                        if (clipboard != null) {
+                            clipboard.setPrimaryClip(ClipData.newPlainText("calculator", message));
+                        }
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+            return true;
         }
         return false;
     }
 
     @Override
     public void onPrimaryClipChanged() {
-        setLongClickable(isPasteEnabled() || isMemoryEnabled());
+        setLongClickable(!mInputEnabled ? length() > 0 : isPasteEnabled() || isMemoryEnabled());
     }
 
     public void onMemoryStateChanged() {
-        setLongClickable(isPasteEnabled() || isMemoryEnabled());
+        setLongClickable(!mInputEnabled ? length() > 0 : isPasteEnabled() || isMemoryEnabled());
     }
 
     private boolean isMemoryEnabled() {

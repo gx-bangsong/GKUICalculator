@@ -854,6 +854,22 @@ class CalculatorExpr {
 
     private static final UnifiedReal ONE_HUNDREDTH = new UnifiedReal(100).inverse();
 
+    /**
+     * How an additive percent reads: {@code true} takes it of the preceding value (the raw-value
+     * reading, 200+10% = 220, also Google's and most Chinese OEM calculators' default);
+     * {@code false} reads every percent as a plain proportion (200+10% = 200.1). Multiplicative
+     * and bare percents are always the plain proportion. Selectable in the overflow menu.
+     */
+    private static volatile boolean sPercentOfValue = true;
+
+    public static void setPercentOfValue(boolean ofValue) {
+        sPercentOfValue = ofValue;
+    }
+
+    public static boolean isPercentOfValue() {
+        return sPercentOfValue;
+    }
+
     private EvalRet evalSuffix(int i, EvalContext ec) throws SyntaxException {
         final EvalRet tmp = evalUnary(i, ec);
         int cpos = tmp.pos;
@@ -940,6 +956,10 @@ class CalculatorExpr {
      * but is consistent with Google web search.
      */
     private boolean isPercent(int pos) {
+        if (!sPercentOfValue) {
+            // Proportion reading: no additive special case, every % is simply /100.
+            return false;
+        }
         if (mExpr.size() < pos + 2 || !isOperatorUnchecked(pos + 1, R.id.op_pct)) {
             return false;
         }
@@ -1133,6 +1153,145 @@ class CalculatorExpr {
         } catch (IndexOutOfBoundsException e) {
             throw new SyntaxException("Unexpected expression end");
         }
+    }
+
+    /** A model edit unit: a plain numeric character, or an indivisible semantic token. */
+    private static final class EditUnit {
+        final Token token;
+        final int key;
+        EditUnit(Token token, int key) { this.token = token; this.key = key; }
+    }
+
+    private static final int[] DIGIT_KEYS = {R.id.digit_0, R.id.digit_1, R.id.digit_2,
+            R.id.digit_3, R.id.digit_4, R.id.digit_5, R.id.digit_6, R.id.digit_7,
+            R.id.digit_8, R.id.digit_9};
+
+    /** Mapping is produced from the SAME token rendering used by the formula, not a parser
+     * over the rendered text. Grouping characters have zero model width; functions, PreEval
+     * references and exponent constants stay atomic, preserving their semantics/degree mode.
+     */
+    private final class EditLayout {
+        final ArrayList<EditUnit> units = new ArrayList<>();
+        final ArrayList<Integer> boundaries = new ArrayList<>();
+        EditLayout(Context context) {
+            boundaries.add(0);
+            int displayOffset = 0;
+            String separator = KeyMaps.translateResult(",");
+            for (Token token : mExpr) {
+                String rendered = token.toCharSequence(context).toString();
+                if (token instanceof Constant && ((Constant) token).mExponent == 0) {
+                    Constant c = (Constant) token;
+                    String raw = c.mWhole + (c.mSawDecimal ? "." + c.mFraction : "");
+                    int rawIndex = 0;
+                    for (int j = 0; j < rendered.length(); j++) {
+                        if (rendered.startsWith(separator, j) && !separator.isEmpty()) {
+                            j += separator.length() - 1;
+                            boundaries.set(boundaries.size() - 1, displayOffset + j + 1);
+                            continue;
+                        }
+                        char ch = raw.charAt(rawIndex++);
+                        units.add(new EditUnit(null, ch == '.' ? R.id.dec_point : DIGIT_KEYS[ch - '0']));
+                        boundaries.add(displayOffset + j + 1);
+                    }
+                } else {
+                    units.add(new EditUnit(token, 0));
+                    boundaries.add(displayOffset + rendered.length());
+                }
+                displayOffset += rendered.length();
+            }
+        }
+        int modelOffset(int displayOffset) {
+            int nearest = 0;
+            for (int i = 1; i < boundaries.size(); i++) {
+                if (Math.abs(boundaries.get(i) - displayOffset)
+                        < Math.abs(boundaries.get(nearest) - displayOffset)) nearest = i;
+            }
+            return nearest;
+        }
+    }
+
+    /** Apply an edit transaction to tokens and return its new displayed caret; -1 rejects it.
+     * Digits/backspace and semantic expression buttons are edited transactionally.
+     * Calculator RESULT-state entry retains the existing path.
+     */
+    int editAtDisplay(Context context, int selectionStart, int selectionEnd, int key,
+            boolean backspace) {
+        EditLayout layout = new EditLayout(context);
+        int start = layout.modelOffset(Math.min(selectionStart, selectionEnd));
+        int end = layout.modelOffset(Math.max(selectionStart, selectionEnd));
+        if (backspace && start == end && start > 0) start--;
+        if (!backspace && KeyMaps.digVal(key) == KeyMaps.NOT_DIGIT && key != R.id.dec_point) {
+            return editSymbol(context, layout, start, end, key);
+        }
+        ArrayList<EditUnit> edited = new ArrayList<>(layout.units);
+        edited.subList(start, end).clear();
+        if (!backspace) {
+            if (KeyMaps.digVal(key) == KeyMaps.NOT_DIGIT && key != R.id.dec_point) return -1;
+            edited.add(start, new EditUnit(null, key));
+        }
+        ArrayList<Token> rebuilt = new ArrayList<>();
+        for (EditUnit unit : edited) {
+            if (unit.token != null) {
+                rebuilt.add(unit.token instanceof Constant
+                        ? (Constant) ((Constant) unit.token).clone() : unit.token);
+            } else {
+                Token last = rebuilt.isEmpty() ? null : rebuilt.get(rebuilt.size() - 1);
+                Constant number;
+                if (last instanceof Constant && ((Constant) last).mExponent == 0) {
+                    number = (Constant) last;
+                } else {
+                    number = new Constant();
+                    rebuilt.add(number);
+                }
+                // Reject a duplicate decimal without partially mutating the live model.
+                if (!number.add(unit.key)) return -1;
+            }
+        }
+        mExpr = rebuilt;
+        EditLayout after = new EditLayout(context);
+        return after.boundaries.get(Math.min(start + (backspace ? 0 : 1), after.units.size()));
+    }
+
+    /** Only expression buttons enter this transaction; control buttons keep their own paths. */
+    static boolean isExpressionKey(int key) {
+        return KeyMaps.digVal(key) != KeyMaps.NOT_DIGIT || key == R.id.dec_point
+                || KeyMaps.isBinary(key) || KeyMaps.isPrefix(key) || KeyMaps.isSuffix(key)
+                || KeyMaps.isFunc(key) || key == R.id.const_pi || key == R.id.const_e
+                || key == R.id.lparen || key == R.id.rparen || key == R.id.paren;
+    }
+
+    private static boolean appendEditUnit(CalculatorExpr target, EditUnit unit) {
+        if (unit.token != null) {
+            target.mExpr.add(unit.token instanceof Constant
+                    ? (Constant) ((Constant) unit.token).clone() : unit.token);
+            return true;
+        }
+        return target.add(unit.key);
+    }
+
+    private int editSymbol(Context context, EditLayout layout, int start, int end, int key) {
+        if (!isExpressionKey(key)) return -1;
+        CalculatorExpr prefix = new CalculatorExpr();
+        for (int i=0;i<start;i++) if (!appendEditUnit(prefix,layout.units.get(i))) return -1;
+        boolean operand = prefix.hasTrailingConstant() || prefix.hasTrailingRightParen()
+                || prefix.hasTrailingSuffix()
+                || (!prefix.mExpr.isEmpty() && prefix.mExpr.get(prefix.mExpr.size()-1) instanceof PreEval);
+        if (key == R.id.paren) {
+            key = operand && prefix.hasOpenParentheses() ? R.id.rparen : R.id.lparen;
+        }
+        if (KeyMaps.isSuffix(key) && !operand) return -1;
+        if (key == R.id.rparen && (!operand || !prefix.hasOpenParentheses())) return -1;
+        // Explicit minus uses the same local additive correction as normal pad entry.
+        if (key == R.id.op_sub) prefix.removeTrailingAdditiveOperators();
+        if (!prefix.add(key)) return -1;
+        int caret = prefix.toSpannableStringBuilder(context).length();
+        // Keep semantic tokens (functions, exponent constants, PreEval) intact. Do not parse
+        // or split their displayed labels. Numeric pieces alone may coalesce into constants.
+        for (int i=end;i<layout.units.size();i++) {
+            if (!appendEditUnit(prefix,layout.units.get(i))) return -1;
+        }
+        mExpr = prefix.mExpr;
+        return caret;
     }
 
     // Produce a string representation of the expression itself

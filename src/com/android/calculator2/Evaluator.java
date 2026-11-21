@@ -1358,6 +1358,18 @@ public class Evaluator implements CalculatorExpr.ExprResolver {
         }
     }
 
+    /** Position-aware formula edit; invalidate cached values just like ordinary pad input. */
+    public int editAtDisplay(int start, int end, int key, boolean backspace) {
+        cancel(MAIN_INDEX, true);
+        int caret = mMainExpr.mExpr.editAtDisplay(mContext, start, end, key, backspace);
+        if (caret >= 0) {
+            mChangedValue = true;
+            mHasTrigFuncs = hasTrigFuncs();
+            if (mMainExpr.mExpr.isEmpty()) mMainExpr.mLongTimeout = false;
+        }
+        return caret;
+    }
+
     /**
      * Delete last taken from main expression.
      */

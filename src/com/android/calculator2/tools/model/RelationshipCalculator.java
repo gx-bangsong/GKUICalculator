@@ -166,12 +166,55 @@ public final class RelationshipCalculator {
         if (engine == null) {
             return EMPTY;
         }
-        final List<String> resolved = engine.resolve(tokens(chain), reverse);
+        return speak(engine.resolve(tokens(chain), reverse));
+    }
+
+    /**
+     * Like {@link #resolve}, but returns {@code null} instead of waiting when the resolver for
+     * {@code dialect} is still being built. The UI uses this to draw a "preparing" line and
+     * re-draw once the warm-up finishes, so a key press never freezes behind the table build.
+     */
+    @Nullable
+    public static Answer resolveNow(@Nullable RelationshipData data, @NonNull List<Step> chain,
+            @NonNull Dialect dialect, boolean reverse) {
+        if (chain.isEmpty()) {
+            return EMPTY;
+        }
+        if (data == null) {
+            // Tables not loaded yet (or still loading): say "not ready", not "no answer".
+            return null;
+        }
+        final RelationshipEngine engine = RelationshipEngine.peek(data,
+                dialect == Dialect.NORTH ? "north" : null);
+        if (engine == null) {
+            return null;
+        }
+        return speak(engine.resolve(tokens(chain), reverse));
+    }
+
+    @NonNull
+    private static Answer speak(@NonNull List<String> resolved) {
         final List<String> spoken = new ArrayList<>(resolved.size());
         for (String term : resolved) {
             spoken.add(colloquial(term));
         }
         return new Answer(spoken);
+    }
+
+    /**
+     * Build the resolver for {@code dialect} ahead of the first look-up.
+     * <p>
+     * The engine expands the relation tables on construction — roughly thirty thousand rule
+     * applications for the common wording — and that used to happen inside the first
+     * {@link #resolve}, i.e. on the very first key press in the kinship pad. Warming the cache
+     * when the tool opens moves that cost off the tap. Safe to call from any thread; the caller
+     * is expected to be a background one.
+     */
+    public static void warmUp(@Nullable RelationshipData data, @NonNull Dialect dialect) {
+        if (data == null) {
+            return;
+        }
+        RelationshipEngine.get(data, dialect == Dialect.NORTH ? "north" : null);
     }
 
     /**

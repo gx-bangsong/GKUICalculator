@@ -26,9 +26,12 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Looper;
 import android.text.Editable;
 import android.text.Layout;
 import android.text.SpannableStringBuilder;
+import android.text.Spannable;
+import android.text.Selection;
 import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.TextUtils;
@@ -152,7 +155,15 @@ public class Calculator extends AppCompatActivity
             new ViewTreeObserver.OnPreDrawListener() {
         @Override
         public boolean onPreDraw() {
-            mFormulaContainer.scrollTo(mFormulaText.getRight(), 0);
+            int caret = mFormulaText.getSelectionStart();
+            if (!toolOwnsDisplay() && caret >= 0 && caret < mFormulaText.length()
+                    && mFormulaText.getLayout() != null) {
+                int x = (int) mFormulaText.getLayout().getPrimaryHorizontal(caret)
+                        + mFormulaText.getCompoundPaddingLeft();
+                mFormulaContainer.scrollTo(Math.max(0, x - mFormulaContainer.getWidth() / 2), 0);
+            } else {
+                mFormulaContainer.scrollTo(mFormulaText.getRight(), 0);
+            }
             final ViewTreeObserver observer = mFormulaContainer.getViewTreeObserver();
             if (observer.isAlive()) {
                 observer.removeOnPreDrawListener(this);
@@ -188,6 +199,7 @@ public class Calculator extends AppCompatActivity
             new OnFormulaContextMenuClickListener() {
         @Override
         public boolean onPaste(ClipData clip) {
+            if(toolOwnsDisplay())return false;
             final ClipData.Item item = clip.getItemCount() == 0 ? null : clip.getItemAt(0);
             if (item == null) {
                 // nothing to paste, bail early...
@@ -208,6 +220,7 @@ public class Calculator extends AppCompatActivity
 
         @Override
         public void onMemoryRecall() {
+            if(toolOwnsDisplay())return;
             clearIfNotInputState();
             long memoryIndex = mEvaluator.getMemoryIndex();
             if (memoryIndex != 0) {
@@ -244,8 +257,12 @@ public class Calculator extends AppCompatActivity
     private CalculatorFormula mFormulaText;
     private HapticButton mDeleteButton;
     private CalculatorResult mResultText;
+    // Formula selection before ACTION_DOWN dismisses any selection toolbar.
+    private int mPadFormulaStart = -1;
+    private int mPadFormulaEnd = -1;
+
     private HorizontalScrollView mFormulaContainer;
-    private MotionLayout mMainCalculator;
+    private DisplayMotionLayout mMainCalculator;
 
     private ToolManager mToolManager;
     private ViewGroup mToolControlSlot;
@@ -254,12 +271,18 @@ public class Calculator extends AppCompatActivity
     // the layout grows the display automatically when the scientific pad is hidden).
     private static final String PREFS_NAME = "calc_tools";
     private static final String PREF_SCIENTIFIC = "scientific_pad_visible";
+    private static final String PREF_SHOW_FRACTION = "show_exact_fraction";
+    private static final String PREF_PERCENT_OF_VALUE = "percent_of_value";
 
     /** Most lines a Chinese-uppercase result may wrap onto before it starts shrinking. */
     private static final int UPPERCASE_MAX_LINES = 4;
     /** Fallback tool result size (sp) if no tool has asked for one. */
     private static final float DEFAULT_TOOL_RESULT_SP = 14f;
-    private TextView mScientificToggle;
+    /** 123 / fx / ⇄ segmented control hosted by the tool bar. */
+    private com.android.calculator2.tools.ui.ToolBarView mModeBar;
+    private TextView mSegmentBasicView;
+    private TextView mSegmentScientificView;
+    private TextView mSegmentConvertView;
     private boolean mScientificVisible;
     private float mResultTextSizeOriginalPx;
     // Original paddings of the formula/result views (saved in onCreate, restored on leaving tool mode).
@@ -294,6 +317,7 @@ public class Calculator extends AppCompatActivity
 
     // Whether the display is one line.
     private boolean mIsOneLine;
+    private FractionResult mFractionResult;
 
     /**
      * Map the old saved state to a new state reflecting requested result reevaluation.
@@ -374,11 +398,20 @@ public class Calculator extends AppCompatActivity
         getSupportActionBar().setDisplayOptions(0);
 
         mMainCalculator = findViewById(R.id.main_calculator);
+        final androidx.appcompat.widget.Toolbar topToolbar = findViewById(R.id.toolbar);
+        topToolbar.setNavigationIcon(R.drawable.ic_history);
+        topToolbar.setNavigationContentDescription(R.string.menu_history);
+        topToolbar.setNavigationOnClickListener(v -> requestHistory());
+
         mModeView = findViewById(R.id.mode);
         mFormulaText = findViewById(R.id.formula);
         mDeleteButton = findViewById(R.id.del);
         mResultText = findViewById(R.id.result);
         mResultTextSizeOriginalPx = mResultText.getTextSize();
+        mFractionResult=new FractionResult(this,mResultText);
+        mResultText.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> {
+            if(mCurrentState==CalculatorState.RESULT&&!toolOwnsDisplay())positionCompletedResult();
+        });
         mFormulaPadTop = mFormulaText.getPaddingTop();
         mFormulaPadBottom = mFormulaText.getPaddingBottom();
         mResultPadTop = mResultText.getPaddingTop();
@@ -420,9 +453,6 @@ public class Calculator extends AppCompatActivity
         mMainCalculator.setTransitionListener(new MotionLayout.TransitionListener() {
             @Override
             public void onTransitionStarted(MotionLayout motionLayout, int startId, int endId) {
-                if (mToolManager != null) {
-                    mToolManager.collapsePanel();
-                }
                 if (startId == R.id.start_state) {
                     showHistoryFragment();
                 }
@@ -431,6 +461,7 @@ public class Calculator extends AppCompatActivity
             @Override
             public void onTransitionChange(MotionLayout motionLayout, int startId, int endId,
                                            float progress) {
+                if(mHistoryPane!=null)mHistoryPane.invalidateSystemBarBackground();
             }
 
             @Override
@@ -438,6 +469,7 @@ public class Calculator extends AppCompatActivity
                 if (currentId == R.id.start_state) {
                     removeHistoryFragment();
                 }
+                if(mHistoryPane!=null)mHistoryPane.invalidateSystemBarBackground();
             }
 
             @Override
@@ -453,10 +485,8 @@ public class Calculator extends AppCompatActivity
         mFormulaText.addTextChangedListener(mFormulaTextWatcher);
         mDeleteButton.setOnLongClickListener(this);
 
-        // Life-calculation tool bar (Stage 1): persistent bar + overlay "more" panel.
-        mToolManager = new ToolManager(this, this,
-                findViewById(R.id.tool_bar),
-                findViewById(R.id.tool_panel_overlay));
+        // Life-calculation tool bar: the mode pill is the only tool switcher.
+        mToolManager = new ToolManager(this, this, findViewById(R.id.tool_bar));
         mToolManager.register(new CalculatorMode());
         mToolManager.register(new UnitConverterMode());
         mToolManager.register(new CurrencyConverterMode());
@@ -467,14 +497,19 @@ public class Calculator extends AppCompatActivity
         mToolManager.register(new ProgrammerMode());
         mToolManager.register(new RelationshipMode());
         mToolManager.init();
-        // DEBUG: record the overlay's initial visibility to diagnose "expanded at launch".
-        final View overlay = findViewById(R.id.tool_panel_overlay);
-        Log.d("ToolDebug", "onCreate: after init, overlay="
-                + (overlay == null ? "null" : ("vis=" + overlay.getVisibility()
-                        + "(" + (overlay.getVisibility() == View.GONE ? "GONE"
-                                : overlay.getVisibility() == View.VISIBLE ? "VISIBLE" : "INVISIBLE")
-                        + ")"))
-                + " panelExpanded=" + (mToolManager != null && mToolManager.isPanelExpanded()));
+        // The kinship tables expand once per process (~30k rule applications per dialect). Start
+        // that at the first idle moment after launch: the mode pill puts the tool one tap away,
+        // so warming only when it opens let the first key press race the table build.
+        Looper.myQueue().addIdleHandler(() -> {
+            if (!CalculatorApplication.isInstrumentedTest()) {
+                RelationshipMode.preload(this);
+            }
+            return false;
+        });
+
+        // Percent reading survives restarts; apply it before any restored expression evaluates.
+        CalculatorExpr.setPercentOfValue(getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getBoolean(PREF_PERCENT_OF_VALUE, true));
 
         if (savedInstanceState != null) {
             restoreInstanceState(savedInstanceState);
@@ -484,25 +519,51 @@ public class Calculator extends AppCompatActivity
             onInverseToggled(false);
         }
         restoreDisplay();
+        mHistoryPane=new AdaptiveHistoryPane(this);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        if(mHistoryPane!=null)mHistoryPane.scheduleFit();
         // If HistoryFragment is showing, hide the main Calculator elements from accessibility.
         // This is because Talkback does not use visibility as a cue for RelativeLayout elements,
         // and RelativeLayout is the base class of DragLayout.
         // If we did not do this, it would be possible to traverse to main Calculator elements from
         // HistoryFragment.
         mMainCalculator.setImportantForAccessibility(
-                mMainCalculator.getCurrentState() == R.id.end_state
+                !isHistoryDocked() && mMainCalculator.getCurrentState() == R.id.end_state
                         ? View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
                         : View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
     }
 
     @Override
+    protected void onDestroy() {
+        if(mFractionResult!=null)mFractionResult.close();
+        // Release only this Activity's controls/callbacks; state was copied by onSaveInstanceState.
+        if(mToolManager!=null&&mToolManager.isActive())
+            mToolManager.getActive().onDeactivate(this);
+        super.onDestroy();
+    }
+
+    @Override
+    protected void onRestoreInstanceState(@NonNull Bundle state) {
+        // Restore static calculator views first. Dynamic tool views are then mounted from their
+        // real model snapshots, not Android's saved, potentially formatted TextView contents.
+        super.onRestoreInstanceState(state);
+        mUppercaseNumbers=state.getBoolean(NAME + "_tool_uppercase");
+        mToolManager.restoreState(state.getBundle(NAME + "_tools"));
+        if(mToolManager.isActive() && ToolId.RELATIONSHIP.equals(mToolManager.getActive().getId()))
+            com.android.calculator2.tools.ToolState.restoreSelection(mFormulaText,state.getBundle(NAME + "_tool_selection"));
+    }
+
+    @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         mEvaluator.cancelAll(true);
+        outState.putBundle(NAME + "_tools", mToolManager.saveState());
+        outState.putBoolean(NAME + "_tool_uppercase",mUppercaseNumbers);
+        if(mToolManager.isActive()) outState.putBundle(NAME + "_tool_selection",
+                com.android.calculator2.tools.ToolState.selection(mFormulaText));
 
         super.onSaveInstanceState(outState);
         outState.putInt(KEY_DISPLAY_STATE, mCurrentState.ordinal());
@@ -525,6 +586,7 @@ public class Calculator extends AppCompatActivity
     // This restores display positions on moving to INPUT.
     // But movement/animation for moving to RESULT has already been done.
     private void setState(CalculatorState state) {
+        if(state!=CalculatorState.RESULT&&mFractionResult!=null)mFractionResult.clear();
         if (mCurrentState != state) {
             if (state == CalculatorState.INPUT) {
                 // We'll explicitly request evaluation from now on.
@@ -600,6 +662,11 @@ public class Calculator extends AppCompatActivity
     @Override
     public boolean dispatchTouchEvent(MotionEvent e) {
         if (e.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            if (mFormulaText != null && !toolOwnsDisplay()
+                    && mCurrentState == CalculatorState.INPUT && !haveUnprocessed()) {
+                mPadFormulaStart = mFormulaText.getSelectionStart();
+                mPadFormulaEnd = mFormulaText.getSelectionEnd();
+            }
             stopActionModeOrContextMenu();
 
             final HistoryFragment historyFragment = getHistoryFragment();
@@ -613,9 +680,9 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void onBackPressed() {
-        if (mToolManager != null && mToolManager.onBackPressed()) {
-            return;
-        }
+        HistoryFragment docked=getHistoryFragment();
+        if(docked!=null && (isHistoryDocked() || mMainCalculator.getCurrentState()==R.id.end_state)
+                && docked.stopActionModeOrContextMenu())return;
         if (!stopActionModeOrContextMenu()) {
             final HistoryFragment historyFragment = getHistoryFragment();
             if (mMainCalculator.getCurrentState() == R.id.end_state
@@ -764,6 +831,7 @@ public class Calculator extends AppCompatActivity
                 inverseButton.setVisibility(View.GONE);
             }
         }
+        if(mRemainingKeypadLayout!=null)mRemainingKeypadLayout.refreshVisibleKeys();
     }
 
     /**
@@ -789,10 +857,10 @@ public class Calculator extends AppCompatActivity
     }
 
     private void removeHistoryFragment() {
-        final FragmentManager manager = getSupportFragmentManager();
-        if (manager != null && !manager.isDestroyed()) {
-            manager.popBackStack(HistoryFragment.TAG, FragmentManager.POP_BACK_STACK_INCLUSIVE);
-        }
+        // Keep the one fragment and its list state in the zero-height modal host.
+        // Moving to/from the sidebar must not create another history page/backstack entry.
+        HistoryFragment history=getHistoryFragment();
+        if(history!=null){history.stopActionModeOrContextMenu();history.captureScroll();}
 
         // When HistoryFragment is hidden, the main Calculator is important for accessibility again.
         mMainCalculator.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
@@ -858,6 +926,11 @@ public class Calculator extends AppCompatActivity
     }
 
     public void onButtonClick(View view) {
+        final int editStart = mPadFormulaStart >= 0
+                ? mPadFormulaStart : mFormulaText.getSelectionStart();
+        final int editEnd = mPadFormulaEnd >= 0
+                ? mPadFormulaEnd : mFormulaText.getSelectionEnd();
+        mPadFormulaStart = mPadFormulaEnd = -1;
         // Any animation is ended before we get here.
         stopActionModeOrContextMenu();
 
@@ -871,6 +944,18 @@ public class Calculator extends AppCompatActivity
         }
 
         final int id = view.getId();
+        final boolean expressionKey = CalculatorExpr.isExpressionKey(id);
+        if (mCurrentState == CalculatorState.INPUT && !haveUnprocessed()
+                && editStart >= 0 && editEnd >= 0
+                && (editStart != mFormulaText.length() || editEnd != editStart)
+                && (expressionKey || id == R.id.del)) {
+            int caret = mEvaluator.editAtDisplay(editStart, editEnd, id, id == R.id.del);
+            if (caret >= 0) {
+                redisplayAfterFormulaChange();
+                Selection.setSelection((Spannable) mFormulaText.getText(), caret);
+            }
+            return;
+        }
         if (id == R.id.eq) {
             onEquals();
         } else if (id == R.id.del) {
@@ -939,6 +1024,9 @@ public class Calculator extends AppCompatActivity
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
         mFormulaText.changeTextTo(formula);
+        if (mFormulaText.getText() instanceof Spannable) {
+            Selection.setSelection((Spannable) mFormulaText.getText(), formula.length());
+        }
         mFormulaText.setContentDescription(TextUtils.isEmpty(formula)
                 ? getString(R.string.desc_formula) : null);
     }
@@ -1055,7 +1143,7 @@ public class Calculator extends AppCompatActivity
             if (haveUnprocessed()) {
                 setState(CalculatorState.EVALUATE);
                 onError(Evaluator.MAIN_INDEX, R.string.error_syntax);
-            } else if (mEvaluator.getExpr(Evaluator.MAIN_INDEX).hasInterestingOps()) {
+            } else if (!mEvaluator.getExpr(Evaluator.MAIN_INDEX).isEmpty()) {
                 setState(CalculatorState.EVALUATE);
                 mEvaluator.requireResult(Evaluator.MAIN_INDEX, this, mResultText);
             }
@@ -1133,6 +1221,40 @@ public class Calculator extends AppCompatActivity
     // so that we can continue to properly support scrolling of the result.
     // We assume the result already contains the text to be expanded.
     private void onResult(boolean resultWasPreserved) {
+        if (resultWasPreserved) {
+            // Result was previously addded to history.
+            mEvaluator.represerve();
+        } else {
+            // Add current result to history.
+            mEvaluator.preserve(Evaluator.MAIN_INDEX, true);
+        }
+
+        positionCompletedResult();
+        setState(CalculatorState.RESULT);
+        refreshFractionResult();
+        refreshHistory();
+    }
+
+    private boolean isFractionDisplayEnabled() {
+        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean(PREF_SHOW_FRACTION, false);
+    }
+
+    /** Display-only refresh: do not evaluate, preserve history, or change calculator state. */
+    private void refreshFractionResult() {
+        if (mFractionResult == null) return;
+        if (!isFractionDisplayEnabled() || mCurrentState != CalculatorState.RESULT || toolOwnsDisplay()) {
+            mFractionResult.clear();
+            return;
+        }
+        final UnifiedReal exactResult = mEvaluator.getResult(Evaluator.MAIN_INDEX);
+        mFractionResult.show(exactResult, () -> isFractionDisplayEnabled()
+                && mCurrentState == CalculatorState.RESULT && !toolOwnsDisplay()
+                && mEvaluator.getResult(Evaluator.MAIN_INDEX) == exactResult
+                && !isFinishing() && !isDestroyed());
+    }
+
+    /** Reapply only geometry after the auxiliary row changes shared display height. */
+    private void positionCompletedResult() {
         // Calculate the textSize that would be used to display the result in the formula.
         // For scrollable results just use the minimum textSize to maximize the number of digits
         // that are visible on screen.
@@ -1164,20 +1286,11 @@ public class Calculator extends AppCompatActivity
         // Change the result's textColor to match the formula.
         final int formulaTextColor = mFormulaText.getCurrentTextColor();
 
-        if (resultWasPreserved) {
-            // Result was previously addded to history.
-            mEvaluator.represerve();
-        } else {
-            // Add current result to history.
-            mEvaluator.preserve(Evaluator.MAIN_INDEX, true);
-        }
-
         mResultText.setScaleX(resultScale);
         mResultText.setScaleY(resultScale);
         mResultText.setTranslationY(resultTranslationY);
         mResultText.setTextColor(formulaTextColor);
         mFormulaContainer.setTranslationY(formulaTranslationY);
-        setState(CalculatorState.RESULT);
     }
 
     // Restore positions of the formula and result displays back to their original,
@@ -1201,11 +1314,14 @@ public class Calculator extends AppCompatActivity
             if (HistoryFragment.CLEAR_DIALOG_TAG.equals(fragment.getTag())) {
                 // TODO: Try to preserve the current, saved, and memory expressions. How should we
                 // handle expressions to which they refer?
+                HistoryFragment history=getHistoryFragment();
+                if(history!=null)history.prepareForClear();
                 mEvaluator.clearEverything();
                 // TODO: It's not clear what we should really do here. This is an initial hack.
-                onClearEnd();
+                if(!toolOwnsDisplay())onClearEnd();
                 mEvaluatorCallback.onMemoryStateChanged();
-                onBackPressed();
+                refreshHistory();
+                if(!isHistoryDocked())mMainCalculator.transitionToStart();
             } else if (Evaluator.TIMEOUT_DIALOG_TAG.equals(fragment.getTag())) {
                 // Timeout extension request.
                 mEvaluator.setLongTimeout();
@@ -1227,6 +1343,11 @@ public class Calculator extends AppCompatActivity
     public boolean onPrepareOptionsMenu(Menu menu) {
         super.onPrepareOptionsMenu(menu);
 
+        final MenuItem showFraction = menu.findItem(R.id.menu_show_fraction);
+        showFraction.setVisible(!toolOwnsDisplay());
+        showFraction.setChecked(isFractionDisplayEnabled());
+
+        menu.findItem(R.id.menu_history).setVisible(!isHistoryDocked());
         // Show the leading option when displaying a result.
         menu.findItem(R.id.menu_leading).setVisible(mCurrentState == CalculatorState.RESULT);
 
@@ -1259,7 +1380,36 @@ public class Calculator extends AppCompatActivity
                     && activeTool.isSecondaryOutputEnabled());
         }
 
+        // Percent semantics belong to the calculator itself; tools consume the % key themselves.
+        // The base calculator counts as an active tool mode, so "no tool" is isActive() == false,
+        // not getActive() == null (which never happens once the ToolManager is initialised).
+        final MenuItem percentOfValue = menu.findItem(R.id.menu_percent_of_value);
+        if (percentOfValue != null) {
+            percentOfValue.setVisible(mToolManager == null || !mToolManager.isActive());
+            percentOfValue.setChecked(CalculatorExpr.isPercentOfValue());
+        }
+
         // The kinship tool speaks either North or South Chinese; pick exactly one.
+        // Programmer register conversion options: a second set behind the overflow menu.
+        final ProgrammerMode programmer = activeTool instanceof ProgrammerMode
+                ? (ProgrammerMode) activeTool : null;
+        final int width = programmer == null ? 64 : programmer.getWidthBits();
+        final MenuItem width8 = menu.findItem(R.id.menu_programmer_width_8);
+        final MenuItem width16 = menu.findItem(R.id.menu_programmer_width_16);
+        final MenuItem width32 = menu.findItem(R.id.menu_programmer_width_32);
+        final MenuItem width64 = menu.findItem(R.id.menu_programmer_width_64);
+        final MenuItem unsignedItem = menu.findItem(R.id.menu_programmer_unsigned);
+        width8.setVisible(programmer != null);
+        width16.setVisible(programmer != null);
+        width32.setVisible(programmer != null);
+        width64.setVisible(programmer != null);
+        unsignedItem.setVisible(programmer != null);
+        width8.setChecked(width == 8);
+        width16.setChecked(width == 16);
+        width32.setChecked(width == 32);
+        width64.setChecked(width == 64);
+        unsignedItem.setChecked(programmer != null && programmer.isUnsigned());
+
         final RelationshipMode kinship = activeTool instanceof RelationshipMode
                 ? (RelationshipMode) activeTool : null;
         final MenuItem north = menu.findItem(R.id.menu_relationship_north);
@@ -1281,14 +1431,33 @@ public class Calculator extends AppCompatActivity
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int itemId = item.getItemId();
-        if (itemId == R.id.menu_history) {
-            mMainCalculator.transitionToEnd();
+        if (itemId == R.id.menu_show_fraction) {
+            final boolean enabled = !isFractionDisplayEnabled();
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                    .putBoolean(PREF_SHOW_FRACTION, enabled).apply();
+            item.setChecked(enabled);
+            refreshFractionResult();
+            return true;
+        } else if (itemId == R.id.menu_history) {
+            requestHistory();
             return true;
         } else if (itemId == R.id.menu_leading) {
             displayFull();
             return true;
         } else if (itemId == R.id.menu_fraction) {
             displayFraction();
+            return true;
+        } else if (itemId == R.id.menu_percent_of_value) {
+            final boolean ofValue = !CalculatorExpr.isPercentOfValue();
+            CalculatorExpr.setPercentOfValue(ofValue);
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                    .edit().putBoolean(PREF_PERCENT_OF_VALUE, ofValue).apply();
+            item.setChecked(ofValue);
+            // Re-read what is on screen under the new semantics instead of waiting for a key.
+            if (mEvaluator.getExpr(Evaluator.MAIN_INDEX).hasInterestingOps()) {
+                mEvaluator.touch();
+                mEvaluator.evaluateAndNotify(Evaluator.MAIN_INDEX, this, mResultText);
+            }
             return true;
         } else if (itemId == R.id.menu_licenses) {
             startActivity(new Intent(this, Licenses.class));
@@ -1306,6 +1475,27 @@ public class Calculator extends AppCompatActivity
             ExchangeRateRepository.setAutoUpdateEnabled(this, enabled);
             item.setChecked(enabled);
             return true;
+        } else if (itemId == R.id.menu_programmer_width_8
+                || itemId == R.id.menu_programmer_width_16
+                || itemId == R.id.menu_programmer_width_32
+                || itemId == R.id.menu_programmer_width_64) {
+            final ToolMode active = mToolManager == null ? null : mToolManager.getActive();
+            if (active instanceof ProgrammerMode) {
+                final int bits = itemId == R.id.menu_programmer_width_8 ? 8
+                        : itemId == R.id.menu_programmer_width_16 ? 16
+                        : itemId == R.id.menu_programmer_width_32 ? 32 : 64;
+                ((ProgrammerMode) active).setWidthBits(bits);
+                item.setChecked(true);
+                return true;
+            }
+        } else if (itemId == R.id.menu_programmer_unsigned) {
+            final ToolMode active = mToolManager == null ? null : mToolManager.getActive();
+            if (active instanceof ProgrammerMode) {
+                final boolean unsigned = !item.isChecked();
+                ((ProgrammerMode) active).setUnsigned(unsigned);
+                item.setChecked(unsigned);
+                return true;
+            }
         } else if (itemId == R.id.menu_relationship_north
                 || itemId == R.id.menu_relationship_south) {
             final ToolMode activeTool = mToolManager == null ? null : mToolManager.getActive();
@@ -1342,7 +1532,7 @@ public class Calculator extends AppCompatActivity
         return true;
     }
 
-    private HistoryFragment getHistoryFragment() {
+    HistoryFragment getHistoryFragment() {
         final FragmentManager manager = getSupportFragmentManager();
         if (manager == null || manager.isDestroyed()) {
             return null;
@@ -1351,27 +1541,21 @@ public class Calculator extends AppCompatActivity
         return fragment == null || fragment.isRemoving() ? null : (HistoryFragment) fragment;
     }
 
+    private void createHistoryFragment() {
+        FragmentManager manager=getSupportFragmentManager();
+        if(manager.isDestroyed()||manager.isStateSaved()||getHistoryFragment()!=null)return;
+        manager.beginTransaction().add(R.id.history_frame,new HistoryFragment(),HistoryFragment.TAG).commitNow();
+    }
+
     private void showHistoryFragment() {
-        if (getHistoryFragment() != null) {
-            // If the fragment already exists, do nothing.
-            return;
-        }
-
-        final FragmentManager manager = getSupportFragmentManager();
-        if (manager == null || manager.isDestroyed() || !prepareForHistory()) {
-            return;
-        }
-
+        if(isHistoryDocked()){ensureDockedHistory();return;}
+        if(!prepareForHistory())return;
         stopActionModeOrContextMenu();
-        manager.beginTransaction()
-                .replace(R.id.history_frame, new HistoryFragment(), HistoryFragment.TAG)
-                .addToBackStack(HistoryFragment.TAG)
-                .commit();
-
-        // When HistoryFragment is visible, hide all descendants of the main Calculator view.
-        mMainCalculator.setImportantForAccessibility(
-                View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
-        // TODO: pass current scroll position of result
+        createHistoryFragment();
+        HistoryFragment history=getHistoryFragment();
+        if(history!=null){history.refreshHistory();history.restoreScroll();}
+        if(mHistoryPane!=null)mHistoryPane.scheduleFit();
+        mMainCalculator.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
     }
 
     private void displayMessage(String title, String message) {
@@ -1530,13 +1714,14 @@ public class Calculator extends AppCompatActivity
     public void setToolResult(@NonNull CharSequence text) {
         Log.d("ToolDebug", "setToolResult: [" + text + "] len=" + text.length()
                 + " resultTextSize(px)=" + mResultText.getTextSize());
-        if (mIsOneLine) {
+        if (mIsOneLine && !panelOwnsDisplayRows()) {
             mResultText.setVisibility(View.VISIBLE);
         }
         mLastToolResult = text;
         final boolean wrapUppercaseResult = mUppercaseNumbers && text.length() > 0;
         applyUppercaseResultLayout(wrapUppercaseResult);
-        mResultText.setText(text);
+        mResultText.setText(new android.text.SpannableString(text), TextView.BufferType.SPANNABLE);
+        mResultText.setLongClickable(text.length() > 0);
         mResultText.removeCallbacks(mFitUppercaseResult);
         if (wrapUppercaseResult) {
             mResultText.post(mFitUppercaseResult);
@@ -1571,11 +1756,86 @@ public class Calculator extends AppCompatActivity
         return extractNumber(value);
     }
 
+    private RemainingKeypadLayout mRemainingKeypadLayout;
+    private DateWindowLayout mDateWindowLayout;
+    private FieldToolViewport mFieldToolViewport;
+    private ConverterKeypadLayout mConverterKeypadLayout;
+    private ProgrammerKeypadLayout mProgrammerKeypadLayout;
+    private AdaptiveHistoryPane mHistoryPane;
+
+    boolean isHistoryDocked(){return mHistoryPane!=null&&mHistoryPane.isWide();}
+
+    void onHistoryDockChanged() {
+        boolean docked=isHistoryDocked();
+        mMainCalculator.setHistoryDocked(docked);
+        View handle=findViewById(R.id.drag_handle_view);
+        if(handle!=null)handle.setVisibility(docked?View.GONE:View.VISIBLE);
+        androidx.appcompat.widget.Toolbar toolbar=findViewById(R.id.toolbar);
+        toolbar.setNavigationIcon(docked?null:androidx.core.content.ContextCompat.getDrawable(this,R.drawable.ic_history));
+        toolbar.setNavigationContentDescription(docked?null:getString(R.string.menu_history));
+        mMainCalculator.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
+        HistoryFragment history=getHistoryFragment();
+        if(history!=null)history.setDocked(docked);
+        if(mHistoryPane!=null)mHistoryPane.placeHistoryView();
+        invalidateOptionsMenu();
+    }
+
+    void ensureDockedHistory() {
+        if(!isHistoryDocked())return;
+        if(getHistoryFragment()==null)createHistoryFragment();
+        mHistoryPane.placeHistoryView();
+    }
+
+    private void requestHistory() {
+        if(isHistoryDocked()) {ensureDockedHistory();return;}
+        mMainCalculator.transitionToEnd();
+    }
+
+    private void refreshHistory() {
+        HistoryFragment history=getHistoryFragment();
+        if(history!=null)history.refreshHistory();
+    }
+
+    boolean isMortgageViewport() {
+        return mToolManager!=null&&mToolManager.getActive()!=null
+            &&ToolId.MORTGAGE.equals(mToolManager.getActive().getId());
+    }
+
+    boolean wrapsFieldToolOutput() {
+        return isMortgageViewport() || (mToolManager!=null&&mToolManager.getActive()!=null
+            &&ToolId.TAX.equals(mToolManager.getActive().getId()));
+    }
+
+    private boolean usesFieldToolViewport() {
+        if(mToolManager==null||mToolManager.getActive()==null)return false;
+        String id=mToolManager.getActive().getId();
+        return ToolId.BMI.equals(id)||ToolId.MORTGAGE.equals(id)||ToolId.TAX.equals(id);
+    }
+
+    /** These modes render all meaningful content inside tool_control_slot. */
+    private boolean panelOwnsDisplayRows() {
+        return mToolManager != null && mToolManager.getActive() != null
+                && (ToolId.UNIT.equals(mToolManager.getActive().getId())
+                || ToolId.CURRENCY.equals(mToolManager.getActive().getId())
+                || ToolId.PROGRAMMER.equals(mToolManager.getActive().getId()));
+    }
+
     @Override
     public void prepareForToolDisplay() {
+        if(mFractionResult!=null)mFractionResult.clear();
+        if(mConverterKeypadLayout!=null)mConverterKeypadLayout.setEnabled(false);
+        if(mFieldToolViewport!=null)mFieldToolViewport.setEnabled(false);
         // CalculatorResult normally asks the evaluator to run again after every layout. Tool
         // setup changes its size and padding, so disable that request before touching the view;
         // otherwise a pending (not-yet-equals) calculator result can be redrawn over the tool.
+        mResultText.setToolOutput(true);
+        final boolean chainInput = mToolManager != null && mToolManager.getActive() != null
+                && ToolId.RELATIONSHIP.equals(mToolManager.getActive().getId());
+        // TextView promotes even SPANNABLE text to Editable when a TextWatcher is present.
+        // The formula watcher is an INPUT auto-scroll hook; detach it for output roles.
+        mFormulaText.removeTextChangedListener(mFormulaTextWatcher);
+        if (chainInput) mFormulaText.addTextChangedListener(mFormulaTextWatcher);
+        mFormulaText.setInputEnabled(chainInput);
         mResultText.setShouldEvaluateResult(CalculatorResult.SHOULD_NOT_EVALUATE, null);
         // Cancel optional and explicitly requested evaluations alike. Their asynchronous
         // callbacks are also ignored while toolOwnsDisplay() is true.
@@ -1606,10 +1866,44 @@ public class Calculator extends AppCompatActivity
         // Reset any transforms/text the calculator applied so the tool owns the surface.
         restoreDisplayPositions();
         mFormulaText.changeTextTo("");
+        // Empty text is not enough: these selectable shared views still own an Editor and
+        // can draw a caret below the converter. Do not disable touch/selection globally.
+        final int sharedVisibility = panelOwnsDisplayRows() ? View.GONE : View.VISIBLE;
+        findViewById(R.id.shared_display_rows).setVisibility(sharedVisibility);
+        mFormulaContainer.setVisibility(sharedVisibility);
+        mFormulaText.setVisibility(sharedVisibility);
+        mResultText.setVisibility(sharedVisibility);
+        if(mToolManager!=null && mToolManager.getActive()!=null
+                && ToolId.DATE.equals(mToolManager.getActive().getId())) {
+            if(mDateWindowLayout==null)mDateWindowLayout=new DateWindowLayout(this);
+            mDateWindowLayout.setEnabled(true);
+        }
+        if(usesFieldToolViewport()) {
+            if(mFieldToolViewport==null)mFieldToolViewport=new FieldToolViewport(this);
+            mFieldToolViewport.setEnabled(true);
+        }
+        if(mToolManager!=null && mToolManager.getActive()!=null
+                && (ToolId.UNIT.equals(mToolManager.getActive().getId())
+                || ToolId.CURRENCY.equals(mToolManager.getActive().getId()))) {
+            if(mConverterKeypadLayout==null)mConverterKeypadLayout=new ConverterKeypadLayout(this);
+            mConverterKeypadLayout.setEnabled(true);
+        }
     }
 
     @Override
     public void restoreCalculatorDisplay() {
+        if(mDateWindowLayout!=null)mDateWindowLayout.setEnabled(false);
+        if(mConverterKeypadLayout!=null)mConverterKeypadLayout.setEnabled(false);
+        if(mFieldToolViewport!=null)mFieldToolViewport.setEnabled(false);
+        mFormulaText.removeTextChangedListener(mFormulaTextWatcher);
+        mFormulaText.addTextChangedListener(mFormulaTextWatcher);
+        mFormulaText.setInputEnabled(true);
+        mResultText.setToolOutput(false);
+        findViewById(R.id.shared_display_rows).setVisibility(View.VISIBLE);
+        // Restore explicitly even when setState(INPUT) is a no-op (already in INPUT).
+        mFormulaContainer.setVisibility(View.VISIBLE);
+        mFormulaText.setVisibility(View.VISIBLE);
+        mResultText.setVisibility(mIsOneLine ? View.INVISIBLE : View.VISIBLE);
         // Reclaim the display for the calculator and re-drive it from the evaluator.
         if (mToolControlSlot != null) {
             mToolControlSlot.removeAllViews();
@@ -1642,7 +1936,16 @@ public class Calculator extends AppCompatActivity
     }
 
     @Override
+    public boolean isScientificPadVisible() {
+        final View advanced = findViewById(R.id.advanced_pad);
+        return advanced != null && advanced.getVisibility() == View.VISIBLE;
+    }
+
+    @Override
     public void setExpandedDisplay(boolean expanded) {
+        if(mFractionResult!=null)mFractionResult.clear();
+        if(mRemainingKeypadLayout!=null)mRemainingKeypadLayout.setEnabled(false,false);
+        if(mDateWindowLayout!=null)mDateWindowLayout.setEnabled(false);
         // Input-heavy tools want more display room: hide the scientific pad. The layout grows
         // the display automatically when it is gone. In calculator mode the user's toggle wins.
         applyAdvancedPadVisibility(expanded ? false : mScientificVisible);
@@ -1662,6 +1965,7 @@ public class Calculator extends AppCompatActivity
 
     @Override
     public void setProgrammerPadMode(boolean enabled, int radix) {
+        if(!enabled && mProgrammerKeypadLayout!=null)mProgrammerKeypadLayout.setEnabled(false);
         // Programmer keys A-F and bitwise operators live in this pad, so force it visible while
         // the mode is active and restore the user's scientific-pad preference afterward.
         applyAdvancedPadVisibility(enabled || mScientificVisible);
@@ -1691,8 +1995,9 @@ public class Calculator extends AppCompatActivity
                 // A-F are valid only in hexadecimal; bitwise keys are always available.
                 key.setEnabled(i >= 6 || radix == 16);
             }
+            // Visible text only: a content description duplicating it would double TalkBack's
+            // reading and clash with the mode-pill segment's description in UI tests.
             mModeView.setText(R.string.tool_programmer);
-            mModeView.setContentDescription(getString(R.string.tool_programmer));
         } else {
             restoreScientificPadLabels();
             onModeChanged(mEvaluator.getDegreeMode(Evaluator.MAIN_INDEX));
@@ -1707,6 +2012,10 @@ public class Calculator extends AppCompatActivity
             findViewById(digitIds[digit]).setEnabled(!enabled || digit < radix);
         }
         findViewById(R.id.dec_point).setEnabled(!enabled);
+        if(enabled) {
+            if(mProgrammerKeypadLayout==null)mProgrammerKeypadLayout=new ProgrammerKeypadLayout(this);
+            mProgrammerKeypadLayout.setEnabled(true);
+        }
     }
 
     private void restoreScientificPadLabels() {
@@ -1760,8 +2069,8 @@ public class Calculator extends AppCompatActivity
             swap.setCheckable(true);
             swap.setChecked(reverse);
             swap.setSelected(reverse);
+            // Visible text only; the pill segment owns the tool's content description.
             mModeView.setText(R.string.tool_relationship);
-            mModeView.setContentDescription(getString(R.string.tool_relationship));
         } else {
             restoreNumericPadLabels();
             onModeChanged(mEvaluator.getDegreeMode(Evaluator.MAIN_INDEX));
@@ -1802,21 +2111,35 @@ public class Calculator extends AppCompatActivity
         swap.setSelected(false);
     }
 
+    /**
+     * Refreshes the segmented control. All three segments stay visible in every mode (a mode
+     * switcher that hides its own entries strands the user); only their enabled state changes,
+     * and tools that own the display leave no segment selected.
+     */
     private void updateScientificToggleVisibility() {
-        if (mScientificToggle == null) {
+        if (mModeBar == null) {
             return;
         }
-        if (mToolManager == null || !mToolManager.isActive()) {
-            mScientificToggle.setVisibility(View.VISIBLE);
-            return;
+        final ToolMode active = mToolManager == null ? null : mToolManager.getActive();
+        final String activeId = active == null ? null : active.getId();
+        final boolean isCalculator = activeId == null || ToolId.CALCULATOR.equals(activeId);
+        final boolean isConverter = ToolId.UNIT.equals(activeId) || ToolId.CURRENCY.equals(activeId);
+        if (mSegmentBasicView != null) {
+            mSegmentBasicView.setEnabled(true);
         }
-        final String activeId = mToolManager.getActive().getId();
-        if (com.android.calculator2.tools.ToolId.CURRENCY.equals(activeId)
-                || com.android.calculator2.tools.ToolId.UNIT.equals(activeId)) {
-            mScientificToggle.setVisibility(View.VISIBLE);
-        } else {
-            mScientificToggle.setVisibility(View.GONE);
+        if (mSegmentScientificView != null) {
+            // An enabled mode entry also lets the framework show its long-press name.
+            // The existing click handler safely leaves a tool before opening science mode.
+            mSegmentScientificView.setEnabled(true);
         }
+        if (mSegmentConvertView != null) {
+            mSegmentConvertView.setEnabled(true);
+        }
+        mModeBar.setModeSelection(isCalculator && !mScientificVisible,
+                isCalculator && mScientificVisible, isConverter);
+        boolean remaining=isCalculator||ToolId.RELATIONSHIP.equals(activeId);
+        if(remaining&&mRemainingKeypadLayout==null)mRemainingKeypadLayout=new RemainingKeypadLayout(this);
+        if(mRemainingKeypadLayout!=null)mRemainingKeypadLayout.setEnabled(remaining,isCalculator&&mScientificVisible);
     }
 
     // ==== Chinese uppercase numerals (中文大写数字) ====
@@ -1893,9 +2216,9 @@ public class Calculator extends AppCompatActivity
      */
     private void applyUppercaseResultLayout(boolean enabled) {
         final ViewGroup.LayoutParams params = mResultText.getLayoutParams();
-        if (enabled) {
+        if (enabled || wrapsFieldToolOutput()) {
             mResultText.setSingleLine(false);
-            mResultText.setMaxLines(UPPERCASE_MAX_LINES);
+            mResultText.setMaxLines(wrapsFieldToolOutput()?Integer.MAX_VALUE:UPPERCASE_MAX_LINES);
             mResultText.setHorizontallyScrolling(false);
             mResultText.setEllipsize(null);
             mResultText.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
@@ -1916,8 +2239,8 @@ public class Calculator extends AppCompatActivity
             mResultText.setGravity(Gravity.BOTTOM | Gravity.END);
             if (params instanceof LinearLayout.LayoutParams) {
                 final LinearLayout.LayoutParams linear = (LinearLayout.LayoutParams) params;
-                linear.height = 0;
-                linear.weight = 1f;
+                linear.height = usesFieldToolViewport() ? LinearLayout.LayoutParams.WRAP_CONTENT : 0;
+                linear.weight = usesFieldToolViewport() ? 0f : 1f;
             }
         }
         mResultText.setLayoutParams(params);
@@ -1962,63 +2285,122 @@ public class Calculator extends AppCompatActivity
     }
 
     private void setupScientificToggle() {
-        mScientificToggle = findViewById(R.id.scientific_toggle);
-        // Default visible so the scientific pad is available out of the box; the toggle (and
-        // tool mode) can hide it to give the display more room.
+        mModeBar = findViewById(R.id.tool_bar);
+        mSegmentBasicView = findViewById(R.id.mode_segment_basic);
+        mSegmentScientificView = findViewById(R.id.mode_segment_scientific);
+        mSegmentConvertView = findViewById(R.id.mode_segment_convert);
+        // Keep the first-run calculator focused on the standard keypad. The scientific pad is
+        // still one tap away and the user's previous visibility choice remains persisted.
         mScientificVisible = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .getBoolean(PREF_SCIENTIFIC, true);
+                .getBoolean(PREF_SCIENTIFIC, false);
         applyAdvancedPadVisibility(mScientificVisible);
         updateScientificToggleLabel();
         updateScientificToggleVisibility();
     }
 
-    /** android:onClick handler for the scientific-pad toggle. */
-    public void onScientificToggleClick(View v) {
-        mScientificVisible = !mScientificVisible;
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .edit().putBoolean(PREF_SCIENTIFIC, mScientificVisible).apply();
+    /**
+     * {@code android:onClick} handler for the 123 / fx / ⇄ segments:
+     * 123 leaves any tool and shows the standard keypad, fx toggles the scientific pad, and
+     * ⇄ toggles between the unit and currency converters.
+     */
+    public void onModeSegmentClick(View v) {
+        final int id = v.getId();
+        if (id == R.id.mode_segment_basic) {
+            if (mToolManager != null && mToolManager.isActive()) {
+                mToolManager.activate(ToolId.CALCULATOR);
+            }
+            setScientificPadVisible(false, /* persist */ true);
+        } else if (id == R.id.mode_segment_scientific) {
+            final boolean leavingTool = mToolManager != null && mToolManager.isActive();
+            if (leavingTool) {
+                mToolManager.activate(ToolId.CALCULATOR);
+            }
+            setScientificPadVisible(leavingTool || !mScientificVisible, /* persist */ true);
+        } else if (id == R.id.mode_segment_convert) {
+            if (mToolManager != null) {
+                final ToolMode active = mToolManager.getActive();
+                final String activeId = active == null ? null : active.getId();
+                // ⇄ toggles between the two converters; otherwise start with units.
+                final String target = ToolId.UNIT.equals(activeId)
+                        ? ToolId.CURRENCY
+                        : ToolId.UNIT;
+                mToolManager.activate(target);
+            }
+        }
+    }
 
-        // If no tool is active, or if the active tool does not require an expanded display,
-        // we can apply the visibility change immediately.
+    /**
+     * Shows or hides the scientific pad, remembering the choice, and keeps the mode strip in
+     * sync. Tools that need the whole display (fields, date, kinship) opt out through
+     * {@link #setExpandedDisplay(boolean)}.
+     */
+    private void setScientificPadVisible(boolean visible, boolean persist) {
+        if(mFractionResult!=null)mFractionResult.clear();
+        if(mRemainingKeypadLayout!=null)mRemainingKeypadLayout.setEnabled(false,false);
+        mScientificVisible = visible;
+        if (persist) {
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                    .edit().putBoolean(PREF_SCIENTIFIC, visible).apply();
+        }
         boolean forceExpanded = false;
         if (mToolManager != null && mToolManager.isActive()) {
-            com.android.calculator2.tools.ToolMode active = mToolManager.getActive();
+            ToolMode active = mToolManager.getActive();
             if (active != null && active.wantsExpandedDisplay()) {
                 forceExpanded = true;
             }
         }
         if (!forceExpanded) {
-            applyAdvancedPadVisibility(mScientificVisible);
+            applyAdvancedPadVisibility(visible);
         }
         updateScientificToggleLabel();
+        updateScientificToggleVisibility();
+        refreshFractionResult();
     }
 
+    /**
+     * Shows or hides the scientific pad. The pad block (@id/pad_stack) keeps its height, so the
+     * 123 / fx / ⇄ strip and the display above it do not move: hiding the pad simply hands its
+     * rows to the digit pad, which is what Google Calculator v10 does (5 tall rows on the standard
+     * keypad, 3 flat scientific rows plus 5 shorter digit rows when fx is on).
+     */
     private void applyAdvancedPadVisibility(boolean visible) {
         final View advanced = findViewById(R.id.advanced_pad);
+        final View input = findViewById(R.id.input_pad);
         if (advanced != null) {
             advanced.setVisibility(visible ? View.VISIBLE : View.GONE);
         }
-        if (mMainCalculator != null) {
-            final int visibility = visible ? View.VISIBLE : View.GONE;
-            for (int stateId : new int[]{R.id.start_state, R.id.end_state}) {
-                androidx.constraintlayout.widget.ConstraintSet set = mMainCalculator.getConstraintSet(stateId);
-                if (set != null) {
-                    set.setVisibility(R.id.advanced_pad, visibility);
-                }
+        if (input != null) {
+            final ViewGroup.LayoutParams lp = input.getLayoutParams();
+            // Portrait only: the pads are stacked vertically there and share the block height, so
+            // hiding the scientific pad gives its rows to the digit pad. In landscape they sit
+            // side by side in a horizontal chain and keep separate fills.
+            if (lp instanceof LinearLayout.LayoutParams
+                    && input.getParent() instanceof LinearLayout
+                    && ((LinearLayout) input.getParent()).getOrientation() == LinearLayout.VERTICAL
+                    && ((LinearLayout.LayoutParams) lp).weight > 0) {
+                final LinearLayout.LayoutParams weight = (LinearLayout.LayoutParams) lp;
+                weight.weight = getResources().getInteger(visible
+                        ? R.integer.input_pad_weight : R.integer.scientific_off_input_pad_weight);
+                input.setLayoutParams(weight);
             }
+        }
+        if (mMainCalculator != null) {
+            // Both orientations put the pads inside pad_stack. A visibility-only constraint
+            // for advanced_pad in MotionLayout creates an independent, positionless state;
+            // the panel can then jump to (0,0). Move the stack via the scene and let its
+            // LinearLayout lay out visible children instead of adding child constraints here.
             mMainCalculator.requestLayout();
             mMainCalculator.post(() -> mMainCalculator.requestLayout());
         }
     }
 
     private void updateScientificToggleLabel() {
-        if (mScientificToggle == null) {
+        if (mSegmentScientificView == null) {
             return;
         }
-        final int labelRes = mScientificVisible
-                ? R.string.tool_scientific_hide : R.string.tool_scientific_show;
-        mScientificToggle.setText(labelRes);
-        mScientificToggle.setContentDescription(getString(labelRes));
+        // Toggling label: pressing fx again returns to the standard keypad.
+        mSegmentScientificView.setContentDescription(getString(mScientificVisible
+                ? R.string.desc_mode_basic : R.string.desc_mode_scientific));
     }
 
     /**
@@ -2079,10 +2461,21 @@ public class Calculator extends AppCompatActivity
 
     private void setupEdgeToEdge() {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        // Paint the actual regions behind system icons, including a two-colour tablet status
+        // bar. Content remains inset; no fixed bar heights and no progress-dependent padding.
+        android.view.WindowManager.LayoutParams attributes=getWindow().getAttributes();
+        attributes.layoutInDisplayCutoutMode=android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        getWindow().setAttributes(attributes);
+        getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(android.graphics.Color.TRANSPARENT);
+        getWindow().setStatusBarContrastEnforced(false);
+        getWindow().setNavigationBarContrastEnforced(false);
         ViewCompat.setOnApplyWindowInsetsListener(requireViewById(R.id.main_calculator),
             (v, windowInsets) -> {
-                Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+                Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+                        | WindowInsetsCompat.Type.displayCutout());
                 v.setPadding(0, insets.top, 0, insets.bottom);
+                if(mHistoryPane!=null)mHistoryPane.scheduleFit();
                 return WindowInsetsCompat.CONSUMED;
             });
     }

@@ -1,62 +1,77 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Collapsed tool bar: a horizontally scrollable chip row + trailing "more" button.
-    Included into activity_calculator between the display and the pads. The root is the
-    custom ToolBarView; width/height/constraints are supplied by the <include> site.
+    Mode strip immediately above the keypad, modelled on Google Calculator v10 and extended
+    to every tool this app ships.
+
+    The strip is exactly ONE pill and nothing else: 123 / fx / ⇄ followed by one icon-only
+    segment per tool. The pill spans the full width of the strip and its segments share that
+    width equally, so every mode is visible inside the pill at once, with both rounded ends on
+    screen. There is no trailing button: every tool is already a segment.
 -->
 <com.android.calculator2.tools.ui.ToolBarView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/tool_bar"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:background="?colorSurface"
+    android:background="@color/display_background_color"
     android:paddingStart="@dimen/tool_bar_horizontal_padding"
     android:paddingEnd="@dimen/tool_bar_horizontal_padding"
     android:paddingTop="@dimen/tool_bar_vertical_padding"
     android:paddingBottom="@dimen/tool_bar_vertical_padding">
 
-    <!-- Scientific-pad toggle (moved here from the ActionBar toolbar so clicks work reliably). -->
-    <TextView
-        android:id="@+id/scientific_toggle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:clickable="true"
-        android:focusable="true"
-        android:fontFamily="sans-serif-medium"
-        android:onClick="onScientificToggleClick"
-        android:padding="6dp"
-        android:textAllCaps="true"
-        android:textColor="?android:textColorSecondary"
-        android:textSize="13sp" />
-
+    <!--
+        The one pill. The scroll view carries the track background and the rounded-corner
+        clipping. It fills the strip, and fillViewport stretches the segment row to the same
+        width, so the weighted segments divide the whole pill between them. Scrolling is only a
+        fallback for a window too narrow to fit every segment at its minimum width.
+    -->
     <HorizontalScrollView
-        android:id="@+id/tool_chips_scroll"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:scrollbars="none"
+        android:id="@+id/mode_segments_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/mode_segment_height"
+        android:background="@drawable/mode_segment_track_background"
+        android:clipToOutline="true"
+        android:clipToPadding="false"
+        android:fillViewport="true"
         android:overScrollMode="never"
-        android:fillViewport="true">
+        android:scrollbars="none">
 
         <LinearLayout
-            android:id="@+id/tool_chips_container"
+            android:id="@+id/mode_segments"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal" />
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/mode_segment_basic"
+                style="@style/ModeSegment"
+                android:contentDescription="@string/desc_mode_basic"
+                android:onClick="onModeSegmentClick"
+                android:text="@string/mode_segment_basic" />
+
+            <TextView
+                android:id="@+id/mode_segment_scientific"
+                style="@style/ModeSegment"
+                android:contentDescription="@string/desc_mode_scientific"
+                android:onClick="onModeSegmentClick"
+                android:text="@string/mode_segment_scientific" />
+
+            <TextView
+                android:id="@+id/mode_segment_convert"
+                style="@style/ModeSegment"
+                android:contentDescription="@string/desc_mode_convert"
+                android:onClick="onModeSegmentClick"
+                android:text="@string/mode_segment_convert" />
+            <!--
+                The tool segments are appended here at runtime by ToolBarView.render(), inside
+                the same LinearLayout, so they are part of this pill and share its background,
+                corner radius and scrolling.
+            -->
+        </LinearLayout>
 
     </HorizontalScrollView>
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/tool_more_button"
-        style="@style/Widget.Material3.Button.IconButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:contentDescription="@string/tool_more"
-        app:icon="@drawable/ic_tool_more"
-        app:iconTint="?colorOnSurface" />
 
 </com.android.calculator2.tools.ui.ToolBarView>

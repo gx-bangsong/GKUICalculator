@@ -1,0 +1,118 @@
+name: Exact fraction numerical tests
+on:
+  push:
+    branches: ['arena/**']
+    paths:
+      - '.github/workflows/exact-fraction.yml'
+      - 'src/com/android/calculator2/ExactFraction.java'
+      - 'src/com/android/calculator2/BoundedRational.java'
+      - 'test/java/com/android/calculator2/ExactFractionTest.java'
+      - 'src/com/android/calculator2/FractionResult*.java'
+      - 'src/com/android/calculator2/FractionDisplayScroll.java'
+      - 'src/com/android/calculator2/FractionScrollDiagnostics.java'
+      - 'androidTest/java/com/android/calculator2/FractionGestureDiagnosticsTest.java'
+      - 'src/com/android/calculator2/Calculator.java'
+      - 'androidTest/java/com/android/calculator2/ExactFractionUiTest.java'
+      - 'res/menu/activity_calculator.xml'
+      - 'androidTest/java/com/android/calculator2/WindowConfigurationTest.java'
+      - 'scripts/ci-fraction-window-test.sh'
+      - 'scripts/check-fraction-upgrade-identity.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  numerical:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: '17'
+          cache: gradle
+      # Existing RelationshipTest does not compile (unresolved NonNull). Do not change
+      # that unrelated suite or claim it passed: compile/run only this feature's source.
+      - name: Run isolated exact fraction numerical tests
+        run: |
+          cat > /tmp/exact-fraction-tests.gradle <<'INIT'
+          allprojects {
+            afterEvaluate {
+              if (plugins.hasPlugin('com.android.application')) {
+                android.sourceSets.test.java.setIncludes(['com/android/calculator2/ExactFractionTest.java'])
+              }
+            }
+          }
+          INIT
+          ./gradlew -I /tmp/exact-fraction-tests.gradle testDebugUnitTest --tests com.android.calculator2.ExactFractionTest --stacktrace --console=plain
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: exact-fraction-numerical-results
+          path: build/test-results/testDebugUnitTest
+  fraction-ui:
+    needs: numerical
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: '17'
+          cache: gradle
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - run: ./gradlew assembleDebug assembleDebugAndroidTest --console=plain
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          profile: pixel_5
+          ram-size: 4096M
+          emulator-options: -skin 1080x2340 -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash scripts/ci-fraction-window-test.sh
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: exact-fraction-api30-apk-and-evidence
+          path: |
+            build/outputs/apk/debug/*.apk
+            build/outputs/androidTest-results
+            build/fraction-evidence
+  upgrade-identity:
+    name: Compare cleanup APK with accepted installed APK
+    needs: numerical
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: '17'
+          cache: gradle
+      - name: Fetch exact user-accepted APK (not a rebuild)
+        uses: actions/download-artifact@v6
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 44842680193
+          name: exact-fraction-api30-apk-and-evidence
+          path: accepted-fraction-apk
+      - run: ./gradlew assembleDebug --console=plain
+      - name: Verify package, version and signing identity before claiming replacement support
+        run: python3 scripts/check-fraction-upgrade-identity.py
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: fraction-cleanup-upgrade-identity
+          path: |
+            build/fraction-upgrade-identity.json
+            build/outputs/apk/debug/*.apk

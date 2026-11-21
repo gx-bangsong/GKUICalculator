@@ -29,6 +29,10 @@ public class CalculatorScrollView extends HorizontalScrollView {
         super(context, attrs, defStyleAttr);
     }
 
+    private boolean mWrapChildToViewport;
+
+    void setWrapChildToViewport(boolean wrap) {mWrapChildToViewport=wrap;requestLayout();}
+
     private static int getChildMeasureSpecCompat(int spec, int padding, int childDimension) {
         if (MeasureSpec.getMode(spec) == UNSPECIFIED
                 && (childDimension == MATCH_PARENT || childDimension == WRAP_CONTENT)) {
@@ -41,6 +45,14 @@ public class CalculatorScrollView extends HorizontalScrollView {
     @Override
     protected void measureChild(View child, int parentWidthMeasureSpec,
             int parentHeightMeasureSpec) {
+        if(mWrapChildToViewport) {
+            MarginLayoutParams lp=(MarginLayoutParams)child.getLayoutParams();
+            int width=Math.max(0,MeasureSpec.getSize(parentWidthMeasureSpec)-getPaddingLeft()-getPaddingRight()-lp.leftMargin-lp.rightMargin);
+            int height=getChildMeasureSpecCompat(parentHeightMeasureSpec,
+                getPaddingTop()+getPaddingBottom()+lp.topMargin+lp.bottomMargin,lp.height);
+            child.measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),height);
+            return;
+        }
         // Allow child to be as wide as they want.
         parentWidthMeasureSpec = MeasureSpec.makeMeasureSpec(
                 MeasureSpec.getSize(parentWidthMeasureSpec), UNSPECIFIED);
@@ -57,6 +69,14 @@ public class CalculatorScrollView extends HorizontalScrollView {
     @Override
     protected void measureChildWithMargins(View child, int parentWidthMeasureSpec, int widthUsed,
             int parentHeightMeasureSpec, int heightUsed) {
+        if(mWrapChildToViewport) {
+            MarginLayoutParams lp=(MarginLayoutParams)child.getLayoutParams();
+            int width=Math.max(0,MeasureSpec.getSize(parentWidthMeasureSpec)-getPaddingLeft()-getPaddingRight()-lp.leftMargin-lp.rightMargin);
+            int height=getChildMeasureSpecCompat(parentHeightMeasureSpec,
+                getPaddingTop()+getPaddingBottom()+lp.topMargin+lp.bottomMargin,lp.height);
+            child.measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),height);
+            return;
+        }
         // Allow child to be as wide as they want.
         parentWidthMeasureSpec = MeasureSpec.makeMeasureSpec(
                 MeasureSpec.getSize(parentWidthMeasureSpec), UNSPECIFIED);

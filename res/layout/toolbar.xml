@@ -1,43 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     SPDX-FileCopyrightText: 2014 The Android Open Source Project
-     SPDX-License-Identifier: Apache-2.0
+     Compact top action row. The history icon is supplied as the Toolbar navigation icon;
+     the angle mode / uppercase switch and the existing overflow menu remain available.
 -->
 <androidx.appcompat.widget.Toolbar
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/toolbar"
     android:layout_width="match_parent"
-    android:layout_height="?attr/actionBarSize"
-    android:layout_gravity="top">
+    android:layout_height="48dp"
+    android:background="@color/display_background_color"
+    app:contentInsetEnd="4dp"
+    app:contentInsetEndWithActions="4dp"
+    app:contentInsetStart="0dp"
+    app:contentInsetStartWithNavigation="0dp">
 
     <TextView
         android:id="@+id/mode"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
         android:fontFamily="sans-serif-medium"
         android:textAllCaps="true"
-        android:textSize="16sp" />
+        android:textColor="@color/calculator_chip_text"
+        android:textSize="12sp" />
 
-    <!-- Chinese-uppercase-numerals (中文大写数字) toggle. Shown in place of the DEG/RAD
-         indicator by the tools that show amounts (mortgage, income tax, currency), where
-         the angle mode is meaningless. Hidden in every other mode. -->
+    <!-- Chinese-uppercase-numerals switch, shown in place of the angle-mode indicator for amount tools. -->
     <TextView
         android:id="@+id/uppercase_toggle"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="?attr/selectableItemBackgroundBorderless"
+        android:layout_height="32dp"
+        android:background="@drawable/scientific_toggle_background"
         android:clickable="true"
         android:focusable="true"
         android:fontFamily="sans-serif-medium"
         android:gravity="center"
         android:minWidth="34dp"
-        android:paddingStart="6dp"
-        android:paddingEnd="6dp"
-        android:paddingTop="6dp"
-        android:paddingBottom="6dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
         android:text="@string/tool_uppercase_toggle"
-        android:textColor="@color/display_formula_text_color"
-        android:textSize="19sp"
+        android:textColor="@color/calculator_chip_text"
+        android:textSize="14sp"
         android:visibility="gone" />
 
 </androidx.appcompat.widget.Toolbar>

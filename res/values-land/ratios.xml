@@ -4,11 +4,14 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-    <!-- Landscape: display + tool_bar + pads_row = 1.
+    <!-- Short landscape windows (including reduced split tasks) reserve room above the
+         keyboard for the action row, controls and history handle. Taller windows override
+         the pad ratio in values-h360dp-land, retaining the accepted phone landscape layout.
+         Landscape: display + tool_bar + pads_row = 1.
          layout_pads_ratio is the height of the side-by-side pad row;
          layout_advanced_pad_ratio is the vertical guideline percent (width split). -->
     <item type="dimen" format="float" name="layout_display_ratio">0.34</item>
     <item type="dimen" format="float" name="layout_tool_bar_ratio">0.08</item>
-    <item type="dimen" format="float" name="layout_pads_ratio">0.58</item>
+    <item type="dimen" format="float" name="layout_pads_ratio">0.32</item>
     <item type="dimen" format="float" name="layout_advanced_pad_ratio">0.33</item>
 </resources>

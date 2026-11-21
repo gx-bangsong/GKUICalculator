@@ -111,6 +111,7 @@ android {
         }
         // Instrumented (on-device) UI tests, also outside src/.
         getByName("androidTest") {
+            manifest.srcFile("androidTest/AndroidManifest.xml")
             java.setSrcDirs(listOf("androidTest/java"))
         }
     }
@@ -161,6 +162,9 @@ dependencies {
     // Instrumented UI tests (run on a device/emulator via ./gradlew connectedDebugAndroidTest).
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+    androidTestImplementation("androidx.test:rules:1.5.0")
+    androidTestImplementation("androidx.test:monitor:1.5.0")
 }
 
 configure<GenerateBpPluginExtension> {

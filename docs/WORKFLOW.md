@@ -1,159 +1,69 @@
-<!--
-SPDX-FileCopyrightText: 2026 The GKUICalculator Project
-SPDX-License-Identifier: Apache-2.0
--->
+# 正式发布工作流与版本说明
 
-# Automated release workflow
+## 唯一执行源
 
-Arena cannot push files under `.github/workflows/`. Copy the complete workflow below to
-`.github/workflows/release.yml` manually.
+实际工作流为 [release.yml](../.github/workflows/release.yml)，构建脚本为
+[`scripts/ci-build.sh`](../scripts/ci-build.sh)。不再维护一份容易漂移的完整 YAML 副本。
+当前发布分支是 `lineage-23.2`，不是开发工作分支。仅在其 push（排除纯 Markdown/docs）或手动触发时运行。
+手动触发也必须选中发布分支；不要为预览说明触发签名构建。
 
-> **Branch decision:** this repository currently has no `main` branch. The owner selected the
-> current default branch, `lineage-23.2`, for releases. If the repository is later migrated to
-> `main`, change the one branch entry below.
+本轮只修改发布说明生成，不改签名配置、包名、版本号算法或产品功能。
 
-## Standalone workflow (recommended)
+## 随源码提交的说明模板
 
-```yaml
-# Human-readable workflow name shown in the Actions tab.
-name: production release
+- `releases/next.json`：显式指定上一正式版 tag、发布分支和中文摘要文件。
+- `releases/next.md`：按最终产品差异去重的中文摘要、安装说明、验证范围与已知限制。
+- `scripts/render-release-notes.py`：合成最终正文，技术元数据和自动 PR 明细统一放到末尾折叠区。
+- `releases/RELEASE-DRAFT.md`：本次离线核对稿，不是已经发布的 Release。
 
-# Run after release-branch changes and permit a manual retry/bootstrap run.
-on:
-  push:
-    # The owner selected the repository's existing default branch.
-    branches:
-      - lineage-23.2
-    # Documentation-only changes must not publish a new binary release.
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-  # Allows the owner to rerun after adding release-signer.sha256.
-  workflow_dispatch:
+下一次发布前更新 `previous_tag`，只保留自该 tag 起实际新增的用户改进；排错、截图、重试、测试基础设施提交不逐条写成产品功能。
+无改动、比较基线过时、build-info 与构建 SHA 不同或 tag 已存在时停止，不重打旧 tag。
 
-# gh release create needs permission to create tags, releases, and release assets.
-permissions:
-  contents: write
+工作流从经过校验的 `dist/build-info.json` 读取产物信息，并使用构建脚本输出的完整 commit：
 
-jobs:
-  release:
-    # A GitHub-hosted Linux runner supplies git, gh, jq, and sha256sum.
-    runs-on: ubuntu-latest
-    steps:
-      # A complete history is mandatory for git rev-list --count HEAD versioning.
-      - name: Check out complete source history
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # Android Gradle Plugin 8.7 is configured for Java 17 in this repository.
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-
-      # Install sdkmanager and expose ANDROID_HOME for the following build-tools step.
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      # aapt validates package/version/debuggable metadata; apksigner validates the certificate.
-      - name: Install Android build tools
-        shell: bash
-        run: |
-          sdkmanager 'build-tools;35.0.0'
-          echo "$ANDROID_HOME/build-tools/35.0.0" >> "$GITHUB_PATH"
-
-      # The repository script owns decoding, building, validation, naming, and metadata creation.
-      - name: Build and validate the production APK
-        id: build
-        shell: bash
-        env:
-          # The temporary decoded keystore never enters the repository or release assets.
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          # Gradle reads these three values through the release signing configuration.
-          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASS: ${{ secrets.KEY_PASS }}
-          # gh reads the previous release's build-info.json for the monotonic version check.
-          GH_TOKEN: ${{ github.token }}
-          # Missing production signing inputs are fatal in CI.
-          CI: 'true'
-        run: scripts/ci-build.sh
-
-      # Build a release body from values extracted from the validated APK, not guessed values.
-      - name: Prepare release notes
-        shell: bash
-        run: |
-          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
-          ## Production APK
-
-          - applicationId: `${{ steps.build.outputs.application_id }}`
-          - versionCode: `${{ steps.build.outputs.version_code }}`
-          - versionName: `${{ steps.build.outputs.version_name }}`
-          - signer SHA-256: `${{ steps.build.outputs.signer_sha256 }}`
-          - APK SHA-256: `${{ steps.build.outputs.apk_sha256 }}`
-          - source for this commit: ${{ steps.build.outputs.source_url }}
-
-          This release is signed for production; it cannot be installed over previous `dev`/`debug` versions—please uninstall the old version before installing this one.
-          NOTES
-
-      # Publish the APK, checksum, and machine-readable build-info.json under the generated tag.
-      - name: Create GitHub Release
-        shell: bash
-        env:
-          # gh uses the job-scoped token granted contents: write above.
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create '${{ steps.build.outputs.tag }}' dist/* \
-            --title '${{ steps.build.outputs.tag }}' \
-            --notes-file "$RUNNER_TEMP/release-notes.md" \
-            --generate-notes
+```bash
+# 自动明细仅进入附录，起点和终点均显式指定。
+gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+  -f tag_name="$RELEASE_TAG" -f target_commitish="$BUILD_SHA" \
+  -f previous_tag_name="$PREVIOUS_TAG" --jq .body > "$RUNNER_TEMP/pr-appendix.md"
+python3 scripts/render-release-notes.py --sha "$BUILD_SHA" \
+  --build-info dist/build-info.json --appendix "$RUNNER_TEMP/pr-appendix.md" \
+  --output "$RUNNER_TEMP/release-notes.md"
+gh release create "$RELEASE_TAG" dist/* \
+  --target "$BUILD_SHA" --title "$RELEASE_TAG" \
+  --notes-file "$RUNNER_TEMP/release-notes.md"
 ```
 
-The source URL in the release body and `build-info.json` points to the exact commit used for the
-APK. Keep that link and the corresponding source available to satisfy source-distribution
-obligations. The release command uploads all three deliverables from `dist/`: the APK, its
-`.sha256` file, and `build-info.json`.
+不再使用 `gh release create --generate-notes` 追加顶层流水账；不依赖默认分支 HEAD 作为标签目标。
+保留原有自动正式发布：按正常流程触发并成功完成后直接得到**公开 Release**，不新增二次手动发布或审批步骤。
+用户在触发前于开发分支审阅、修改 `releases/next.md`；工作流读取最终构建提交中的文件作为正文，自动内容仅追加到末尾，不覆盖人工摘要。
+“草稿”仅指本地可编辑 Markdown 预览，不是 GitHub Draft Release；预览只运行现有说明生成脚本。本轮不推送发布分支、不触发正式发布。
+仅在工作分支修改本文件不会运行 production release；也不应把功能未合入发布分支的开发候选写成正式版已交付。
 
-## Alternative: reusable workflow
+## 安装与数据模板（必须与正文一致）
 
-Either use the standalone workflow above **or** make it reusable; do not enable both branch
-triggers, or one commit may attempt to create the same tag twice.
+正式包 `com.android.calculator2` 与开发/debug 包 `com.android.calculator2.dev` 可并存。
+应用数据、历史和偏好各自独立，不自动共享或迁移。**不要指导用户先卸载开发版**。
+同包名升级须签名兼容且版本不降；正式签名校验与版本递增仍由原构建脚本负责。
+开发包临时调试签名可能不同，不能保证互相覆盖；签名冲突时不要用卸载或清数据绕过。
 
-To create `.github/workflows/reusable-release.yml`, copy the standalone workflow, remove its
-`push` and `workflow_dispatch` triggers, and replace them with this fully declared reusable input:
+## 发布前清单
 
-```yaml
-name: reusable production release
-on:
-  workflow_call:
-    secrets:
-      KEYSTORE_BASE64: {required: true}
-      KEYSTORE_PASS: {required: true}
-      KEY_ALIAS: {required: true}
-      KEY_PASS: {required: true}
-permissions:
-  contents: write
-# Copy the complete `jobs:` block from the standalone workflow here unchanged.
+1. 核实上一正式版 tag 的真实 commit，确认候选功能已合入 `lineage-23.2`，记录最终构建完整 SHA。
+2. 审核 `next.md` 对该比较范围是否准确，确认无重复、回退功能、排错流水账或未经验证承诺。
+3. 对**同一完整 SHA**核对必要数值、UI、安装/数据保留测试与人工验收。说明生成器未收到验证记录时写“尚未提供”，不会自动把 assembleRelease 成功升级为全回归通过。
+4. 用 APK 实际元数据核对包名、versionCode、签名与校验值；保留 APK、`.sha256`、`build-info.json` 和精确源码链接。
+5. 已知真实 25% 建窗失败、既有单元测试编译问题及广泛 UI 失败要如实保留。其他 SHA 的真机反馈只作其自身验收记录。
+6. 触发正式发布前在源码说明中补充最终 SHA 的证据与限制；不得改写已发布 Release 历史，不移动旧 tag。
+
+## 本地预览（不构建、不签名、不创建 Release/tag）
+
+```bash
+python3 scripts/render-release-notes.py \
+  --sha <完整候选SHA> --verification releases/candidate-verification.md \
+  --appendix releases/candidate-pr-appendix.md --output /tmp/release-notes.md
+python3 -m unittest discover -s tests -p 'test_release_notes.py'
 ```
 
-Then save the following **10-line caller** as `.github/workflows/release.yml`:
-
-```yaml
-name: production release
-on:
-  push: {branches: [lineage-23.2], paths-ignore: ['docs/**', '**/*.md']}
-  workflow_dispatch:
-permissions:
-  contents: write
-jobs:
-  release:
-    uses: ./.github/workflows/reusable-release.yml
-    secrets: inherit
-```
-
-A local reusable workflow is resolved from the same commit as its caller. `secrets: inherit`
-passes the four repository secrets declared by `workflow_call`; the reusable workflow still maps
-them explicitly into `scripts/ci-build.sh` as shown in the standalone job.
+工作流继续使用既有 `KEYSTORE_FILE`（Base64 内容）、`KEYSTORE_PASS`、`KEY_ALIAS`、`KEY_PASS` secrets；
+没有新增或更换签名，也没有更改 `scripts/ci-build.sh` 和 Gradle 版本号来源。

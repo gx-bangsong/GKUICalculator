@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     SPDX-FileCopyrightText: 2026 The LineageOS Project
-     SPDX-License-Identifier: Apache-2.0
+     Programmer: like the unit converter, two numeral systems one above the other, each with a
+     anchored radix menu alongside. A swap action preserves the register value. The width / signedness conversion
+     options live in the activity overflow menu.
 -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/programmer_viewport"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="false">
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -14,56 +19,97 @@
     android:paddingTop="4dp"
     android:paddingBottom="4dp">
 
-    <com.google.android.material.button.MaterialButtonToggleGroup
-        android:id="@+id/programmer_base_group"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:checkedButton="@id/programmer_base_dec"
-        app:selectionRequired="true"
-        app:singleSelection="true">
+        android:baselineAligned="false"
+        android:orientation="horizontal">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/programmer_base_hex"
-            style="@style/Widget.Material3.Button.TextButton"
+        <HorizontalScrollView
+            android:id="@+id/programmer_input_scroll"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:minWidth="0dp"
-            android:padding="0dp"
-            android:text="@string/programmer_hex" />
+            android:fillViewport="true"
+            android:scrollbars="horizontal">
+        <com.android.calculator2.tools.ToolFieldEditText
+            android:id="@+id/programmer_value_in"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@null"
+            android:singleLine="true"
+            android:scrollHorizontally="true"
+            android:inputType="text"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textIsSelectable="true" />
+        </HorizontalScrollView>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/programmer_base_dec"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_weight="1"
-            android:minWidth="0dp"
-            android:padding="0dp"
+        <TextView
+            android:id="@+id/programmer_chip_in"
+            style="@style/ToolDropdownStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:minWidth="64dp"
             android:text="@string/programmer_dec" />
+    </LinearLayout>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/programmer_base_oct"
-            style="@style/Widget.Material3.Button.TextButton"
+    <ImageButton
+        android:id="@+id/programmer_swap"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="start"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/programmer_swap"
+        android:padding="12dp"
+        android:src="@drawable/ic_unit_swap"
+        android:tint="?colorOnSurfaceVariant" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+        <HorizontalScrollView
+            android:id="@+id/programmer_output_scroll"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:minWidth="0dp"
-            android:padding="0dp"
-            android:text="@string/programmer_oct" />
+            android:fillViewport="true"
+            android:scrollbars="horizontal">
+        <com.android.calculator2.tools.ProgrammerOutputTextView
+            android:id="@+id/programmer_value_out"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@null"
+            android:singleLine="true"
+            android:scrollHorizontally="true"
+            android:cursorVisible="false"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textColor="?colorOnSurfaceVariant"
+            android:textIsSelectable="true" />
+        </HorizontalScrollView>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/programmer_base_bin"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
-            android:layout_weight="1"
-            android:minWidth="0dp"
-            android:padding="0dp"
-            android:text="@string/programmer_bin" />
-    </com.google.android.material.button.MaterialButtonToggleGroup>
+        <TextView
+            android:id="@+id/programmer_chip_out"
+            style="@style/ToolDropdownStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:minWidth="64dp"
+            android:text="@string/programmer_hex" />
+    </LinearLayout>
 
-    <TextView
+    <com.android.calculator2.tools.ToolOutputTextView
+        android:id="@+id/programmer_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+    <com.android.calculator2.tools.ToolOutputTextView
+        android:id="@+id/programmer_width_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="end"
@@ -73,3 +119,5 @@
         android:textColor="?colorOnSurfaceVariant" />
 
 </LinearLayout>
+
+</ScrollView>

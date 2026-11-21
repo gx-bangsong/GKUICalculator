@@ -11,4 +11,13 @@
         <attr name="stepTextSize" format="dimension" />
     </declare-styleable>
 
+    <!--
+        Key label sizing for HapticButton. Both are optional: without them the button falls back
+        to @dimen/dimen_key_label_scale and @dimen/key_label_max_textsize.
+    -->
+    <declare-styleable name="HapticButton">
+        <attr name="keyLabelScale" format="float" />
+        <attr name="keyLabelMaxTextSize" format="dimension" />
+    </declare-styleable>
+
 </resources>

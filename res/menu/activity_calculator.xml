@@ -15,6 +15,10 @@
     <item android:id="@+id/menu_fraction"
         android:title="@string/menu_fraction" />
 
+    <item android:id="@+id/menu_show_fraction"
+        android:title="@string/menu_show_fraction"
+        android:checkable="true" />
+
     <item android:id="@+id/menu_licenses"
         android:title="@string/menu_licenses" />
 
@@ -27,6 +31,39 @@
     <!-- Settings: toggle automatic currency-rate updates. [CHAR_LIMIT=40] -->
     <item android:id="@+id/menu_auto_update_rates"
         android:title="@string/menu_auto_update_rates"
+        android:checkable="true"
+        android:visible="false" />
+
+    <!-- Calculator setting: read a+b% as b percent of a (checked) or as the plain b/100.
+         Only shown while the calculator itself is active. -->
+    <item android:id="@+id/menu_percent_of_value"
+        android:title="@string/menu_percent_of_value"
+        android:checkable="true"
+        android:visible="false" />
+
+    <!-- Programmer register conversion options; only shown while that tool is active. -->
+    <item android:id="@+id/menu_programmer_width_8"
+        android:title="@string/programmer_width_8"
+        android:checkable="true"
+        android:visible="false" />
+
+    <item android:id="@+id/menu_programmer_width_16"
+        android:title="@string/programmer_width_16"
+        android:checkable="true"
+        android:visible="false" />
+
+    <item android:id="@+id/menu_programmer_width_32"
+        android:title="@string/programmer_width_32"
+        android:checkable="true"
+        android:visible="false" />
+
+    <item android:id="@+id/menu_programmer_width_64"
+        android:title="@string/programmer_width_64"
+        android:checkable="true"
+        android:visible="false" />
+
+    <item android:id="@+id/menu_programmer_unsigned"
+        android:title="@string/programmer_unsigned_menu"
         android:checkable="true"
         android:visible="false" />
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: 2026 The GKUICalculator Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="@color/mode_segment_text_states">
+    <!-- Material "attach_money": one of the icon-only mode segments (see tool_bar.xml). -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M11.8,10.9c-2.27,-0.41 -3,-1.02 -3,-1.79c0,-0.91 0.9,-1.61 2.4,-1.61c1.75,0 2.4,0.83 2.45,2.05h1.85c-0.05,-1.75 -1.15,-3.1 -2.95,-3.52V4h-2.6v2.02c-1.9,0.36 -3.2,1.51 -3.2,3.3c0,2.13 1.8,3.19 4.5,3.79c2.5,0.58 3,1.28 3,2.1c0,0.7 -0.5,1.8 -2.6,1.8c-1.8,0 -2.6,-0.85 -2.65,-2.05H6.15c0.05,1.95 1.35,3.2 3.25,3.6V20h2.6v-2.03c1.9,-0.4 3.25,-1.45 3.25,-3.3c0,-2.09 -1.7,-3.14 -4.45,-3.77z" />
+</vector>

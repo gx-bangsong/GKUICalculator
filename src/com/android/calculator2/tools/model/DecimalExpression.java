@@ -38,6 +38,17 @@ public final class DecimalExpression {
         set(initialValue);
     }
 
+    /** Raw editing state, not the formatted display or evaluated value. */
+    public String[] saveEditingState() {
+        return new String[]{mExpression.toString(), Boolean.toString(mReplaceOnDigit)};
+    }
+
+    public void restoreEditingState(String[] state) {
+        if(state==null||state.length!=2) return;
+        mExpression.replace(0,mExpression.length(),state[0]);
+        mReplaceOnDigit=Boolean.parseBoolean(state[1]);
+    }
+
     /** Replace the expression with a plain decimal value, or zero when it is invalid/missing. */
     public void set(@Nullable String value) {
         mExpression.setLength(0);
@@ -68,6 +79,53 @@ public final class DecimalExpression {
         }
     }
 
+    /** Edit the actual expression at display offsets (one UTF-16 character per token here).
+     * Existing append-only callers, including currency conversion, are unchanged.
+     */
+    public int insertDigit(int digit, int start, int end) {
+        if (digit < 0 || digit > 9) return start;
+        if (mReplaceOnDigit) {
+            onDigit(digit);
+            return mExpression.length();
+        }
+        start = Math.max(0, Math.min(start, mExpression.length()));
+        end = Math.max(start, Math.min(end, mExpression.length()));
+        if (mExpression.length() - (end - start) >= MAX_INPUT_LENGTH) return start;
+        // Preserve the existing replacement of a sole zero, but not a deliberately positioned
+        // insertion before that zero.
+        if (mExpression.toString().equals("0") && start == 1 && end == 1) start = 0;
+        mExpression.replace(start, end, String.valueOf(digit));
+        return start + 1;
+    }
+
+    public int deleteAt(int start, int end) {
+        mReplaceOnDigit = false;
+        start = Math.max(0, Math.min(start, mExpression.length()));
+        end = Math.max(start, Math.min(end, mExpression.length()));
+        if (start == end && start > 0) start--;
+        mExpression.delete(start, end);
+        return start;
+    }
+
+    public int insertDecimalPoint(int start, int end) {
+        if (mReplaceOnDigit) {
+            onDecimalPoint();
+            return mExpression.length();
+        }
+        start = Math.max(0, Math.min(start, mExpression.length()));
+        end = Math.max(start, Math.min(end, mExpression.length()));
+        String remaining = mExpression.substring(0, start) + mExpression.substring(end);
+        int left = start;
+        while (left > 0 && !isOperator(remaining.charAt(left - 1))) left--;
+        int right = start;
+        while (right < remaining.length() && !isOperator(remaining.charAt(right))) right++;
+        if (remaining.substring(left, right).contains(".")) return start;
+        String insertion = left == start ? "0." : ".";
+        if (remaining.length() + insertion.length() > MAX_INPUT_LENGTH) return start;
+        mExpression.replace(start, end, insertion);
+        return start + insertion.length();
+    }
+
     public void onDecimalPoint() {
         if (mExpression.length() >= MAX_INPUT_LENGTH) {
             return;
@@ -83,6 +141,28 @@ public final class DecimalExpression {
             mExpression.append('0');
         }
         mExpression.append('.');
+    }
+
+    /** Transactional operator edit. A negative return rejects without changing text or selection. */
+    public int insertOperator(@NonNull Operation operation, int start, int end) {
+        start = Math.max(0, Math.min(start, mExpression.length()));
+        end = Math.max(start, Math.min(end, mExpression.length()));
+        String left = mExpression.substring(0, start);
+        String right = mExpression.substring(end);
+        if (left.isEmpty()) {
+            if (operation != Operation.SUBTRACT) return -1;
+        } else if (isOperator(left.charAt(left.length()-1))) {
+            // Correction is local to the insertion boundary, never the expression tail.
+            if (left.length()==1 && isMinus(left.charAt(0))) return -1;
+            left = left.substring(0,left.length()-1);
+        }
+        if (!right.isEmpty() && isOperator(right.charAt(0))) return -1;
+        if (left.endsWith(".")) left += "0";
+        String candidate = left + operation.symbol + right;
+        if (candidate.length()>MAX_INPUT_LENGTH) return -1;
+        mExpression.replace(0,mExpression.length(),candidate);
+        mReplaceOnDigit = false;
+        return left.length()+1;
     }
 
     public void onOperator(@NonNull Operation operation) {

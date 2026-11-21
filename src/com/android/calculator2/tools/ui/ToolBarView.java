@@ -9,42 +9,56 @@ import android.content.Context;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.calculator2.R;
+import com.android.calculator2.tools.ToolId;
 import com.android.calculator2.tools.ToolMode;
-
-import com.google.android.material.chip.Chip;
-import com.google.android.material.button.MaterialButton;
 
 import java.util.List;
 
 /**
- * The persistent tool bar shown between the display and the pads (collapsed state).
+ * The persistent mode strip shown between the display and the pads (collapsed state).
  * <p>
- * A horizontally scrollable row of chips (always led by the calculator chip, followed by the
- * most-frequently-used tools — or every tool on tablets/unfolded foldables) plus a trailing
- * "more" button that toggles the overlay panel.
- * The active mode's chip is highlighted; tapping the active chip returns to the calculator.
+ * The control is a single pill modelled on Google Calculator v10, led by three text segments:
+ * <ul>
+ *   <li>{@code 123} — the standard keypad (and the calculator itself)</li>
+ *   <li>{@code fx} — the scientific pad, without leaving the calculator</li>
+ *   <li>{@code ⇄} — the converters (units / currency)</li>
+ * </ul>
+ * The tool icons are appended to that same pill at runtime. The pill fills the strip and its
+ * segments share the width equally, so every mode is visible inside it at once; nothing sits
+ * outside the pill.
  */
 public class ToolBarView extends LinearLayout {
 
-    /** Callbacks fired by user interaction with the bar. */
+    /** 123 / fx / ⇄ are declared in the layout; generated tool segments follow them. */
+    private static final int CORE_SEGMENT_COUNT = 3;
+
+    /**
+     * Callbacks fired by user interaction with the bar. The 123 / fx / ⇄ segments are wired with
+     * {@code android:onClick="onModeSegmentClick"} in the layout, because only the activity knows
+     * both the active tool and the pad state.
+     */
     public interface Listener {
         void onToolChipClicked(@NonNull String toolId);
-
-        void onMoreClicked();
     }
 
-    private LinearLayout mChipsContainer;
-    private MaterialButton mMoreButton;
+    private TextView mSegmentBasic;
+    private TextView mSegmentScientific;
+    private TextView mSegmentConvert;
+    private LinearLayout mModeSegments;
+    private HorizontalScrollView mModeSegmentsScroll;
 
     @Nullable
     private Listener mListener;
-    private boolean mPanelExpanded;
 
     public ToolBarView(Context context) {
         this(context, null);
@@ -61,15 +75,19 @@ public class ToolBarView extends LinearLayout {
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        mChipsContainer = findViewById(R.id.tool_chips_container);
-        mMoreButton = findViewById(R.id.tool_more_button);
-        mMoreButton.setOnClickListener(v -> {
-            Log.d("ToolDebug", "more button clicked");
-            if (mListener != null) {
-                mListener.onMoreClicked();
-            }
-        });
-        updateMoreButton(/* animate */ false);
+        mModeSegments = findViewById(R.id.mode_segments);
+        mModeSegmentsScroll = findViewById(R.id.mode_segments_scroll);
+        mSegmentBasic = findViewById(R.id.mode_segment_basic);
+        mSegmentScientific = findViewById(R.id.mode_segment_scientific);
+        mSegmentConvert = findViewById(R.id.mode_segment_convert);
+        // Framework tooltips consume a long press without invoking the click listener and
+        // position the popup within the current window's visible display frame. Keep the
+        // existing accessibility descriptions and click/scroll handling untouched.
+        mSegmentBasic.setTooltipText(getContext().getText(R.string.desc_mode_basic));
+        mSegmentScientific.setTooltipText(getContext().getText(R.string.desc_mode_scientific));
+        // This single icon intentionally represents BOTH converters, not a separate mode.
+        mSegmentConvert.setTooltipText(getContext().getText(R.string.tool_unit) + " / "
+                + getContext().getText(R.string.tool_currency));
     }
 
     public void setListener(@Nullable Listener listener) {
@@ -77,49 +95,112 @@ public class ToolBarView extends LinearLayout {
     }
 
     /**
-     * Rebuild the chips from the supplied ordered list and reflect the active mode + panel state.
-     * The list is expected to start with the calculator mode.
+     * Rebuild the tool segments.
+     * <p>
+     * Every registered tool becomes an <em>icon-only</em> segment appended to the one pill that
+     * already holds {@code 123 / fx / ⇄}. The three core segments are declared in
+     * {@code tool_bar.xml}; everything else — the programmer calculator and the life-calculation
+     * tools (BMI, income tax, mortgage, date, relatives) — is built here from
+     * {@link ToolMode#getIconRes()} and appended to the same {@code LinearLayout}, so all eight
+     * modes live in a single track. {@code Units} and {@code Currency} are the {@code ⇄}
+     * segment, so they are not repeated.
+     *
+     * @param items         registered tools (the calculator is skipped — it *is* the 123 segment)
+     * @param activeId      id of the active tool, or null in calculator mode
      */
-    public void render(@NonNull List<ToolMode> items, @Nullable String activeId,
-            boolean panelExpanded) {
-        mPanelExpanded = panelExpanded;
-        updateMoreButton(/* animate */ true);
-
+    public void render(@NonNull List<ToolMode> items, @Nullable String activeId) {
         final Context context = getContext();
-        final int spacing = context.getResources()
-                .getDimensionPixelOffset(R.dimen.tool_chip_spacing);
-        mChipsContainer.removeAllViews();
+        // Drop only the generated segments; the declared 123 / fx / ⇄ children stay put. They
+        // are the first three children, so remove everything after them.
+        while (mModeSegments.getChildCount() > CORE_SEGMENT_COUNT) {
+            mModeSegments.removeViewAt(mModeSegments.getChildCount() - 1);
+        }
         for (ToolMode mode : items) {
-            Chip chip = (Chip) LayoutInflater.from(context)
-                    .inflate(R.layout.tool_chip, mChipsContainer, false);
-            chip.setText(context.getString(mode.getNameRes()));
-            chip.setChecked(mode.getId().equals(activeId));
-            chip.setOnClickListener(v -> {
-                Log.d("ToolDebug", "chip clicked: " + mode.getId());
+            final String id = mode.getId();
+            if (ToolId.CALCULATOR.equals(id) || ToolId.UNIT.equals(id)
+                    || ToolId.CURRENCY.equals(id)) {
+                // The 123, fx and two-way-arrow segments already stand for these.
+                continue;
+            }
+            final int iconRes = mode.getIconRes();
+            final ImageView segment = (ImageView) LayoutInflater.from(context)
+                    .inflate(R.layout.tool_segment, mModeSegments, false);
+            segment.setContentDescription(context.getString(mode.getNameRes()));
+            segment.setTooltipText(context.getText(mode.getNameRes()));
+            if (iconRes != 0) {
+                segment.setImageResource(iconRes);
+            }
+            segment.setSelected(id.equals(activeId));
+            final String toolId = id;
+            segment.setOnClickListener(v -> {
+                Log.d("ToolDebug", "tool segment clicked: " + toolId);
                 if (mListener != null) {
-                    mListener.onToolChipClicked(mode.getId());
+                    mListener.onToolChipClicked(toolId);
                 }
             });
-            LinearLayout.LayoutParams lp =
-                    (LinearLayout.LayoutParams) chip.getLayoutParams();
-            lp.setMarginStart(spacing);
-            lp.setMarginEnd(spacing);
-            chip.setLayoutParams(lp);
-            mChipsContainer.addView(chip);
+            mModeSegments.addView(segment);
         }
+        // Only matters on a window too narrow to fit every segment: keep the active one visible.
+        scrollSelectionIntoView();
     }
 
-    private void updateMoreButton(boolean animate) {
-        mMoreButton.setContentDescription(getContext().getString(
-                mPanelExpanded ? R.string.tool_more_close : R.string.tool_more));
-        final float target = mPanelExpanded ? 180f : 0f;
-        if (animate) {
-            mMoreButton.animate().rotation(target)
-                    .setDuration(getResources().getInteger(
-                            android.R.integer.config_shortAnimTime))
-                    .start();
-        } else {
-            mMoreButton.setRotation(target);
+    /**
+     * Scrolls the pill so the selected segment is fully visible. Cheap and idempotent: the scroll
+     * only moves when the selection is actually outside the viewport.
+     */
+    private void scrollSelectionIntoView() {
+        if (mModeSegmentsScroll == null) {
+            return;
+        }
+        final View selected = findSelectedSegment();
+        if (selected == null) {
+            return;
+        }
+        mModeSegmentsScroll.post(() -> {
+            final int left = selected.getLeft();
+            final int right = selected.getRight();
+            final int viewport = mModeSegmentsScroll.getWidth()
+                    - mModeSegmentsScroll.getPaddingStart()
+                    - mModeSegmentsScroll.getPaddingEnd();
+            if (viewport <= 0 || right - left > viewport) {
+                return;
+            }
+            final int visibleLeft = mModeSegmentsScroll.getScrollX();
+            final int visibleRight = visibleLeft + viewport;
+            if (left < visibleLeft) {
+                mModeSegmentsScroll.smoothScrollTo(left, 0);
+            } else if (right > visibleRight) {
+                mModeSegmentsScroll.smoothScrollTo(right - viewport, 0);
+            }
+        });
+    }
+
+    @Nullable
+    private View findSelectedSegment() {
+        for (int i = 0; i < mModeSegments.getChildCount(); i++) {
+            final View child = mModeSegments.getChildAt(i);
+            if (child.isSelected()) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Reflects which surface is on screen. The activity owns this state because only it knows
+     * both the active tool and whether the scientific pad is actually visible.
+     */
+    public void setModeSelection(boolean basic, boolean scientific, boolean convert) {
+        setSegmentSelected(mSegmentBasic, basic);
+        setSegmentSelected(mSegmentScientific, scientific);
+        setSegmentSelected(mSegmentConvert, convert);
+        scrollSelectionIntoView();
+    }
+
+    /** Selection drives both the segment background and its label colour. */
+    private void setSegmentSelected(@Nullable TextView segment, boolean checked) {
+        if (segment != null && segment.isSelected() != checked) {
+            segment.setSelected(checked);
         }
     }
 }

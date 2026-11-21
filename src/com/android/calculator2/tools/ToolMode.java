@@ -5,6 +5,7 @@
 
 package com.android.calculator2.tools;
 
+import android.os.Bundle;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -92,6 +93,15 @@ public interface ToolMode {
      * the calculator display before switching (may be {@code null}).
      */
     void onActivate(@NonNull ToolHost host, @Nullable String carryValue);
+
+    /** Explicit model snapshot, independent of View hierarchy and formatted output text. */
+    @NonNull
+    default Bundle saveState() { return new Bundle(); }
+
+    /** Rebind a saved model without defaults or calculator carry-over. */
+    default void onRestore(@NonNull ToolHost host, @NonNull Bundle state) {
+        onActivate(host, null);
+    }
 
     /** Called when leaving this tool. Release resources, cancel requests, etc. */
     void onDeactivate(@NonNull ToolHost host);

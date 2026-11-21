@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Text colour for one segment of the 123 / fx / ⇄ control. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/calculator_chip_selected_text" android:state_selected="true" />
+    <item android:color="@color/calculator_chip_text" />
+</selector>

@@ -6,12 +6,16 @@
 package com.android.calculator2.tools.modes;
 
 import android.content.Context;
+import android.os.Bundle;
+import com.android.calculator2.tools.ToolState;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.EditText;
+import android.view.MotionEvent;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -71,6 +75,8 @@ public class CurrencyConverterMode implements ToolMode {
     private int mToSecondaryIndex;
     private boolean mSecondaryEnabled;
     private boolean mUppercaseNumbers;
+    private int mPendingCaret = -1;
+    private boolean mEditingInput;
 
     private final DecimalExpression mInput = new DecimalExpression(DEFAULT_INPUT);
 
@@ -110,7 +116,7 @@ public class CurrencyConverterMode implements ToolMode {
 
     @Override
     public int getIconRes() {
-        return 0;
+        return R.drawable.ic_tool_currency;
     }
 
     @Override
@@ -158,16 +164,35 @@ public class CurrencyConverterMode implements ToolMode {
         redisplay();
     }
 
-    @Override
-    public void onActivate(@NonNull ToolHost host, @Nullable String carryValue) {
+    @Override public Bundle saveState() {
+        Bundle state=new Bundle();state.putStringArray("input",mInput.saveEditingState());
+        state.putInt("from",mFromIndex);state.putInt("to",mToIndex);state.putInt("secondary",mToSecondaryIndex);
+        state.putBoolean("secondaryEnabled",mSecondaryEnabled);
+        state.putBundle("selection",ToolState.selection(mInputView));
+        state.putBoolean("uppercase",mUppercaseNumbers);state.putBoolean("editing",mEditingInput);
+        if(mRates!=null) {
+            Bundle rates=new Bundle();
+            for(java.util.Map.Entry<String,BigDecimal> rate:mRates.getRates().entrySet())
+                rates.putString(rate.getKey(),rate.getValue().toPlainString());
+            state.putBundle("rates",rates);state.putString("base",mRates.getBaseCurrency());
+            state.putString("published",mRates.getPublishDate());state.putLong("fetched",mRates.getFetchedAt());
+        }
+        return state;
+    }
+    @Override public void onRestore(ToolHost host,Bundle state) { activate(host,null,state); }
+    @Override public void onActivate(ToolHost host,String carryValue) { activate(host,carryValue,null); }
+    private void activate(ToolHost host,String carryValue,Bundle state) {
         mHost = host;
         final Context context = host.getContext();
         if (mRepository == null) {
             mRepository = new ExchangeRateRepository(context);
         }
         mCurrencies = mRepository.getConfig().getCurrencies();
+        if(state==null) {
         mRates = null;
 
+        mEditingInput = false;
+        mPendingCaret = -1;
         mInput.set(carryValue != null ? carryValue : DEFAULT_INPUT);
 
         // Sensible defaults: CNY -> USD when both exist, otherwise the first two.
@@ -184,8 +209,22 @@ public class CurrencyConverterMode implements ToolMode {
         mSecondaryEnabled = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .getBoolean(PREF_SECONDARY, false);
 
+        } else {
+            mPendingCaret=-1;mEditingInput=state.getBoolean("editing");mUppercaseNumbers=state.getBoolean("uppercase");
+            mInput.restoreEditingState(state.getStringArray("input"));
+            mFromIndex=state.getInt("from");mToIndex=state.getInt("to");
+            mToSecondaryIndex=state.getInt("secondary");mSecondaryEnabled=state.getBoolean("secondaryEnabled");
+            Bundle rates=state.getBundle("rates");
+            if(rates!=null) {
+                java.util.Map<String,BigDecimal> values=new java.util.LinkedHashMap<>();
+                for(String code:rates.keySet()) values.put(code,new BigDecimal(rates.getString(code)));
+                mRates=new CachedRates(state.getString("base"),state.getLong("fetched"),state.getString("published"),values);
+            }
+        }
+
         mountControls(context);
         redisplay();
+        if(state!=null) ToolState.restoreSelection(mInputView,state.getBundle("selection"));
 
         if (mRepository != null) {
             mRepository.loadRates(this::onRatesLoaded);
@@ -200,44 +239,46 @@ public class CurrencyConverterMode implements ToolMode {
 
     @Override
     public boolean onPadKey(int viewId) {
-        if (viewId == R.id.op_add) {
-            mInput.onOperator(Operation.ADD);
-        } else if (viewId == R.id.op_sub) {
-            mInput.onOperator(Operation.SUBTRACT);
-        } else if (viewId == R.id.op_mul) {
-            mInput.onOperator(Operation.MULTIPLY);
-        } else if (viewId == R.id.op_div) {
-            mInput.onOperator(Operation.DIVIDE);
-        } else if (viewId == R.id.eq) {
+        Operation operation;
+        if (viewId == R.id.op_add) operation = Operation.ADD;
+        else if (viewId == R.id.op_sub) operation = Operation.SUBTRACT;
+        else if (viewId == R.id.op_mul) operation = Operation.MULTIPLY;
+        else if (viewId == R.id.op_div) operation = Operation.DIVIDE;
+        else if (viewId == R.id.eq) {
             mInput.onEquals();
-        } else {
-            return false;
-        }
+            mPendingCaret = mInput.getDisplayText().length();
+            redisplay();
+            return true;
+        } else return false;
+        int edited = mInput.insertOperator(operation, selectionStart(), selectionEnd());
+        if (edited < 0) return true;
+        mPendingCaret = edited;
         redisplay();
         return true;
     }
 
     @Override
     public void onDigit(int digit) {
-        mInput.onDigit(digit);
+        mPendingCaret = mInput.insertDigit(digit, selectionStart(), selectionEnd());
         redisplay();
     }
 
     @Override
     public void onDecimalPoint() {
-        mInput.onDecimalPoint();
+        mPendingCaret = mInput.insertDecimalPoint(selectionStart(), selectionEnd());
         redisplay();
     }
 
     @Override
     public void onDelete() {
-        mInput.onDelete();
+        mPendingCaret = mInput.deleteAt(selectionStart(), selectionEnd());
         redisplay();
     }
 
     @Override
     public void onClear() {
         mInput.onClear();
+        mPendingCaret = 0;
         redisplay();
     }
 
@@ -248,11 +289,29 @@ public class CurrencyConverterMode implements ToolMode {
         if (mHost == null) {
             return; // deactivated
         }
+        if (mControlRoot instanceof com.android.calculator2.tools.CurrencyRateViewport) {
+            ((com.android.calculator2.tools.CurrencyRateViewport) mControlRoot).beginRateUpdate();
+        }
         mRates = rates;
         if (mUpdateLabel != null) {
             mUpdateLabel.setText(label);
         }
-        redisplay();
+        // A rate delivery changes outputs, not the expression or its native editor state.
+        // Re-applying setSelection here can request a caret rectangle and pull a short
+        // scrolled window back toward the input, even when its text/selection is unchanged.
+        redisplay(false);
+    }
+
+    private int selectionStart() {
+        if (mInputView == null || (mUppercaseNumbers && !mEditingInput)
+                || mInputView.getSelectionStart() < 0) return mInput.getDisplayText().length();
+        return Math.min(mInputView.getSelectionStart(), mInputView.getSelectionEnd());
+    }
+
+    private int selectionEnd() {
+        if (mInputView == null || (mUppercaseNumbers && !mEditingInput)
+                || mInputView.getSelectionEnd() < 0) return mInput.getDisplayText().length();
+        return Math.max(mInputView.getSelectionStart(), mInputView.getSelectionEnd());
     }
 
     // ---- UI ----
@@ -276,6 +335,18 @@ public class CurrencyConverterMode implements ToolMode {
         mSecondaryRow = mControlRoot.findViewById(R.id.currency_secondary_row);
         mToSecondaryView = mControlRoot.findViewById(R.id.currency_to_2);
         mSecondaryResultView = mControlRoot.findViewById(R.id.currency_result_2_text);
+        if (mInputView != null) {
+            mInputView.setShowSoftInputOnFocus(false);
+            mInputView.setOnTouchListener((v, event) -> {
+                if (event.getActionMasked() == MotionEvent.ACTION_DOWN && !mEditingInput) {
+                    // Financial Chinese is presentation, not expression offsets. Return to the
+                    // canonical numeric expression before the framework hit-tests the touch.
+                    mEditingInput = true;
+                    redisplay();
+                }
+                return false;
+            });
+        }
         final ImageButton swap = mControlRoot.findViewById(R.id.currency_swap);
         swap.setOnClickListener(v -> swapCurrencies());
         configureCurrencyDropdown(mFromView, SELECTOR_FROM);
@@ -385,6 +456,10 @@ public class CurrencyConverterMode implements ToolMode {
     // ---- computation & display ----
 
     private void redisplay() {
+        redisplay(true);
+    }
+
+    private void redisplay(boolean updateInput) {
         final ToolHost host = mHost;
         if (host == null) {
             return;
@@ -418,8 +493,19 @@ public class CurrencyConverterMode implements ToolMode {
         // to the currency selectors). It never uses the shared display below the rows, so showing
         // the optional second output cannot collide with a separate 大写 area.
         final String inputValueText = mInput.getValueText();
-        setAmountText(mInputView, mInput.getDisplayText(), inputValueText == null
-                ? "—" : ChineseNumerals.toUppercase(inputValueText));
+        final int start = mPendingCaret >= 0 ? mPendingCaret : selectionStart();
+        final int end = mPendingCaret >= 0 ? mPendingCaret : selectionEnd();
+        if (updateInput && mInputView != null) {
+            final String shown = mUppercaseNumbers && !mEditingInput
+                    ? (inputValueText == null ? "—" : ChineseNumerals.toUppercase(inputValueText))
+                    : mInput.getDisplayText();
+            if (!shown.contentEquals(mInputView.getText())) mInputView.setText(shown);
+            mInputView.setTextSize(mUppercaseNumbers && !mEditingInput
+                    ? UPPERCASE_TEXT_SIZE_SP : NUMBER_TEXT_SIZE_SP);
+            ((EditText) mInputView).setSelection(Math.min(start, shown.length()),
+                    Math.min(end, shown.length()));
+        }
+        if (updateInput) mPendingCaret = -1;
         setAmountText(mResultView, resultText, ChineseNumerals.toUppercase(resultText));
         setAmountText(mSecondaryResultView, secondaryResultText,
                 ChineseNumerals.toUppercase(secondaryResultText));
@@ -433,11 +519,17 @@ public class CurrencyConverterMode implements ToolMode {
         if (view == null) {
             return;
         }
-        view.setText(mUppercaseNumbers ? uppercase : number);
+        final String shown = mUppercaseNumbers ? uppercase : number;
+        if (!shown.contentEquals(view.getText())) view.setText(shown);
         view.setTextSize(mUppercaseNumbers ? UPPERCASE_TEXT_SIZE_SP : NUMBER_TEXT_SIZE_SP);
         // Long 大写 readings wrap inside their own row; ordinary numbers stay on one line.
-        view.setSingleLine(!mUppercaseNumbers);
-        view.setHorizontallyScrolling(!mUppercaseNumbers);
+        // Reapplying singleLine invalidates TextView's layout and can bring the
+        // focused selectable result back on screen during a background rate delivery.
+        // Only change the role's layout when switching number/uppercase presentation.
+        if (view.getMaxLines() != (mUppercaseNumbers ? Integer.MAX_VALUE : 1)) {
+            view.setSingleLine(!mUppercaseNumbers);
+            view.setHorizontallyScrolling(!mUppercaseNumbers);
+        }
     }
 
     @NonNull

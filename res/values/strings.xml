@@ -313,15 +313,20 @@
     <string name="tool_date">Date</string>
     <!-- Tool mode: signed 64-bit programmer calculator. [CHAR_LIMIT=20] -->
     <string name="tool_programmer">Programmer</string>
-
-    <!-- "More" button to expand the tool overlay panel. [CHAR_LIMIT=20] -->
-    <string name="tool_more">More</string>
-    <!-- "More" button when the panel is expanded (acts as collapse). [CHAR_LIMIT=20] -->
-    <string name="tool_more_close">Close</string>
-    <!-- Scientific-pad toggle: shown when the scientific pad is hidden (tap to reveal). [CHAR_LIMIT=12] -->
-    <string name="tool_scientific_show">Sci</string>
-    <!-- Scientific-pad toggle: shown when the scientific pad is visible (tap to hide). [CHAR_LIMIT=12] -->
-    <string name="tool_scientific_hide">Hide</string>
+    <!-- 123 / fx / ⇄ mode control (Google Calculator v10 layout). The labels are symbolic, so
+         they are the same in every locale; only the content descriptions are translated. -->
+    <!-- Standard numeric keypad segment. [CHAR_LIMIT=6] -->
+    <string name="mode_segment_basic" translatable="false">123</string>
+    <!-- Scientific keypad segment. [CHAR_LIMIT=6] -->
+    <string name="mode_segment_scientific" translatable="false">fx</string>
+    <!-- Converter segment (units / currency). [CHAR_LIMIT=6] -->
+    <string name="mode_segment_convert" translatable="false">⇄</string>
+    <!-- Content description: switch to the standard keypad. [CHAR_LIMIT=NONE] -->
+    <string name="desc_mode_basic">Standard keypad</string>
+    <!-- Content description: show the scientific keypad. [CHAR_LIMIT=NONE] -->
+    <string name="desc_mode_scientific">Scientific keypad</string>
+    <!-- Content description: open the converters. [CHAR_LIMIT=NONE] -->
+    <string name="desc_mode_convert">Converters</string>
 
     <!-- Labels of the Chinese-uppercase-numerals toggle in the display's top-left corner.
          Ordinary 1 means off; financial 壹 means on. They are the same in every locale. -->
@@ -531,9 +536,85 @@
     <string name="relationship_unknown_note">That chain does not describe anyone</string>
     <!-- Secondary line shown when several terms apply, e.g. 侄子 / 儿子. [CHAR_LIMIT=NONE] -->
     <string name="relationship_multiple_note">Any of these can be right</string>
+    <!-- Result line while the kinship tables are still being prepared off the main thread.
+         [CHAR_LIMIT=40] -->
+    <string name="relationship_preparing">Preparing kinship tables…</string>
 
     <!-- Overflow menu: North China vocabulary (爷爷、奶奶、外公、外婆). [CHAR_LIMIT=40] -->
     <string name="menu_relationship_north">North China version</string>
     <!-- Overflow menu: South China vocabulary (阿公、阿嬷、姥爷、姥姥). [CHAR_LIMIT=40] -->
     <string name="menu_relationship_south">South China version</string>
+    <!-- Calculator overflow setting: read 200+10% as 200+20 (checked) or as 200+0.1.
+         [CHAR_LIMIT=40] -->
+    <string name="menu_percent_of_value">Percent of preceding value</string>
+    <string name="tool_field_to_uppercase">Chinese uppercase numerals</string>
+    <string name="tool_field_uppercase_title">Chinese uppercase numerals (中文大写)</string>
+    <string name="tool_bmi_male">Male</string>
+    <string name="tool_bmi_female">Female</string>
+    <string name="tool_bmi_standard">Standard weight</string>
+    <string name="tool_bmi_unit_kg">kg</string>
+    <string name="tool_tax_mode_salary">Monthly salary</string>
+    <string name="tool_tax_mode_bonus">Year-end bonus</string>
+    <string name="tool_tax_field_bonus">Year-end bonus</string>
+    <string name="tool_tax_insurance_detail">Insurance detail</string>
+    <string name="tool_tax_special_detail">Special deductions</string>
+    <string name="tool_tax_insurance_title">Five insurances and one fund (personal)</string>
+    <string name="tool_tax_special_title">Special additional deductions</string>
+    <string name="dialog_apply">Apply</string>
+    <string name="tool_tax_bonus_tax">Bonus tax</string>
+    <string name="tool_tax_bonus_rate">rate</string>
+    <string name="tool_tax_bonus_after">After-tax bonus</string>
+    <string name="share_full">100% (one parent)</string>
+    <string name="share_half">50% each</string>
+    <string name="cont_none">None</string>
+    <string name="cont_academic">Academic (400/month)</string>
+    <string name="cont_certificate">Certificate year (3600/year)</string>
+    <string name="rent_none">None</string>
+    <string name="rent_1500">Municipality / provincial capital (1500/month)</string>
+    <string name="rent_1100">City &gt;1M urban population (1100/month)</string>
+    <string name="rent_800">City ≤1M urban population (800/month)</string>
+    <string name="si_base">Contribution base</string>
+    <string name="si_rates_hint">Personal rates in percent, six categories</string>
+    <string name="si_pension">Pension %</string>
+    <string name="si_medical">Medical %</string>
+    <string name="si_unemployment">Unemployment %</string>
+    <string name="si_injury">Work injury %</string>
+    <string name="si_maternity">Maternity %</string>
+    <string name="si_fund">Housing fund %</string>
+    <string name="ded_children">Children\'s education (children × 1000/month)</string>
+    <string name="ded_continuing">Continuing education</string>
+    <string name="ded_medical">Major medical self-paid per year (over 15000, cap 80000)</string>
+    <string name="ded_mortgage">First-home mortgage interest (1000/month)</string>
+    <string name="ded_rent">Housing rent by city tier</string>
+    <string name="ded_rent_mortgage_hint">Mortgage interest and rent cannot be deducted at the same time.</string>
+    <string name="ded_elderly_only">Only child supporting elderly (2000/month)</string>
+    <string name="ded_elderly_shared">Shared monthly amount (max 1000)</string>
+    <string name="ded_infant">Infants under 3 (children × 1000/month)</string>
+    <string name="tool_mortgage_commercial">Commercial</string>
+    <string name="tool_mortgage_fund">Fund</string>
+    <string name="tool_mortgage_combined">Combined</string>
+    <string name="tool_mortgage_benchmark">Benchmark</string>
+    <string name="tool_mortgage_lpr">LPR</string>
+    <string name="tool_mortgage_field_fund_rate">Fund rate %</string>
+    <string name="tool_mortgage_field_lpr">LPR %</string>
+    <string name="tool_mortgage_field_spread">Spread bp</string>
+    <string name="tool_mortgage_field_fund_amount">Fund loan</string>
+    <string name="programmer_signed">Signed</string>
+    <string name="programmer_unsigned">Unsigned</string>
+    <string name="programmer_width_8">8-bit</string>
+    <string name="programmer_width_16">16-bit</string>
+    <string name="programmer_width_32">32-bit</string>
+    <string name="programmer_width_64">64-bit</string>
+    <string name="programmer_unsigned_menu">Unsigned display</string>
+    <string name="programmer_hex_description">HEX Hexadecimal (base 16)</string>
+    <string name="programmer_dec_description">DEC Decimal (base 10)</string>
+    <string name="programmer_oct_description">OCT Octal (base 8)</string>
+    <string name="programmer_bin_description">BIN Binary (base 2)</string>
+    <string name="programmer_swap">Swap input and output bases</string>
+    <string name="programmer_input_base">Input base: %1$s</string>
+    <string name="programmer_output_base">Output base: %1$s</string>
+    <string name="programmer_keypad_scroll">Programmer keypad. Scroll vertically to reach all keys.</string>
+    <string name="fraction_too_long">Exact fraction exceeds the display limit; not expanded</string>
+    <string name="fraction_copied">Exact fraction copied</string>
+    <string name="menu_show_fraction">Show fractions</string>
 </resources>

@@ -76,4 +76,19 @@ public class IncomeTaxCalculatorTest {
     private static void assertTrue(boolean condition) {
         org.junit.Assert.assertTrue(condition);
     }
+
+    @Test
+    public void yearEndBonusIsTaxedSeparately() {
+        // 36000 / 12 = 3000 -> 3% bracket, no quick deduction: tax 1080
+        IncomeTaxCalculator.BonusResult low = IncomeTaxCalculator.computeYearEndBonus(
+                bd("36000"), TABLE, MC);
+        assertDecimal("1080", low.tax);
+        assertDecimal("34920", low.afterTax);
+        // 100000 / 12 = 8333.33 -> 10% bracket: 100000*0.10 - 2520/12 = 9780
+        IncomeTaxCalculator.BonusResult mid = IncomeTaxCalculator.computeYearEndBonus(
+                bd("100000"), TABLE, MC);
+        assertDecimal("9780", mid.tax);
+        assertDecimal("90220", mid.afterTax);
+        assertDecimal("0.10", mid.rate);
+    }
 }

@@ -6,9 +6,12 @@
 package com.android.calculator2.tools.modes;
 
 import android.content.Context;
+import android.os.Bundle;
+import com.android.calculator2.tools.ToolState;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -20,7 +23,7 @@ import com.android.calculator2.tools.ToolId;
 import com.android.calculator2.tools.ToolMode;
 import com.android.calculator2.tools.model.ProgrammerCalculator;
 import com.android.calculator2.tools.model.ProgrammerCalculator.Operation;
-import com.google.android.material.button.MaterialButtonToggleGroup;
+import androidx.appcompat.widget.PopupMenu;
 
 import java.math.BigDecimal;
 
@@ -28,6 +31,11 @@ import java.math.BigDecimal;
 public final class ProgrammerMode implements ToolMode {
 
     private int mRadix = 10;
+    /** Second numeral system shown beneath the entry, converter-style. */
+    private int mSecondRadix = 16;
+    /** Conversion options from the overflow menu: register width and signedness. */
+    private int mWidthBits = 64;
+    private boolean mUnsigned;
     private final StringBuilder mEntry = new StringBuilder("0");
     private long mAccumulator;
     @Nullable
@@ -56,22 +64,43 @@ public final class ProgrammerMode implements ToolMode {
 
     @Override
     public int getIconRes() {
-        return 0;
+        return R.drawable.ic_tool_programmer;
     }
 
-    @Override
-    public void onActivate(@NonNull ToolHost host, @Nullable String carryValue) {
+    @Override public Bundle saveState() {
+        Bundle state=new Bundle();
+        state.putInt("radix",mRadix);state.putInt("second",mSecondRadix);state.putInt("width",mWidthBits);
+        state.putBoolean("unsigned",mUnsigned);state.putString("entry",mEntry.toString());
+        state.putLong("accumulator",mAccumulator);state.putBoolean("newEntry",mStartNewEntry);
+        state.putString("pending",mPendingOperation==null?null:mPendingOperation.name());
+        state.putString("expression",mExpression);state.putString("error",mError);
+        if(mControlRoot!=null) state.putBundle("selection",ToolState.selection(mControlRoot.findViewById(R.id.programmer_value_in)));
+        return state;
+    }
+    @Override public void onRestore(ToolHost host,Bundle state) { activate(host,null,state); }
+    @Override public void onActivate(ToolHost host,String carryValue) { activate(host,carryValue,null); }
+    private void activate(ToolHost host,String carryValue,Bundle state) {
         mHost = host;
+        if(state!=null) {
+            mRadix=state.getInt("radix");mSecondRadix=state.getInt("second");mWidthBits=state.getInt("width");
+            mUnsigned=state.getBoolean("unsigned");mEntry.replace(0,mEntry.length(),state.getString("entry"));
+            mAccumulator=state.getLong("accumulator");mStartNewEntry=state.getBoolean("newEntry");
+            String operation=state.getString("pending");mPendingOperation=operation==null?null:Operation.valueOf(operation);
+            mExpression=state.getString("expression", "");mError=state.getString("error");
+        } else {
         mRadix = 10;
         reset();
         final Long carried = parseCarryValue(carryValue);
         if (carried != null) {
             setEntry(carried);
         }
+        }
         mountControls(host.getContext());
         host.setProgrammerPadMode(true, mRadix);
         host.setToolResultTextSizeSp(36f);
+        host.refreshOptionsMenu();
         redisplay();
+        if(state!=null) ToolState.restoreSelection(mControlRoot.findViewById(R.id.programmer_value_in),state.getBundle("selection"));
     }
 
     @Override
@@ -84,6 +113,7 @@ public final class ProgrammerMode implements ToolMode {
         }
         mControlRoot = null;
         mHost = null;
+        host.refreshOptionsMenu();
     }
 
     @Override
@@ -200,22 +230,17 @@ public final class ProgrammerMode implements ToolMode {
         }
         mControlRoot = LayoutInflater.from(context)
                 .inflate(R.layout.tool_programmer_control, slot, false);
-        final MaterialButtonToggleGroup group =
-                mControlRoot.findViewById(R.id.programmer_base_group);
-        group.addOnButtonCheckedListener((buttonGroup, checkedId, isChecked) -> {
-            if (!isChecked) {
-                return;
-            }
-            if (checkedId == R.id.programmer_base_hex) {
-                changeRadix(16);
-            } else if (checkedId == R.id.programmer_base_dec) {
-                changeRadix(10);
-            } else if (checkedId == R.id.programmer_base_oct) {
-                changeRadix(8);
-            } else if (checkedId == R.id.programmer_base_bin) {
-                changeRadix(2);
-            }
-        });
+        // inputType="text" gives the value fields an Editor so cursorVisible and the long-press
+        // selection menu work. Keep the soft keyboard off: the calculator pad is the keyboard.
+        final TextView valueIn = mControlRoot.findViewById(R.id.programmer_value_in);
+        if (valueIn != null) valueIn.setShowSoftInputOnFocus(false);
+        final TextView valueOut = mControlRoot.findViewById(R.id.programmer_value_out);
+        if (valueOut != null) valueOut.setShowSoftInputOnFocus(false);
+        final TextView chipIn = mControlRoot.findViewById(R.id.programmer_chip_in);
+        chipIn.setOnClickListener(v -> showRadixMenu(chipIn, true));
+        final TextView chipOut = mControlRoot.findViewById(R.id.programmer_chip_out);
+        chipOut.setOnClickListener(v -> showRadixMenu(chipOut, false));
+        mControlRoot.findViewById(R.id.programmer_swap).setOnClickListener(v -> swapRadices());
         slot.removeAllViews();
         slot.addView(mControlRoot);
         slot.setVisibility(View.VISIBLE);
@@ -229,8 +254,7 @@ public final class ProgrammerMode implements ToolMode {
         mRadix = radix;
         setEntry(current);
         if (mPendingOperation != null) {
-            mExpression = ProgrammerCalculator.format(mAccumulator, mRadix)
-                    + " " + symbol(mPendingOperation);
+            mExpression = fmt(mAccumulator, mRadix) + " " + symbol(mPendingOperation);
         }
         if (mHost != null) {
             mHost.setProgrammerPadMode(true, mRadix);
@@ -270,8 +294,7 @@ public final class ProgrammerMode implements ToolMode {
             mAccumulator = currentValue();
         }
         mPendingOperation = operation;
-        mExpression = ProgrammerCalculator.format(mAccumulator, mRadix)
-                + " " + symbol(operation);
+        mExpression = fmt(mAccumulator, mRadix) + " " + symbol(operation);
         mStartNewEntry = true;
         redisplay();
     }
@@ -281,9 +304,9 @@ public final class ProgrammerMode implements ToolMode {
             return;
         }
         final long right = currentValue();
-        final String expression = ProgrammerCalculator.format(mAccumulator, mRadix)
+        final String expression = fmt(mAccumulator, mRadix)
                 + " " + symbol(mPendingOperation) + " "
-                + ProgrammerCalculator.format(right, mRadix) + " =";
+                + fmt(right, mRadix) + " =";
         if (applyPending(right)) {
             mExpression = expression;
             mPendingOperation = null;
@@ -295,7 +318,7 @@ public final class ProgrammerMode implements ToolMode {
     private void applyNot() {
         final long value = currentValue();
         final long result = ProgrammerCalculator.not(value);
-        mExpression = "NOT " + ProgrammerCalculator.format(value, mRadix);
+        mExpression = "NOT " + fmt(value, mRadix);
         setEntry(result);
         mAccumulator = result;
         mPendingOperation = null;
@@ -352,8 +375,125 @@ public final class ProgrammerMode implements ToolMode {
         if (mHost == null) {
             return;
         }
-        mHost.setToolFormula(mExpression);
-        mHost.setToolResult(mError == null ? mEntry : mError);
+        mHost.setToolFormula("");
+        mHost.setToolResult("");
+        if (mControlRoot == null) {
+            return;
+        }
+        final TextView status = mControlRoot.findViewById(R.id.programmer_status);
+        String statusText = mError != null ? mError : mExpression;
+        status.setText(statusText);
+        status.setVisibility(statusText.isEmpty() ? View.GONE : View.VISIBLE);
+        final long value = mError == null ? currentValue() : 0L;
+        final TextView valueIn = mControlRoot.findViewById(R.id.programmer_value_in);
+        if (valueIn != null) {
+            valueIn.setText(fmt(value, mRadix));
+        }
+        final TextView valueOut = mControlRoot.findViewById(R.id.programmer_value_out);
+        if (valueOut != null) {
+            valueOut.setText(fmt(value, mSecondRadix));
+        }
+        final TextView chipIn = mControlRoot.findViewById(R.id.programmer_chip_in);
+        if (chipIn != null) {
+            chipIn.setText(radixNameRes(mRadix));
+            chipIn.setContentDescription(mHost.getContext().getString(R.string.programmer_input_base,
+                    mHost.getContext().getString(radixNameRes(mRadix))));
+        }
+        final TextView chipOut = mControlRoot.findViewById(R.id.programmer_chip_out);
+        if (chipOut != null) {
+            chipOut.setText(radixNameRes(mSecondRadix));
+            chipOut.setContentDescription(mHost.getContext().getString(R.string.programmer_output_base,
+                    mHost.getContext().getString(radixNameRes(mSecondRadix))));
+        }
+        final TextView widthLabel = mControlRoot.findViewById(R.id.programmer_width_label);
+        if (widthLabel != null) {
+            final Context context = mHost.getContext();
+            widthLabel.setText(context.getString(mUnsigned
+                    ? R.string.programmer_unsigned : R.string.programmer_signed)
+                    + " " + mWidthBits + "-bit");
+        }
+    }
+
+    private void showRadixMenu(TextView anchor, boolean input) {
+        PopupMenu menu = new PopupMenu(anchor.getContext(), anchor);
+        int[] radices = {16, 10, 8, 2};
+        int[] labels = {R.string.programmer_hex_description, R.string.programmer_dec_description,
+                R.string.programmer_oct_description, R.string.programmer_bin_description};
+        for (int i=0; i<radices.length; i++) {
+            menu.getMenu().add(0, radices[i], i, labels[i]).setCheckable(true)
+                    .setChecked(radices[i] == (input ? mRadix : mSecondRadix));
+        }
+        menu.getMenu().setGroupCheckable(0,true,true);
+        menu.setOnMenuItemClickListener(item -> {
+            if (input) changeRadix(item.getItemId());
+            else { mSecondRadix=item.getItemId(); redisplay(); }
+            return true;
+        });
+        menu.show();
+    }
+
+    private void swapRadices() {
+        // Re-encode the canonical register, not fmt(): width/signedness may mask the
+        // displayed value. Keep the accumulator, pending operation, error and entry mode.
+        final long value = currentValue();
+        final int previous = mRadix;
+        mRadix = mSecondRadix;
+        mSecondRadix = previous;
+        setEntry(value);
+        if (mPendingOperation != null) {
+            mExpression = fmt(mAccumulator, mRadix) + " " + symbol(mPendingOperation);
+        }
+        if (mHost != null) mHost.setProgrammerPadMode(true,mRadix);
+        redisplay();
+    }
+
+    private static int radixNameRes(int radix) {
+        switch (radix) {
+            case 16:
+                return R.string.programmer_hex;
+            case 8:
+                return R.string.programmer_oct;
+            case 2:
+                return R.string.programmer_bin;
+            default:
+                return R.string.programmer_dec;
+        }
+    }
+
+    /** Formats a register value under the overflow menu's width / signedness options. */
+    private String fmt(long value, int radix) {
+        long masked = value;
+        if (mWidthBits < 64) {
+            masked &= (1L << mWidthBits) - 1;
+            if (!mUnsigned && (masked & (1L << (mWidthBits - 1))) != 0) {
+                masked |= -1L << mWidthBits;   // sign-extend back to 64 bits
+            }
+        }
+        final String digits = mUnsigned
+                ? Long.toUnsignedString(masked, radix)
+                : Long.toString(masked, radix);
+        return digits.toUpperCase(java.util.Locale.ROOT);
+    }
+
+    /** Overflow-menu conversion options. */
+    public void setWidthBits(int widthBits) {
+        if (widthBits == 8 || widthBits == 16 || widthBits == 32 || widthBits == 64) {
+            mWidthBits = widthBits;
+            redisplay();
+        }
+    }
+
+    public int getWidthBits() {
+        return mWidthBits;
+    }
+
+    public void setUnsigned(boolean unsigned) {
+        mUnsigned = unsigned;
+        redisplay();
+    }
+
+    public boolean isUnsigned() {
+        return mUnsigned;
     }
 
     @Nullable

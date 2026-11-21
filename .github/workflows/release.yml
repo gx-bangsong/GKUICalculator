@@ -29,6 +29,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Confirm release branch before building
+        shell: bash
+        run: test "$GITHUB_REF" = refs/heads/lineage-23.2
+
       # Android Gradle Plugin 8.7 is configured for Java 17 in this repository.
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -71,31 +75,42 @@ jobs:
           CI: 'true'
         run: scripts/ci-build.sh
 
-      # Build a release body from values extracted from the validated APK, not guessed values.
+      # Reviewed Chinese summary is source-controlled; generated PR details are only an appendix.
       - name: Prepare release notes
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_SHA: ${{ steps.build.outputs.commit }}
+          RELEASE_TAG: ${{ steps.build.outputs.tag }}
         run: |
-          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
-          ## Production APK
+          test "$GITHUB_REF" = refs/heads/lineage-23.2
+          test "$(git rev-parse HEAD)" = "$BUILD_SHA"
+          PREVIOUS_TAG="$(jq -r .previous_tag releases/next.json)"
+          # Refuse an outdated comparison baseline or an existing tag; never move old tags.
+          test "$(gh release view --json tagName --jq .tagName)" = "$PREVIOUS_TAG"
+          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG"; then
+            echo "Release tag already exists; refusing to recreate it" >&2
+            exit 1
+          else
+            status=$?
+            test "$status" -eq 2
+          fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f tag_name="$RELEASE_TAG" -f target_commitish="$BUILD_SHA" \
+            -f previous_tag_name="$PREVIOUS_TAG" --jq .body > "$RUNNER_TEMP/pr-appendix.md"
+          python3 scripts/render-release-notes.py --sha "$BUILD_SHA" \
+            --build-info dist/build-info.json --appendix "$RUNNER_TEMP/pr-appendix.md" \
+            --output "$RUNNER_TEMP/release-notes.md"
 
-          - applicationId: `${{ steps.build.outputs.application_id }}`
-          - versionCode: `${{ steps.build.outputs.version_code }}`
-          - versionName: `${{ steps.build.outputs.version_name }}`
-          - signer SHA-256: `${{ steps.build.outputs.signer_sha256 }}`
-          - APK SHA-256: `${{ steps.build.outputs.apk_sha256 }}`
-          - source for this commit: ${{ steps.build.outputs.source_url }}
-
-          This release is signed for production; it cannot be installed over previous `dev`/`debug` versions—please uninstall the old version before installing this one.
-          NOTES
-
-      # Publish the APK, checksum, and machine-readable build-info.json under the generated tag.
-      - name: Create GitHub Release
+      # Publish automatically using the reviewed notes from this exact source commit.
+      - name: Create public GitHub Release
         shell: bash
         env:
-          # gh uses the job-scoped token granted contents: write above.
           GH_TOKEN: ${{ github.token }}
+          BUILD_SHA: ${{ steps.build.outputs.commit }}
+          RELEASE_TAG: ${{ steps.build.outputs.tag }}
         run: |
-          gh release create '${{ steps.build.outputs.tag }}' dist/* \
-            --title '${{ steps.build.outputs.tag }}' \
-            --notes-file "$RUNNER_TEMP/release-notes.md" \
-            --generate-notes
+          gh release create "$RELEASE_TAG" dist/* \
+            --target "$BUILD_SHA" \
+            --title "$RELEASE_TAG" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"

@@ -1,0 +1,395 @@
+name: Android UI on emulator
+
+on:
+  push:
+    branches:
+      - 'arena/**'
+      - 'lineage-*'
+      - main
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      split_scope:
+        description: Split execution scope (expansion only after BMI is stable)
+        type: choice
+        options: [bmi-only, mortgage-only, mortgage-position-only, mortgage-lower-only, tax-quarter-only, conversion-windows-only, programmer-only, history-only, history-edge-only, tooltip-only, remaining-modes-only, date-api30-only, keyboard-transition-only, ime-return-only, external-text-probe-only, non-split, representative, full]
+        default: bmi-only
+      emulator_api:
+        description: Android API for the selected regression (does not alter targetSdk)
+        type: choice
+        options: ['30', '34']
+        default: '34'
+
+permissions:
+  contents: read
+
+jobs:
+  emulator-ui:
+    name: Pixel-style emulator UI checks
+    # Ubuntu's KVM-backed emulator is more reliable than the unaccelerated hosted macOS AVD.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: '17'
+          cache: gradle
+
+      # ubuntu-24.04 runners ship /dev/kvm owned root:kvm with 0660; without this the emulator
+      # silently falls back to software emulation and every instrumented minute costs several.
+      # Same fix as gx-bangsong/GKUIPhotos .github/workflows/ui-screenshots.yml.
+      - name: Enable KVM for hosted emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Separate compilation step before emulator launch: compile both main and test APKs
+      # so that test code compilation errors are caught before the emulator starts.
+      # A successful main APK build does not imply the test APK compiled successfully.
+      - name: Compile debug and test APKs
+        run: |
+          echo "::notice title=Compilation check::Assembling debug and test APKs"
+          # build/ does not exist on a fresh checkout; without mkdir the shell redirection below
+          # fails instantly and the step reports "compilation failed" without ever running Gradle.
+          mkdir -p build
+          if ! ./gradlew assembleDebug assembleDebugAndroidTest --stacktrace --console=plain > build/assemble-debug.log 2>&1; then
+            echo "::error title=Compilation check failed::Test or main APK compilation failed"
+            # Echo the compiler output itself: a generic "compilation failed" annotation makes
+            # every failure look identical, and which symbol failed is the only useful part.
+            compile_errors=$(grep -nE -A 24 'error:|^e: |What went wrong:|Execution failed for task' build/assemble-debug.log | head -n 65 || true)
+            if [[ -z "$compile_errors" ]]; then
+              compile_errors=$(tail -n 25 build/assemble-debug.log)
+            fi
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              safe=$(printf '%s' "${line:0:300}" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | tr '\n' ' ')
+              echo "::error title=Compiler output::$safe"
+            done <<< "$compile_errors"
+            exit 1
+          fi
+          echo "::notice title=Compilation check::Debug and test APKs assembled successfully"
+
+      - name: Run instrumented UI tests and capture screens
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ inputs.split_scope == 'external-text-probe-only' && '30' || inputs.emulator_api || '34' }}
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          cores: 4
+          ram-size: 4096M
+          heap-size: 512M
+          disk-size: 6G
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          pre-emulator-launch-script: |
+            if [ -e /dev/kvm ]; then echo "::notice title=KVM acceleration::/dev/kvm is available"; else echo "::warning title=KVM acceleration::/dev/kvm is missing"; fi
+            if [ -w /dev/kvm ]; then echo "::notice title=KVM permissions::/dev/kvm is writable by $(id -un) (groups: $(id -Gn | tr ' ' ','))"; else echo "::warning title=KVM permissions::/dev/kvm is NOT writable by $(id -un) (groups: $(id -Gn | tr ' ' ',')) - the emulator would fall back to software emulation"; fi
+            echo "::notice title=KVM device node::$(ls -l /dev/kvm 2>/dev/null | tr -s ' ' | sed 's/%/%25/g')"
+            echo "::notice title=Android AVD free space::$(df -h "$HOME/.android/avd" | tail -n 1 | sed 's/%/%25/g')"
+          script: SPLIT_SCOPE=${{ inputs.split_scope || 'conversion-windows-only' }} bash scripts/ci-android-ui-tests.sh
+
+      - name: Prepare keypad comparisons
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'conversion-windows-only' || inputs.split_scope == 'programmer-only' || inputs.split_scope == 'non-split') }}
+        run: |
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PYKEYPAD'
+          from pathlib import Path
+          from PIL import Image
+          import io
+          for source in Path('build/ui-screenshots').glob('window-*-keypad-*.png'):
+              image=Image.open(source).convert('RGB');image.thumbnail((320,1000))
+              while True:
+                  encoded=io.BytesIO();image.save(encoded,format='JPEG',quality=40,optimize=True)
+                  if len(encoded.getvalue())<=14000: break
+                  image.thumbnail((int(image.width*.9),int(image.height*.9)))
+              source.with_name(source.stem+'-review.jpg').write_bytes(encoded.getvalue())
+          PYKEYPAD
+      - name: Publish unit upper keypad comparison
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'conversion-windows-only') }}
+        run: |
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-unit-upper-25-keypad-before-review.jpg "unit upper keypad before" 0 warning
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-unit-upper-25-keypad-after-review.jpg "unit upper keypad after" 0 warning
+      - name: Publish unit lower keypad comparison
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'conversion-windows-only') }}
+        run: |
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-unit-lower-25-keypad-before-review.jpg "unit lower keypad before" 0 warning
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-unit-lower-25-keypad-after-review.jpg "unit lower keypad after" 0 warning
+      - name: Publish currency upper keypad comparison
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'conversion-windows-only') }}
+        run: |
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-upper-25-keypad-before-review.jpg "currency upper keypad before" 0 notice
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-upper-25-keypad-after-review.jpg "currency upper keypad after" 0 notice
+      - name: Publish currency lower keypad comparison
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'conversion-windows-only') }}
+        run: |
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-lower-25-keypad-before-review.jpg "currency lower keypad before" 0 notice
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-currency-lower-25-keypad-after-review.jpg "currency lower keypad after" 0 notice
+
+      - name: Publish programmer upper-25 keypad comparison
+        if: ${{ always() && inputs.split_scope == 'programmer-only' }}
+        run: |
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-programmer-upper-25-keypad-before-review.jpg "programmer upper-25 keypad before" 0 warning
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-programmer-upper-25-keypad-after-review.jpg "programmer upper-25 keypad after" 0 warning
+      - name: Publish programmer lower-25 keypad comparison
+        if: ${{ always() && inputs.split_scope == 'programmer-only' }}
+        run: |
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-programmer-lower-25-keypad-before-review.jpg "programmer lower-25 keypad before" 0 warning
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-programmer-lower-25-keypad-after-review.jpg "programmer lower-25 keypad after" 0 warning
+      - name: Publish programmer full keypad comparison
+        if: ${{ always() && inputs.split_scope == 'non-split' }}
+        run: |
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-programmer-full-keypad-before-review.jpg "programmer full keypad before" 0 warning
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-programmer-full-keypad-after-review.jpg "programmer full keypad after" 0 warning
+      - name: Publish programmer landscape keypad comparison
+        if: ${{ always() && inputs.split_scope == 'non-split' }}
+        run: |
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-programmer-landscape-keypad-before-review.jpg "programmer landscape keypad before" 0 warning
+          bash scripts/ci-publish-preview.sh build/ui-screenshots/window-programmer-landscape-keypad-after-review.jpg "programmer landscape keypad after" 0 warning
+
+      - name: Prepare tax window review images
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'tax-quarter-only') }}
+        run: |
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PYTAX'
+          from pathlib import Path
+          from PIL import Image
+          for source in Path('build/ui-screenshots').glob('window-tax-*.png'):
+              image=Image.open(source).convert('RGB');image.thumbnail((360,1200))
+              image.save(source.with_name(source.stem+'-review.jpg'),quality=40,optimize=True)
+          PYTAX
+      - name: Publish tax lower window evidence
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'tax-quarter-only') }}
+        run: |
+          source=build/ui-screenshots/window-tax-lower-25-failure-review.jpg
+          if [[ ! -f "$source" ]]; then source=build/ui-screenshots/window-tax-lower-25-returned-input-review.jpg; fi
+          bash scripts/ci-publish-preview.sh "$source" "Tax lower window" 0 warning
+      - name: Publish tax upper window evidence
+        if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'tax-quarter-only') }}
+        run: |
+          source=build/ui-screenshots/window-tax-upper-25-failure-review.jpg
+          if [[ ! -f "$source" ]]; then source=build/ui-screenshots/window-tax-upper-25-returned-input-review.jpg; fi
+          bash scripts/ci-publish-preview.sh "$source" "Tax upper window" 0 warning
+
+      # Each step gets its own check-annotation budget, so the base64 previews live in steps of
+      # their own: inside the test step they were silently truncated and every review read a
+      # half-decoded frame.
+      # Annotation messages are cut at 4096 chars, so one frame needs several steps of parts.
+      - name: Publish default-screen preview (parts 1-10)
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot" 0
+      - name: Publish default-screen preview (parts 11-20)
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot" 10
+      - name: Publish default-screen preview (parts 21+)
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-default-review.jpg "VM calculator screenshot" 20
+      - name: Publish converter-screen preview (parts 1-10)
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot" 0
+      - name: Publish converter-screen preview (parts 11-20)
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot" 10
+      - name: Publish converter-screen preview (parts 21+)
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/calculator-units-review.jpg "VM unit-converter screenshot" 20
+
+      - name: Publish actual split-screen diagnostic (parts 1+)
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 0 warning
+
+      - name: Publish actual split-screen diagnostic (parts 11+)
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 10 warning
+
+      - name: Publish actual split-screen diagnostic (parts 21+)
+        if: ${{ always() && inputs.split_scope && inputs.split_scope != 'mortgage-only' }}
+        run: bash scripts/ci-publish-preview.sh build/ui-screenshots/window-split-half-scientific.png "Real split scientific screenshot" 20 warning
+
+      - name: Upload emulator screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: calculator-ui-screenshots
+          path: |
+            build/outputs/apk/debug/*.apk
+            build/outputs/apk/androidTest/debug/*.apk
+            build/ui-screenshots/*.png
+            build/ui-screenshots/*.json
+            build/ui-screenshots/*.xml
+            build/ui-screenshots/*.log
+            build/ui-screenshots/*-review.jpg
+            build/connected-debug-android-test.log
+            build/install-debug-android-test.log
+            build/assemble-debug.log
+            build/outputs/androidTest-results/connected/debug/**
+            build/reports/androidTests/connected/debug/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  mortgage-evidence:
+    name: Mortgage scroll-position screenshots
+    needs: emulator-ui
+    if: ${{ always() && inputs.split_scope == 'mortgage-only' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v6
+        with:
+          name: calculator-ui-screenshots
+          path: evidence
+      - name: Prepare readable mortgage evidence previews
+        if: always()
+        run: |
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PYIMAGE'
+          from pathlib import Path
+          from PIL import Image
+          for path in Path('evidence/ui-screenshots').glob('window-mortgage-*.png'):
+              image=Image.open(path).convert('RGB')
+              image.thumbnail((480,1014))
+              dest=path.with_name(path.stem+'-review.jpg')
+              for quality in (80,70,60,50,40,30,20):
+                  image.save(dest,quality=quality,optimize=True)
+                  if dest.stat().st_size < 16500: break
+          PYIMAGE
+      - name: Publish mortgage full-core evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-full-core-review.jpg "Mortgage full-core" 0 warning
+      - name: Publish mortgage half-core evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-half-core-review.jpg "Mortgage half-core" 0 warning
+      - name: Publish mortgage half-years evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-half-years-review.jpg "Mortgage half-years" 0 warning
+      - name: Publish mortgage half-results evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-half-results-review.jpg "Mortgage half-results" 0 warning
+      - name: Publish mortgage short-core evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-short-core-review.jpg "Mortgage short-core" 0 warning
+      - name: Publish mortgage short-years evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-short-years-review.jpg "Mortgage short-years" 0 warning
+      - name: Publish mortgage short-results evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-short-results-review.jpg "Mortgage short-results" 0 warning
+      - name: Publish mortgage touch failure evidence
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-failure-review.jpg "Mortgage touch failure" 0 warning
+
+  position-evidence:
+    name: Upper and lower mortgage window evidence
+    needs: emulator-ui
+    if: ${{ always() && (github.event_name == 'push' || inputs.split_scope == 'mortgage-position-only' || inputs.split_scope == 'mortgage-lower-only') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v6
+        with:
+          name: calculator-ui-screenshots
+          path: evidence
+      - name: Prepare full-screen and actual-window crop previews
+        run: |
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PYIMAGE'
+          from pathlib import Path
+          import json
+          from PIL import Image
+          for source in Path('evidence/ui-screenshots').glob('window-mortgage-*.png'):
+              sidecar=source.with_suffix('.json')
+              if not sidecar.exists(): continue
+              original=Image.open(source).convert('RGB')
+              for suffix,image,width in [('screen',original.copy(),300),('app',original.crop(tuple(json.loads(sidecar.read_text()))),576)]:
+                  image.thumbnail((width,1800))
+                  dest=source.with_name(source.stem+'-'+suffix+'-review.jpg')
+                  for quality in (75,65,55,45,35,25):
+                      image.save(dest,quality=quality,optimize=True)
+                      if dest.stat().st_size < 14000: break
+          PYIMAGE
+      - name: Publish upper-25-scroll-input screen
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-upper-25-scroll-input-screen-review.jpg "Mortgage upper-25-scroll-input screen" 0 warning
+      - name: Publish upper-25-scroll-input app
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-upper-25-scroll-input-app-review.jpg "Mortgage upper-25-scroll-input app" 0 warning
+      - name: Publish upper-25-scroll-result screen
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-upper-25-scroll-result-screen-review.jpg "Mortgage upper-25-scroll-result screen" 0 warning
+      - name: Publish upper-25-scroll-result app
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-upper-25-scroll-result-app-review.jpg "Mortgage upper-25-scroll-result app" 0 warning
+      - name: Publish lower-25-scroll-input screen
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-target-25-scroll-input-screen-review.jpg "Mortgage lower-25-scroll-input screen" 0 warning
+      - name: Publish lower-25-scroll-input app
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-target-25-scroll-input-app-review.jpg "Mortgage lower-25-scroll-input app" 0 warning
+      - name: Publish lower-25-scroll-result screen
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-target-25-scroll-result-screen-review.jpg "Mortgage lower-25-scroll-result screen" 0 warning
+      - name: Publish lower-25-scroll-result app
+        if: always()
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-mortgage-lower-target-25-scroll-result-app-review.jpg "Mortgage lower-25-scroll-result app" 0 warning
+
+  history-evidence:
+    name: Persistent history window screenshots
+    needs: emulator-ui
+    if: ${{ always() && (inputs.split_scope == 'history-only' || inputs.split_scope == 'history-edge-only') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: calculator-ui-screenshots
+          merge-multiple: true
+          path: evidence
+      - name: Prepare history review previews
+        run: |
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PYHISTORY'
+          from pathlib import Path
+          from PIL import Image
+          import io
+          for name in ('tablet-portrait','narrow-single-column','tablet-real-half','tablet-real-narrow','edge-nav2-portrait-expanded','edge-nav2-portrait-collapsed-return','edge-nav0-landscape-expanded','edge-lower-split-expanded','edge-docked','edge-upper-split-expanded','edge-cutout-expanded'):
+              source=Path('evidence/ui-screenshots/window-history-'+name+'.png')
+              if not source.exists():
+                  print('Not captured: '+name)
+                  continue
+              image=Image.open(source).convert('RGB');image.thumbnail((640,960))
+              while True:
+                  encoded=io.BytesIO();image.save(encoded,format='JPEG',quality=50,optimize=True)
+                  if len(encoded.getvalue())<=12000: break
+                  image.thumbnail((int(image.width*.9),int(image.height*.9)))
+              source.with_name(source.stem+'-review.jpg').write_bytes(encoded.getvalue())
+          PYHISTORY
+      - name: Publish history tablet-portrait preview
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-tablet-portrait-review.jpg "history tablet-portrait" 0 warning
+      - name: Publish history narrow-single-column preview
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-narrow-single-column-review.jpg "history narrow-single-column" 0 warning
+      - name: Publish history tablet-real-half preview
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-tablet-real-half-review.jpg "history tablet-real-half" 0 warning
+      - name: Publish history tablet-real-narrow preview
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-tablet-real-narrow-review.jpg "history tablet-real-narrow" 0 warning
+      - name: Publish history edge nav2-portrait-expanded
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-nav2-portrait-expanded-review.jpg "history edge nav2-portrait-expanded" 0 warning
+      - name: Publish history edge nav2-portrait-collapsed-return
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-nav2-portrait-collapsed-return-review.jpg "history edge nav2-portrait-collapsed-return" 0 warning
+      - name: Publish history edge nav0-landscape-expanded
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-nav0-landscape-expanded-review.jpg "history edge nav0-landscape-expanded" 0 warning
+      - name: Publish history edge lower-split-expanded
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-lower-split-expanded-review.jpg "history edge lower-split-expanded" 0 warning
+      - name: Publish history edge docked
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-docked-review.jpg "history edge docked" 0 warning
+      - name: Publish history edge upper-split-expanded
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-upper-split-expanded-review.jpg "history edge upper-split-expanded" 0 warning
+      - name: Publish history edge cutout-expanded
+        run: bash scripts/ci-publish-preview.sh evidence/ui-screenshots/window-history-edge-cutout-expanded-review.jpg "history edge cutout-expanded" 0 warning

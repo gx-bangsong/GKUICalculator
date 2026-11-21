@@ -1,0 +1,128 @@
+name: Cursor isolation diagnostics
+on:
+  push:
+    branches: ['arena/e012c45b-gkuicalculator']
+    paths: ['.github/workflows/cursor-diagnostics.yml']
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact source SHA under test
+        required: true
+        default: 97dda69e8d4312f4d5d42db08836d83244b84c21
+permissions:
+  contents: read
+jobs:
+  isolate:
+    name: ${{ matrix.label }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: BMI switching alone
+            classes: com.android.calculator2.tools.ToolInputCursorTest#testSwitchingBetweenFields
+          - label: BMI repositioning alone
+            classes: com.android.calculator2.tools.ToolInputCursorTest#testConsecutiveCursorRepositioning
+          - label: BMI delete alone
+            classes: com.android.calculator2.tools.ToolInputCursorTest#testDeleteAtPosition0DoesNothing
+          - label: BMI complete class
+            classes: com.android.calculator2.tools.ToolInputCursorTest
+          - label: Units and BMI
+            classes: com.android.calculator2.tools.UnitInputCursorTest,com.android.calculator2.tools.ToolInputCursorTest
+          - label: Complete regression
+            classes: com.android.calculator2.CalculatorToolUiTest,com.android.calculator2.tools.ToolInputCursorTest,com.android.calculator2.tools.UnitInputCursorTest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_sha || '97dda69e8d4312f4d5d42db08836d83244b84c21' }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: '17'
+          cache: gradle
+      - name: Identify exact source
+        run: git rev-parse HEAD
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Compile main and instrumentation APKs
+        run: |
+          mkdir -p build
+          if ! ./gradlew assembleDebug assembleDebugAndroidTest --console=plain --stacktrace > build/isolation-compile.log 2>&1; then
+            cat build/isolation-compile.log
+            while IFS= read -r line; do
+              line=${line//%/%25}
+              echo "::error title=Isolation compiler output::$line"
+            done < <(tail -n 35 build/isolation-compile.log)
+            exit 1
+          fi
+      - name: Run exact test selection
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          cores: 4
+          ram-size: 4096M
+          heap-size: 512M
+          disk-size: 6G
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            adb shell wm size 720x1520
+            adb shell wm density 280
+            adb shell svc power stayon true
+            adb shell wm dismiss-keyguard
+            ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=${{ matrix.classes }} --console=plain --stacktrace
+      - name: Validate actual test execution
+        if: always()
+        env:
+          CLASSES: ${{ matrix.classes }}
+          SOURCE_SHA: ${{ inputs.source_sha || '97dda69e8d4312f4d5d42db08836d83244b84c21' }}
+        run: |
+          python3 - <<'PY'
+          import os, re, pathlib, xml.etree.ElementTree as ET
+          required = set()
+          for selector in os.environ['CLASSES'].split(','):
+              cls, _, method = selector.partition('#')
+              source = pathlib.Path('androidTest/java', *cls.split('.')).with_suffix('.java')
+              names = re.findall(r'@Test\s+public void\s+(\w+)\s*\(', source.read_text())
+              if method:
+                  assert method in names, (cls, method)
+                  names = [method]
+              assert names, cls
+              required.update((cls, name) for name in names)
+          actual = {}
+          for path in pathlib.Path('build/outputs/androidTest-results').rglob('TEST-*.xml'):
+              for case in ET.parse(path).getroot().iter('testcase'):
+                  key = (case.get('classname'), case.get('name'))
+                  status = 'PASS'
+                  for child in case:
+                      if child.tag in ('failure', 'error', 'skipped'):
+                          status = child.tag.upper()
+                          detail = ' '.join((''.join(child.itertext()) or child.get('message', '')).split())
+                          safe = ('.'.join(key) + ': ' + detail)[:1800].replace('%', '%25').replace('\n', '%0A').replace('\r', '%0D')
+                          print('::error title=Isolation failure::' + safe)
+                  actual[key] = status
+          rows = [f'{cls}#{name}: {actual.get((cls,name), "MISSING")}' for cls,name in sorted(required)]
+          summary = f'Source {os.environ["SOURCE_SHA"]}; required={len(required)} actual={len(actual)}; ' + '\n'.join(rows)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write('```text\n' + summary + '\n```\n')
+          print('::notice title=Exact execution results::' + summary.replace('%', '%25').replace('\n', '%0A'))
+          assert required and set(actual) == required and all(actual[k] == 'PASS' for k in required), summary
+          PY
+      - name: Preserve reports and APKs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cursor-isolation-${{ strategy.job-index }}-${{ inputs.source_sha || '97dda69e8d4312f4d5d42db08836d83244b84c21' }}
+          path: |
+            build/outputs/androidTest-results/
+            build/reports/androidTests/
+            build/outputs/apk/
+            build/isolation-compile.log

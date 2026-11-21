@@ -8,6 +8,7 @@ package com.android.calculator2;
 import static androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_DRAGGING;
 
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,11 +34,66 @@ public class HistoryFragment extends Fragment {
     private ArrayList<HistoryItem> mDataSet = new ArrayList<>();
 
     private boolean mIsDisplayEmpty;
+    private Parcelable mScroll;
+    private long mSnapshotIndex = -1;
+    private int mRefreshGeneration;
+
+    void prepareForClear() {
+        ++mRefreshGeneration;
+        stopActionModeOrContextMenu();
+        mScroll=null;
+        mSnapshotIndex=0;
+        mDataSet=new ArrayList<>();
+        mDataSet.add(new HistoryItem());
+        if(mRecyclerView!=null)mRecyclerView.setAdapter(null);
+        mAdapter.setMaxIndex(0);
+        mAdapter.setDataSet(mDataSet);
+        if(mRecyclerView!=null)mRecyclerView.setAdapter(mAdapter);
+    }
+
+    void applySideInsets(int left, int right) {
+        View view=getView();
+        if(view!=null && (view.getPaddingLeft()!=left || view.getPaddingRight()!=right))
+            view.setPadding(left, 0, right, 0);
+    }
+
+    void captureScroll() {
+        // A collapsed zero-height host must not overwrite the last visible list anchor.
+        if(mRecyclerView!=null&&mRecyclerView.getLayoutManager()!=null
+                &&mRecyclerView.getGlobalVisibleRect(new android.graphics.Rect()))
+            mScroll=mRecyclerView.getLayoutManager().onSaveInstanceState();
+    }
+
+    void restoreScroll() {
+        if(mScroll!=null&&mRecyclerView!=null&&mRecyclerView.getLayoutManager()!=null)
+            mRecyclerView.getLayoutManager().onRestoreInstanceState(mScroll);
+    }
+
+    void setDocked(boolean docked) {
+        if(getView()==null)return;
+        Toolbar toolbar=getView().findViewById(R.id.history_toolbar);
+        if(docked)toolbar.setNavigationIcon(null);
+        else {
+            android.util.TypedValue value=new android.util.TypedValue();
+            requireContext().getTheme().resolveAttribute(androidx.appcompat.R.attr.homeAsUpIndicator,value,true);
+            toolbar.setNavigationIcon(value.resourceId);
+        }
+        toolbar.setNavigationContentDescription(docked?null:getString(R.string.desc_navigate_up));
+        restoreScroll();
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle out) {
+        captureScroll();
+        out.putParcelable("history_scroll",mScroll);
+        super.onSaveInstanceState(out);
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mAdapter = new HistoryAdapter(mDataSet);
+        if(savedInstanceState!=null)mScroll=savedInstanceState.getParcelable("history_scroll");
     }
 
     @Override
@@ -86,15 +142,44 @@ public class HistoryFragment extends Fragment {
         mEvaluator = Evaluator.getInstance(activity);
         mAdapter.setEvaluator(mEvaluator);
 
+        refreshHistory();
+        setDocked(activity.isHistoryDocked());
+        restoreScroll();
+    }
+
+    void refreshHistory() {
+        if(mEvaluator==null||mRecyclerView==null)return;
+        final int generation=++mRefreshGeneration;
+        final Evaluator evaluator=mEvaluator;
+        // eraseAll completes initialization from AsyncTask.onPostExecute (main thread).
+        // Never wait for that initialization on main while refreshing a persistent pane.
+        android.os.AsyncTask.THREAD_POOL_EXECUTOR.execute(() -> {
+            final long maxIndex=evaluator.getMaxIndex();
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                if(generation!=mRefreshGeneration||!isAdded()||mRecyclerView==null)return;
+                applySnapshot(maxIndex);
+            });
+        });
+    }
+
+    private void applySnapshot(long maxIndex) {
+        final Calculator activity=(Calculator)getActivity();
+        if(activity==null)return;
         final boolean isResultLayout = activity.isResultLayout();
 
-        // Snapshot display state here. For the rest of the lifecycle of this current
-        // HistoryFragment, this is what we will consider the display state.
-        // In rare cases, the display state can change after our adapter is initialized.
+        // The persistent pane observes calculator history only; tools do not add records.
         final CalculatorExpr mainExpr = mEvaluator.getExpr(Evaluator.MAIN_INDEX);
         mIsDisplayEmpty = mainExpr == null || mainExpr.isEmpty();
 
-        final long maxIndex = mEvaluator.getMaxIndex();
+        mAdapter.setIsResultLayout(isResultLayout);
+        mAdapter.setIsOneLine(activity.isOneLine());
+        mAdapter.setIsDisplayEmpty(mIsDisplayEmpty);
+        if(maxIndex==mSnapshotIndex) {
+            mAdapter.notifyDataSetChanged();
+            return;
+        }
+        if(mSnapshotIndex>=0)captureScroll();
+        mSnapshotIndex=maxIndex;
 
         final ArrayList<HistoryItem> newDataSet = new ArrayList<>();
 
@@ -106,11 +191,27 @@ public class HistoryFragment extends Fragment {
             newDataSet.add(new HistoryItem());
         }
         mDataSet = newDataSet;
+        mAdapter.setMaxIndex(maxIndex);
         mAdapter.setDataSet(mDataSet);
         mAdapter.setIsResultLayout(isResultLayout);
         mAdapter.setIsOneLine(activity.isOneLine());
         mAdapter.setIsDisplayEmpty(mIsDisplayEmpty);
         mAdapter.notifyDataSetChanged();
+        restoreScroll();
+    }
+
+    @Override
+    public void onViewStateRestored(@Nullable Bundle state) {
+        super.onViewStateRestored(state);
+        restoreScroll();
+    }
+
+    @Override
+    public void onDestroyView() {
+        captureScroll();
+        ++mRefreshGeneration;
+        mRecyclerView=null;
+        super.onDestroyView();
     }
 
     @Override
@@ -118,8 +219,7 @@ public class HistoryFragment extends Fragment {
         super.onDestroy();
 
         if (mEvaluator != null) {
-            // Note that the view is destroyed when the fragment backstack is popped, so
-            // these are essentially called when the DragLayout is closed.
+            // The fragment now survives modal closing; release evaluations at destruction.
             mEvaluator.cancelNonMain();
         }
     }

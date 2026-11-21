@@ -8,11 +8,19 @@
     android:id="@+id/display"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/rounded_bottom"
+    android:background="@color/display_background_color"
     android:orientation="vertical">
 
     <include layout="@layout/toolbar" />
 
+    <!-- Content consumes the remaining display space even when shared rows are GONE.
+         Keep the history handle outside it, anchored to the display's bottom edge. -->
+    <LinearLayout
+        android:id="@+id/tool_display_content"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
     <!-- Slot into which the active tool mounts its mode-specific controls. Empty/GONE by default. -->
     <FrameLayout
         android:id="@+id/tool_control_slot"
@@ -21,6 +29,7 @@
         android:visibility="gone" />
 
     <LinearLayout
+        android:id="@+id/shared_display_rows"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -40,19 +49,28 @@
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:ellipsize="none"
+                android:focusableInTouchMode="true"
+                android:inputType="text"
                 android:maxLines="1"
-                android:textColor="@color/display_formula_text_color" />
+                android:textColor="@color/display_formula_text_color"
+                android:textIsSelectable="true" />
         </com.android.calculator2.CalculatorScrollView>
 
-        <com.android.calculator2.CalculatorResult
-            android:id="@+id/result"
-            style="@style/DisplayTextStyle.Result"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:bufferType="spannable"
-            android:singleLine="true"
-            android:textColor="@color/display_result_text_color" />
+            <com.android.calculator2.CalculatorResult
+                android:id="@+id/result"
+                style="@style/DisplayTextStyle.Result"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:bufferType="spannable"
+                android:focusableInTouchMode="true"
+                android:inputType="text"
+                android:singleLine="true"
+                android:textColor="@color/display_result_text_color"
+                android:textIsSelectable="true" />
+    </LinearLayout>
+
+    <include layout="@layout/fraction_result" />
     </LinearLayout>
 
     <include layout="@layout/drag_handle" />
