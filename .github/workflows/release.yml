@@ -102,8 +102,8 @@ jobs:
             --build-info dist/build-info.json --appendix "$RUNNER_TEMP/pr-appendix.md" \
             --output "$RUNNER_TEMP/release-notes.md"
 
-      # Draft only: an operator must review same-SHA tests/limits before publishing.
-      - name: Create review-only GitHub Release draft
+      # Publish automatically using the reviewed notes from this exact source commit.
+      - name: Create public GitHub Release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -111,6 +111,6 @@ jobs:
           RELEASE_TAG: ${{ steps.build.outputs.tag }}
         run: |
           gh release create "$RELEASE_TAG" dist/* \
-            --target "$BUILD_SHA" --draft \
+            --target "$BUILD_SHA" \
             --title "$RELEASE_TAG" \
             --notes-file "$RUNNER_TEMP/release-notes.md"

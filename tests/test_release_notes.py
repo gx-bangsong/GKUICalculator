@@ -19,7 +19,7 @@ class NotesTest(unittest.TestCase):
     @patch.object(notes, 'git', side_effect=[SHA, BASE])
     def test_summary_first_metadata_and_pr_folded(self, git, run):
         text = notes.render(self.config, SHA, appendix='PR-EXAMPLE')
-        self.assertTrue(text.startswith('## 更新摘要'))
+        self.assertTrue(text.startswith(Path(self.config['summary']).read_text().strip() + '\n\n<details>'))
         self.assertLess(text.index('<details>'), text.index('PR-EXAMPLE'))
         self.assertLess(text.index('<details>'), text.index('实际构建/核对 SHA'))
         self.assertIn('v-test...' + SHA, text)
@@ -43,9 +43,12 @@ class NotesTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'No changes'):
             notes.render(self.config, BASE)
 
-    def test_workflow_is_draft_and_sha_bound(self):
+    def test_workflow_is_public_and_sha_bound(self):
         text = Path('.github/workflows/release.yml').read_text()
-        self.assertIn('--target "$BUILD_SHA" --draft', text)
+        self.assertIn('--target "$BUILD_SHA"', text)
+        self.assertNotIn('--draft', text)
+        self.assertNotIn('draft: true', text)
+        self.assertNotIn('environment:', text)
         self.assertIn('previous_tag_name="$PREVIOUS_TAG"', text)
         self.assertNotIn('--generate-notes', text)
         self.assertIn('refs/tags/$RELEASE_TAG', text)

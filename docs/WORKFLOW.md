@@ -30,12 +30,14 @@ python3 scripts/render-release-notes.py --sha "$BUILD_SHA" \
   --build-info dist/build-info.json --appendix "$RUNNER_TEMP/pr-appendix.md" \
   --output "$RUNNER_TEMP/release-notes.md"
 gh release create "$RELEASE_TAG" dist/* \
-  --target "$BUILD_SHA" --draft --title "$RELEASE_TAG" \
+  --target "$BUILD_SHA" --title "$RELEASE_TAG" \
   --notes-file "$RUNNER_TEMP/release-notes.md"
 ```
 
 不再使用 `gh release create --generate-notes` 追加顶层流水账；不依赖默认分支 HEAD 作为标签目标。
-工作流只创建**待审核草稿**，不会自动公开发布。操作者确认同 SHA 测试、已知限制、签名与数据保留证据后，另行明确批准公开；本轮不执行该操作。
+保留原有自动正式发布：按正常流程触发并成功完成后直接得到**公开 Release**，不新增二次手动发布或审批步骤。
+用户在触发前于开发分支审阅、修改 `releases/next.md`；工作流读取最终构建提交中的文件作为正文，自动内容仅追加到末尾，不覆盖人工摘要。
+“草稿”仅指本地可编辑 Markdown 预览，不是 GitHub Draft Release；预览只运行现有说明生成脚本。本轮不推送发布分支、不触发正式发布。
 仅在工作分支修改本文件不会运行 production release；也不应把功能未合入发布分支的开发候选写成正式版已交付。
 
 ## 安装与数据模板（必须与正文一致）
@@ -49,10 +51,10 @@ gh release create "$RELEASE_TAG" dist/* \
 
 1. 核实上一正式版 tag 的真实 commit，确认候选功能已合入 `lineage-23.2`，记录最终构建完整 SHA。
 2. 审核 `next.md` 对该比较范围是否准确，确认无重复、回退功能、排错流水账或未经验证承诺。
-3. 对**同一完整 SHA**核对必要数值、UI、安装/数据保留测试与人工验收。草稿默认写“尚未提供”，不会自动把 assembleRelease 成功升级为全回归通过。
+3. 对**同一完整 SHA**核对必要数值、UI、安装/数据保留测试与人工验收。说明生成器未收到验证记录时写“尚未提供”，不会自动把 assembleRelease 成功升级为全回归通过。
 4. 用 APK 实际元数据核对包名、versionCode、签名与校验值；保留 APK、`.sha256`、`build-info.json` 和精确源码链接。
 5. 已知真实 25% 建窗失败、既有单元测试编译问题及广泛 UI 失败要如实保留。其他 SHA 的真机反馈只作其自身验收记录。
-6. 公开前补充最终 SHA 的证据与限制；不得改写已发布 Release 历史，不移动旧 tag。
+6. 触发正式发布前在源码说明中补充最终 SHA 的证据与限制；不得改写已发布 Release 历史，不移动旧 tag。
 
 ## 本地预览（不构建、不签名、不创建 Release/tag）
 
