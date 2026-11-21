@@ -80,11 +80,13 @@ final class FractionScrollDiagnostics {
         }
         if(!result.intersect(raw(v.getRootView())))return new Rect();
         Activity a=activity(v);
-        if(a!=null&&!result.intersect(a.getWindowManager().getCurrentWindowMetrics().getBounds()))return new Rect();
+        if(a!=null)try {
+            if(!result.intersect(a.getWindowManager().getCurrentWindowMetrics().getBounds()))return new Rect();
+        }catch(RuntimeException detachedWindow){/* trace can outlive the last layout during rotation */}
         return result;
     }
     static Rect firstLine(TextView v) {
-        if(v.getLayout()==null)return new Rect();
+        if(v.getLayout()==null||v.getLayout().getLineCount()==0)return new Rect();
         android.text.Layout l=v.getLayout();
         int top=v.getBaseline()-l.getLineBaseline(0)-v.getScrollY();
         RectF f=new RectF(v.getCompoundPaddingLeft()+l.getLineLeft(0)-v.getScrollX(),top+l.getLineTop(0),
@@ -116,6 +118,10 @@ final class FractionScrollDiagnostics {
     }
     static void snapshot(View anchor,String reason) {
         if(!debug(anchor))return;
+        try {snapshotAttached(anchor,reason);}
+        catch(RuntimeException detachedWindow){append("SNAPSHOT unavailable during window transition: "+detachedWindow.getClass().getSimpleName());}
+    }
+    private static void snapshotAttached(View anchor,String reason) {
         View root=anchor.getRootView();View outer=root.findViewWithTag("fraction_display_scroll");
         TextView text=root.findViewById(R.id.fraction_result);if(text==null)return;
         Activity a=activity(anchor);
@@ -146,7 +152,13 @@ final class FractionScrollDiagnostics {
         int identity=System.identityHashCode(view.getRootView());
         if(layer.equals("root.dispatch.in")&&e.getActionMasked()==MotionEvent.ACTION_DOWN) {
             View display=view.getRootView().findViewById(R.id.display);
-            active=showing(view)&&display!=null&&visible(display).contains((int)e.getRawX(),(int)e.getRawY());
+            // Do not filter by our calculated ancestor clip: an incorrect clip is one of
+            // the things being diagnosed. Include candidate display/text/outer raw bounds.
+            View text=view.getRootView().findViewById(R.id.fraction_result);
+            View outer=view.getRootView().findViewWithTag("fraction_display_scroll");
+            int x=(int)e.getRawX(),y=(int)e.getRawY();
+            active=showing(view)&&display!=null&&(raw(display).contains(x,y)
+                    ||text!=null&&raw(text).contains(x,y)||outer!=null&&raw(outer).contains(x,y));
             rootIdentity=identity;
             if(active) {gesture++;moves.clear();snapshot(view,"before DOWN");}
         }
